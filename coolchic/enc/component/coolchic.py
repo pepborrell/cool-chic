@@ -85,6 +85,7 @@ class CoolChicEncoderParameter:
             quantization. See the documentation of Cool-chic forward pass.
             Defaults to 16.
     """
+
     layers_synthesis: List[str]
     n_ft_per_res: List[int]
     dim_arm: int = 24
@@ -390,7 +391,9 @@ class CoolChicEncoder(nn.Module):
         # Get all the context as a single 2D vector of size [B, context size]
         flat_context = torch.cat(
             [
-                _get_neighbor(spatial_latent_i, self.mask_size, self.non_zero_pixel_ctx_index)
+                _get_neighbor(
+                    spatial_latent_i, self.mask_size, self.non_zero_pixel_ctx_index
+                )
                 for spatial_latent_i in decoder_side_latent
             ],
             dim=0,
@@ -399,7 +402,7 @@ class CoolChicEncoder(nn.Module):
         # Get all the B latent variables as a single one dimensional vector
         flat_latent = torch.cat(
             [spatial_latent_i.view(-1) for spatial_latent_i in decoder_side_latent],
-            dim=0
+            dim=0,
         )
 
         # Feed the spatial context to the arm MLP and get mu and scale
@@ -581,8 +584,6 @@ class CoolChicEncoder(nn.Module):
             k: {"weight": None, "bias": None} for k in self.modules_to_send
         }
 
-
-
     # ------- Get flops, neural network rates and quantization step
     def get_flops(self) -> None:
         """Compute the number of MAC & parameters for the model.
@@ -669,7 +670,6 @@ class CoolChicEncoder(nn.Module):
             with the weights and biases of each module.
         """
         return self.nn_expgol_cnt
-
 
     def str_complexity(self) -> str:
         """Return a string describing the number of MAC (**not mac per pixel**) and the

@@ -17,21 +17,28 @@ from torch import Tensor
 
 
 @dataclass(kw_only=True)
-class LossFunctionOutput():
+class LossFunctionOutput:
     """Output for FrameEncoder.loss_function"""
+
     # ----- This is the important output
     # Optional to allow easy inheritance by FrameEncoderLogs
-    loss: Optional[float] = None                                        # The RD cost to optimize
+    loss: Optional[float] = None  # The RD cost to optimize
 
     # Any other data required to compute some logs, stored inside a dictionary
-    mse: Optional[float] = None                                         # Mean squared error                     [ / ]
-    rate_nn_bpp: Optional[float] = None                                 # Rate associated to the neural networks [bpp]
-    rate_latent_bpp: Optional[float] = None                             # Rate associated to the latent          [bpp]
+    mse: Optional[float] = None  # Mean squared error                     [ / ]
+    rate_nn_bpp: Optional[float] = None  # Rate associated to the neural networks [bpp]
+    rate_latent_bpp: Optional[float] = (
+        None  # Rate associated to the latent          [bpp]
+    )
 
     # ==================== Not set by the init function ===================== #
     # Everything here is derived from the above metrics
-    psnr_db: Optional[float] = field(init=False, default=None)          # PSNR                                  [ dB]
-    total_rate_bpp: Optional[float] = field(init=False, default=None)   # Overall rate: latent & NNs            [bpp]
+    psnr_db: Optional[float] = field(
+        init=False, default=None
+    )  # PSNR                                  [ dB]
+    total_rate_bpp: Optional[float] = field(
+        init=False, default=None
+    )  # Overall rate: latent & NNs            [bpp]
     # ==================== Not set by the init function ===================== #
 
     def __post_init__(self):

@@ -6,7 +6,9 @@
 import sys
 import os
 
-basedir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'coolchic/'))
+basedir = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "..", "coolchic/")
+)
 sys.path.insert(0, basedir)
 # sys.path.insert(0, os.path.abspath(os.path.join('..', '..')))
 
@@ -14,10 +16,10 @@ sys.path.insert(0, basedir)
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = 'Cool-chic'
-copyright = '2023 - 2024 Orange'
-author = 'Théo Ladune, Pierrick Philippe'
-release = '3.4'
+project = "Cool-chic"
+copyright = "2023 - 2024 Orange"
+author = "Théo Ladune, Pierrick Philippe"
+release = "3.4"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -29,11 +31,11 @@ extensions = [
     "sphinx.ext.mathjax",
     "sphinx.ext.napoleon",
     "sphinx.ext.viewcode",
-    'sphinx.ext.duration',
-    'sphinx.ext.todo',
+    "sphinx.ext.duration",
+    "sphinx.ext.todo",
     "sphinx_copybutton",
     "sphinx.ext.autodoc.typehints",
-    "sphinx_design"
+    "sphinx_design",
 ]
 
 # Napoleon settings
@@ -90,7 +92,7 @@ hide_none_rtype = True
 # Display only once the detail of the __init__ function
 autoclass_content = "class"
 # Show functions by order of appearance (not by alphabetical order)
-autodoc_member_order = 'bysource'
+autodoc_member_order = "bysource"
 
 # Wrap function signature which are too long
 wrap_signatures_with_css = True

@@ -37,18 +37,21 @@ class FrameEncoderLogs(LossFunctionOutput):
 
     This is what is going to be saved to a log file.
     """
-    loss_function_output: LossFunctionOutput        # All outputs from the loss function, will be copied is __post_init__
-    frame_encoder_output: FrameEncoderOutput        # Output of frame encoder forward
-    original_frame: Frame                           # Non coded frame
 
-    detailed_rate_nn: DescriptorCoolChic            # Rate for each NN weights & bias   [bit]
-    quantization_param_nn: DescriptorCoolChic       # Quantization step for each NN weights & bias [ / ]
-    expgol_count_nn: DescriptorCoolChic             # Exp-Golomb count parameter for each NN weights & bias [ / ]
+    loss_function_output: LossFunctionOutput  # All outputs from the loss function, will be copied is __post_init__
+    frame_encoder_output: FrameEncoderOutput  # Output of frame encoder forward
+    original_frame: Frame  # Non coded frame
 
-    lmbda: float                                    # Rate constraint in D + lambda * R [ / ]
-    encoding_time_second: float                     # Duration of the encoding          [sec]
-    encoding_iterations_cnt: int                    # Number of encoding iterations     [ / ]
-    mac_decoded_pixel: float = 0.                   # Number of multiplication per decoded pixel
+    detailed_rate_nn: DescriptorCoolChic  # Rate for each NN weights & bias   [bit]
+    quantization_param_nn: (
+        DescriptorCoolChic  # Quantization step for each NN weights & bias [ / ]
+    )
+    expgol_count_nn: DescriptorCoolChic  # Exp-Golomb count parameter for each NN weights & bias [ / ]
+
+    lmbda: float  # Rate constraint in D + lambda * R [ / ]
+    encoding_time_second: float  # Duration of the encoding          [sec]
+    encoding_iterations_cnt: int  # Number of encoding iterations     [ / ]
+    mac_decoded_pixel: float = 0.0  # Number of multiplication per decoded pixel
 
     # ==================== Not set by the init function ===================== #
     # Everything here is derived from frame_encoder_output and original_frame
@@ -59,32 +62,52 @@ class FrameEncoderLogs(LossFunctionOutput):
     spatial_rate_bit: Optional[Tensor] = field(init=False)
     # Feature distribution of the rate, obtained by the summing all the spatial location
     # of a given feature. [Number of latent resolution]
-    feature_rate_bpp: Optional[List[float]] = field(init=False, default_factory=lambda: [])
+    feature_rate_bpp: Optional[List[float]] = field(
+        init=False, default_factory=lambda: []
+    )
 
     # ----- Inter coding module outputs
-    alpha: Optional[Tensor] = field(init=False, default=None)       # Inter / intra switch
-    beta: Optional[Tensor] = field(init=False, default=None)        # Bi-directional prediction weighting
-    residue: Optional[Tensor] = field(init=False, default=None)     # Residue
-    flow_1: Optional[Tensor] = field(init=False, default=None)      # Optical flow for the first reference
-    flow_2: Optional[Tensor] = field(init=False, default=None)      # Optical flow for the second reference
-    prediction: Optional[Tensor] = field(init=False, default=None)  # Temporal prediction
-    masked_prediction: Optional[Tensor] = field(init=False, default=None)   # Temporal prediction * alpha
+    alpha: Optional[Tensor] = field(init=False, default=None)  # Inter / intra switch
+    beta: Optional[Tensor] = field(
+        init=False, default=None
+    )  # Bi-directional prediction weighting
+    residue: Optional[Tensor] = field(init=False, default=None)  # Residue
+    flow_1: Optional[Tensor] = field(
+        init=False, default=None
+    )  # Optical flow for the first reference
+    flow_2: Optional[Tensor] = field(
+        init=False, default=None
+    )  # Optical flow for the second reference
+    prediction: Optional[Tensor] = field(
+        init=False, default=None
+    )  # Temporal prediction
+    masked_prediction: Optional[Tensor] = field(
+        init=False, default=None
+    )  # Temporal prediction * alpha
 
     # ----- Compute prediction performance
-    alpha_mean: Optional[float] = field(init=False, default=None)   # Mean value of alpha
-    beta_mean: Optional[float] = field(init=False, default=None)    # Mean value of beta
-    prediction_psnr_db: Optional[float] = field(init=False, default=None)   # PSNR of the prediction
-    dummy_prediction_psnr_db: Optional[float] = field(init=False, default=None) # PSNR of a prediction if we had no motion
+    alpha_mean: Optional[float] = field(init=False, default=None)  # Mean value of alpha
+    beta_mean: Optional[float] = field(init=False, default=None)  # Mean value of beta
+    prediction_psnr_db: Optional[float] = field(
+        init=False, default=None
+    )  # PSNR of the prediction
+    dummy_prediction_psnr_db: Optional[float] = field(
+        init=False, default=None
+    )  # PSNR of a prediction if we had no motion
 
     # ----- Miscellaneous quantities recovered from self.frame
-    img_size: Tuple[int, int] = field(init=False)                   # [Height, Width]
-    n_pixels: int = field(init=False)                               # Height x Width
-    display_order: int = field(init=False)                          # Index of the current frame in display order
-    coding_order: int = field(init=False)                           # Index of the current frame in coding order
-    seq_name: str = field(init=False)                               # Name of the sequence to which this frame belong
+    img_size: Tuple[int, int] = field(init=False)  # [Height, Width]
+    n_pixels: int = field(init=False)  # Height x Width
+    display_order: int = field(
+        init=False
+    )  # Index of the current frame in display order
+    coding_order: int = field(init=False)  # Index of the current frame in coding order
+    seq_name: str = field(init=False)  # Name of the sequence to which this frame belong
 
     # ----- Neural network rate in bit per pixels
-    detailed_rate_nn_bpp: DescriptorCoolChic = field(init=False)  # Rate for each NN weights & bias   [bpp]
+    detailed_rate_nn_bpp: DescriptorCoolChic = field(
+        init=False
+    )  # Rate for each NN weights & bias   [bpp]
 
     def __post_init__(self):
         # ----- Copy all the attributes of loss_function_output
@@ -401,7 +424,7 @@ def test(
         encoding_time_second=frame_encoder_manager.total_training_time_sec,
         encoding_iterations_cnt=frame_encoder_manager.iterations_counter,
         mac_decoded_pixel=frame_encoder.coolchic_encoder.get_total_mac_per_pixel(),
-        lmbda=frame_encoder_manager.lmbda
+        lmbda=frame_encoder_manager.lmbda,
     )
 
     # 3. Restore training mode ---------------------------------------------- #

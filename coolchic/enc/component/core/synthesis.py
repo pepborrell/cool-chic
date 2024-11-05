@@ -153,6 +153,7 @@ class Synthesis(nn.Module):
     residual connexion followed with a relu: ``40-3-residual-relu``
 
     """
+
     possible_non_linearity = {
         "none": nn.Identity,
         "relu": nn.ReLU,

@@ -6,6 +6,7 @@
 #
 # Authors: see CONTRIBUTORS.md
 
+
 def get_sub_bitstream_path(
     root_bitstream_path: str,
     counter_2d_latent: int,
@@ -24,5 +25,5 @@ def get_sub_bitstream_path(
     Returns:
         str: Complete bitstream path
     """
-    s = f'{root_bitstream_path}_{counter_2d_latent}'
+    s = f"{root_bitstream_path}_{counter_2d_latent}"
     return s

@@ -116,7 +116,7 @@ class InterCodingModule(nn.Module):
         quantities expected by the InterCodingModule.
 
         Args:
-            coolchic_output (CoolChicEncoderOutput): Dense [B, X, H, W] tensor from 
+            coolchic_output (CoolChicEncoderOutput): Dense [B, X, H, W] tensor from
 
         Returns:
             InterCodingModuleInput: Data expected by the InterCodingModule

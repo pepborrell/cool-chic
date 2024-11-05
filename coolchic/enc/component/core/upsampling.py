@@ -65,7 +65,6 @@ class _Parameterization_Symmetric_1d(nn.Module):
 
         return kernel
 
-
     @classmethod
     def size_param_from_target(cls, target_k_size: int) -> int:
         """Return the size of the appropriate parameterization of a
@@ -88,7 +87,6 @@ class _Parameterization_Symmetric_1d(nn.Module):
         return (target_k_size + 1) // 2
 
 
-
 class UpsamplingSeparableSymmetricConv2d(nn.Module):
     """
     A conv2D which has a separable and symmetric *odd* kernel.
@@ -108,10 +106,11 @@ class UpsamplingSeparableSymmetricConv2d(nn.Module):
     ``_Parameterization_Symmetric_1d``. The separable constraint is obtained by
     calling twice the 1D kernel.
     """
+
     def __init__(self, kernel_size: int):
         """
-            kernel_size: Size of the kernel :math:`\mathbf{w}_{1D}` e.g. 7 to
-                obtain a symmetrical, separable 7x7 filter. Must be odd!
+        kernel_size: Size of the kernel :math:`\mathbf{w}_{1D}` e.g. 7 to
+            obtain a symmetrical, separable 7x7 filter. Must be odd!
         """
         super().__init__()
 
@@ -125,9 +124,7 @@ class UpsamplingSeparableSymmetricConv2d(nn.Module):
         )
 
         # -------- Instantiate empty parameters, set by the initialize function
-        self.weight = nn.Parameter(
-            torch.empty(self.param_size), requires_grad=True
-        )
+        self.weight = nn.Parameter(torch.empty(self.param_size), requires_grad=True)
 
         self.bias = nn.Parameter(torch.empty(1), requires_grad=True)
         self.initialize_parameters()
@@ -232,9 +229,9 @@ class UpsamplingSeparableSymmetricConvTranspose2d(nn.Module):
         """
         super().__init__()
 
-        assert kernel_size >= 4 and not kernel_size % 2, (
-            f"Upsampling kernel size shall be even and ≥4. Found {kernel_size}"
-        )
+        assert (
+            kernel_size >= 4 and not kernel_size % 2
+        ), f"Upsampling kernel size shall be even and ≥4. Found {kernel_size}"
 
         self.target_k_size = kernel_size
         self.param_size = _Parameterization_Symmetric_1d.size_param_from_target(
@@ -242,9 +239,7 @@ class UpsamplingSeparableSymmetricConvTranspose2d(nn.Module):
         )
 
         # -------- Instantiate empty parameters, set by the initialize function
-        self.weight = nn.Parameter(
-            torch.empty(self.param_size), requires_grad=True
-        )
+        self.weight = nn.Parameter(torch.empty(self.param_size), requires_grad=True)
 
         self.bias = nn.Parameter(torch.empty(1), requires_grad=True)
         self.initialize_parameters()
@@ -313,7 +308,7 @@ class UpsamplingSeparableSymmetricConvTranspose2d(nn.Module):
         weight = self.weight.view(1, -1)
 
         if self.training:  # training using non-separable (more stable)
-            kernel_2d = (torch.kron(weight, weight.T).view((1, 1, k, k)))
+            kernel_2d = torch.kron(weight, weight.T).view((1, 1, k, k))
 
             x_pad = F.pad(x, (P0, P0, P0, P0), mode="replicate")
             yc = F.conv_transpose2d(x_pad, kernel_2d, stride=2)
@@ -421,6 +416,7 @@ class Upsampling(nn.Module):
 
         * The ``ups_preconcat_k_size`` must be odd.
     """
+
     def __init__(
         self,
         ups_k_size: int,

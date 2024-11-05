@@ -60,6 +60,7 @@ def _quantize_parameters(
 
     return q_param
 
+
 @torch.no_grad()
 def quantize_model(
     frame_encoder: FrameEncoder,
@@ -141,7 +142,9 @@ def quantize_model(
         # Overall best expgol count for this module weights and biases
         final_best_expgol_cnt = {}
 
-        for q_step_w, q_step_b in itertools.product(all_q_step.get("weight"), all_q_step.get("bias")):
+        for q_step_w, q_step_b in itertools.product(
+            all_q_step.get("weight"), all_q_step.get("bias")
+        ):
             # Reset full precision parameters, set the quantization step
             # and quantize the model.
             current_q_step: DescriptorNN = {"weight": q_step_w, "bias": q_step_b}
@@ -174,7 +177,6 @@ def quantize_model(
             # Best exp-golomb count for this quantization step
             best_expgol_cnt = {}
             for weight_or_bias in ["weight", "bias"]:
-
                 # Find the best exp-golomb count for this quantization step:
                 cur_best_expgol_cnt = None
                 # Arbitrarily high number
@@ -182,10 +184,11 @@ def quantize_model(
 
                 sent_param = []
                 for parameter_name, parameter_value in param.items():
-
                     # Quantization is round(parameter_value / q_step) * q_step so we divide by q_step
                     # to obtain the sent latent.
-                    current_sent_param = (parameter_value / current_q_step.get(weight_or_bias)).view(-1)
+                    current_sent_param = (
+                        parameter_value / current_q_step.get(weight_or_bias)
+                    ).view(-1)
 
                     if weight_or_bias in parameter_name:
                         sent_param.append(current_sent_param)
@@ -219,7 +222,6 @@ def quantize_model(
                 compute_logs=True,
             )
 
-
             # Store best quantization steps
             if loss_fn_output.loss < best_loss:
                 best_loss = loss_fn_output.loss
@@ -229,9 +231,13 @@ def quantize_model(
         # Once we've tested all the possible quantization step and expgol_cnt,
         # quantize one last time with the best one we've found to actually use it.
         frame_encoder.coolchic_encoder.nn_q_step[module_name] = best_q_step
-        frame_encoder.coolchic_encoder.nn_expgol_cnt[module_name] = final_best_expgol_cnt
+        frame_encoder.coolchic_encoder.nn_expgol_cnt[module_name] = (
+            final_best_expgol_cnt
+        )
 
-        q_param = _quantize_parameters(fp_param, frame_encoder.coolchic_encoder.nn_q_step[module_name])
+        q_param = _quantize_parameters(
+            fp_param, frame_encoder.coolchic_encoder.nn_q_step[module_name]
+        )
         assert q_param is not None, (
             "_quantize_parameters() failed with q_step "
             f"{frame_encoder.coolchic_encoder.nn_q_step[module_name]}"

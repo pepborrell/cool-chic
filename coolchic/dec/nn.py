@@ -50,7 +50,9 @@ def decode_network(
     for k, v in empty_module.named_parameters():
         if "weight" in k:
             cur_q_step = q_step_nn.weight
-            cur_param = bac_ctx_weight.decode_wb_continue(len(v.flatten()), scale_nn.weight)
+            cur_param = bac_ctx_weight.decode_wb_continue(
+                len(v.flatten()), scale_nn.weight
+            )
         elif "bias" in k and have_bias:
             cur_q_step = q_step_nn.bias
             cur_param = bac_ctx_bias.decode_wb_continue(len(v.flatten()), scale_nn.bias)
@@ -59,11 +61,11 @@ def decode_network(
             continue
 
         # Don't forget inverse quantization!
-        loaded_param[k] = torch.tensor(cur_param).reshape_as(v)  * cur_q_step
+        loaded_param[k] = torch.tensor(cur_param).reshape_as(v) * cur_q_step
 
     # empty_module.load_state_dict(loaded_param)
     if "arm" in bitstream_path.weight:
         empty_module.set_param_from_float(loaded_param)
     else:
-        empty_module.load_state_dict(loaded_param, strict = have_bias)
+        empty_module.load_state_dict(loaded_param, strict=have_bias)
     return empty_module
