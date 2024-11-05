@@ -8,13 +8,12 @@
 
 
 import copy
+from dataclasses import asdict
 import time
 from typing import List, Tuple
 
 import torch
-from torch.nn.utils import clip_grad_norm_
-
-from enc.utils.manager import FrameEncoderManager
+import wandb
 from enc.component.core.quantizer import (
     POSSIBLE_QUANTIZATION_NOISE_TYPE,
     POSSIBLE_QUANTIZER_TYPE,
@@ -23,7 +22,9 @@ from enc.component.frame import FrameEncoder
 from enc.training.loss import loss_function
 from enc.training.test import test
 from enc.utils.codingstructure import Frame
+from enc.utils.manager import FrameEncoderManager
 from enc.utils.presets import MODULE_TO_OPTIMIZE
+from torch.nn.utils import clip_grad_norm_
 
 
 # Custom scheduling function for the soft rounding temperature and the noise parameter
@@ -319,6 +320,9 @@ def train(
                 )
             )
             show_col_name = False
+
+            # Log to wandb.
+            wandb.log({**asdict(encoder_logs), **additional_data})
 
             # Update soft rounding temperature and noise_parameter
             cur_softround_temperature = _linear_schedule(
