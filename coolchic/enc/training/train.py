@@ -8,13 +8,12 @@
 
 
 import copy
+from dataclasses import asdict
 import time
 from typing import List, Tuple
 
 import torch
-from torch.nn.utils import clip_grad_norm_
-
-from enc.utils.manager import FrameEncoderManager
+import wandb
 from enc.component.core.quantizer import (
     POSSIBLE_QUANTIZATION_NOISE_TYPE,
     POSSIBLE_QUANTIZER_TYPE,
@@ -319,6 +318,9 @@ def train(
                 )
             )
             show_col_name = False
+
+            # Log to wandb.
+            wandb.log({**asdict(encoder_logs), **additional_data})
 
             # Update soft rounding temperature and noise_parameter
             cur_softround_temperature = _linear_schedule(

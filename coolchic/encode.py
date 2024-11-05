@@ -10,8 +10,9 @@
 import os
 import subprocess
 import sys
-
 import configargparse
+import wandb
+
 import torch
 from enc.component.coolchic import CoolChicEncoderParameter
 from enc.component.video import (
@@ -242,6 +243,9 @@ if __name__ == "__main__":
 
     print(f"\n{video_encoder.coding_structure.pretty_string()}\n")
 
+    # Start wandb logging.
+    wandb.init(project="coolchic-runs", config=vars(args))
+
     exit_code = video_encoder.encode(
         path_original_sequence=args.input,
         device=device,
@@ -258,5 +262,7 @@ if __name__ == "__main__":
 
         # video_encoder = load_video_encoder(video_encoder_savepath)
         encode_video(video_encoder, args.output, hls_sig_blksize=16)
+
+    wandb.finish()
 
     sys.exit(exit_code.value)
