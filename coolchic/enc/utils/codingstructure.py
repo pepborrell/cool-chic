@@ -141,6 +141,7 @@ class FrameData:
             ``"yuv420"``, ``"yuv444"``.
         data (Union[Tensor, DictTensorYUV]): The actual RGB or YUV data
     """
+
     bitdepth: POSSIBLE_BITDEPTH
     frame_data_type: FRAME_DATA_TYPE
     data: Union[Tensor, DictTensorYUV]
@@ -200,6 +201,7 @@ class Frame:
             references. Leave empty when no reference are available
             *i.e.* for I-frame. Defaults to ``[]``.
     """
+
     coding_order: int
     display_order: int
     depth: int = 0
@@ -342,6 +344,7 @@ class CodingStructure:
         seq_name (str): Name of the video. Mainly used for logging purposes.
             Defaults to ``""``.
     """
+
     intra_period: int
     p_period: int = 0
     seq_name: str = ""

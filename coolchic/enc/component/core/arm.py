@@ -95,6 +95,7 @@ class ArmLinear(nn.Module):
         else:
             return F.linear(x, self.weight, bias=self.bias)
 
+
 class ArmIntLinear(nn.Module):
     """Create a Linear layer of the Auto-Regressive Module (ARM). This is a
     wrapper around the usual ``nn.Linear`` layer of PyTorch, with a custom
@@ -141,16 +142,21 @@ class ArmIntLinear(nn.Module):
         # -------- Instantiate empty parameters, set by a later load
         if self.pure_int:
             self.weight = nn.Parameter(
-                torch.empty((out_channels, in_channels), dtype=torch.int32), requires_grad=False
+                torch.empty((out_channels, in_channels), dtype=torch.int32),
+                requires_grad=False,
             )
-            self.bias = nn.Parameter(torch.empty((out_channels), dtype=torch.int32), requires_grad=False)
+            self.bias = nn.Parameter(
+                torch.empty((out_channels), dtype=torch.int32), requires_grad=False
+            )
         else:
             self.weight = nn.Parameter(
-                torch.empty((out_channels, in_channels), dtype=torch.float), requires_grad=False
+                torch.empty((out_channels, in_channels), dtype=torch.float),
+                requires_grad=False,
             )
-            self.bias = nn.Parameter(torch.empty((out_channels), dtype=torch.float), requires_grad=False)
+            self.bias = nn.Parameter(
+                torch.empty((out_channels), dtype=torch.float), requires_grad=False
+            )
         # -------- Instantiate empty parameters, set by a later load
-
 
     def forward(self, x: Tensor) -> Tensor:
         """Perform the forward pass of this layer.
@@ -162,27 +168,28 @@ class ArmIntLinear(nn.Module):
             Tensor with shape :math:`[B, C_{out}]`.
         """
         if self.residual:
-            xx = F.linear(x, self.weight, bias=self.bias) + x*self.fpfm
+            xx = F.linear(x, self.weight, bias=self.bias) + x * self.fpfm
         else:
             xx = F.linear(x, self.weight, bias=self.bias)
 
         # Renorm by fpfm after our (x*fpfm)*(qw*fpfm) multiplication.
         # WE MAKE INTEGER DIVISION OBEY C++ (TO-ZERO) SEMANTICS, NOT PYTHON (TO-NEGATIVE-INFINITY) SEMANTICS
         if self.pure_int:
-            xx = xx + torch.sign(xx)*self.fpfm//2
+            xx = xx + torch.sign(xx) * self.fpfm // 2
             # We separate out -ve and non-ve.
-            neg_result = -((-xx)//self.fpfm)
-            pos_result = xx//self.fpfm
+            neg_result = -((-xx) // self.fpfm)
+            pos_result = xx // self.fpfm
             result = torch.where(xx < 0, neg_result, pos_result)
         else:
-            xx = xx + torch.sign(xx)*self.fpfm/2
+            xx = xx + torch.sign(xx) * self.fpfm / 2
             # We separate out -ve and non-ve.
-            neg_result = -((-xx)/self.fpfm)
-            pos_result = xx/self.fpfm
+            neg_result = -((-xx) / self.fpfm)
+            pos_result = xx / self.fpfm
             result = torch.where(xx < 0, neg_result, pos_result)
             result = result.to(torch.int32).to(torch.float)
 
         return result
+
 
 class Arm(nn.Module):
     """Instantiate an autoregressive probability module, modelling the
@@ -222,7 +229,6 @@ class Arm(nn.Module):
     The MLP :math:`f_{\\psi}` is made of custom Linear layers instantiated
     from the ``ArmLinear`` class.
     """
-
 
     def __init__(self, dim_arm: int, n_hidden_layers_arm: int):
         """
@@ -317,6 +323,7 @@ class Arm(nn.Module):
             if isinstance(layer, ArmLinear):
                 layer.initialize_parameters()
 
+
 class ArmInt(nn.Module):
     """Instantiate an autoregressive probability module, modelling the
     conditional distribution :math:`p_{\\psi}(\\hat{y}_i \\mid
@@ -356,7 +363,9 @@ class ArmInt(nn.Module):
     from the ``ArmLinear`` class.
     """
 
-    def __init__(self, dim_arm: int, n_hidden_layers_arm: int, fpfm: int, pure_int: bool):
+    def __init__(
+        self, dim_arm: int, n_hidden_layers_arm: int, fpfm: int, pure_int: bool
+    ):
         """
         Args:
             dim_arm: Number of context pixels AND dimension of all hidden
@@ -371,19 +380,23 @@ class ArmInt(nn.Module):
             f"a multiple of 8. Found {dim_arm}."
         )
 
-        self.FPFM = fpfm # fixed-point: multiplication to get int.
-        self.pure_int = pure_int # weights and biases are actual int (cpu only), or just int values in floats (gpu friendly).
+        self.FPFM = fpfm  # fixed-point: multiplication to get int.
+        self.pure_int = pure_int  # weights and biases are actual int (cpu only), or just int values in floats (gpu friendly).
 
         # ======================== Construct the MLP ======================== #
         layers_list = nn.ModuleList()
 
         # Construct the hidden layer(s)
         for i in range(n_hidden_layers_arm):
-            layers_list.append(ArmIntLinear(dim_arm, dim_arm, self.FPFM, self.pure_int, residual=True))
+            layers_list.append(
+                ArmIntLinear(dim_arm, dim_arm, self.FPFM, self.pure_int, residual=True)
+            )
             layers_list.append(nn.ReLU())
 
         # Construct the output layer. It always has 2 outputs (mu and scale)
-        layers_list.append(ArmIntLinear(dim_arm, 2, self.FPFM, self.pure_int, residual=False))
+        layers_list.append(
+            ArmIntLinear(dim_arm, 2, self.FPFM, self.pure_int, residual=False)
+        )
         self.mlp = nn.Sequential(*layers_list)
         # ======================== Construct the MLP ======================== #
 
@@ -394,11 +407,11 @@ class ArmInt(nn.Module):
         integerised_param = {}
         for k in float_param:
             if "weight" in k:
-                float_v = float_param[k]*self.FPFM
+                float_v = float_param[k] * self.FPFM
             else:
-                float_v = float_param[k]*self.FPFM*self.FPFM
+                float_v = float_param[k] * self.FPFM * self.FPFM
 
-            float_v = float_v + torch.sign(float_v)*0.5
+            float_v = float_v + torch.sign(float_v) * 0.5
             neg_result = -(-float_v).to(torch.int32)
             pos_result = float_v.to(torch.int32)
             int_v = torch.where(float_v < 0, neg_result, pos_result)
@@ -442,7 +455,7 @@ class ArmInt(nn.Module):
             :math:`s` as described above. Tensor of shape :math:`(B)`
         """
         xint = x.clone().detach()
-        xint = xint*self.FPFM
+        xint = xint * self.FPFM
         if self.pure_int:
             xint = xint.to(torch.int32)
 
@@ -476,6 +489,7 @@ class ArmInt(nn.Module):
             param: Parameters to be set.
         """
         self.load_state_dict(param)
+
 
 @torch.jit.script
 def _get_neighbor(x: Tensor, mask_size: int, non_zero_pixel_ctx_idx: Tensor) -> Tensor:
@@ -568,41 +582,104 @@ def _get_non_zero_pixel_ctx_index(dim_arm: int) -> Tensor:
 
     if dim_arm == 8:
         return torch.tensor(
-            [            13,
-                         22,
-                     30, 31, 32,
-             37, 38, 39, #
+            [
+                13,
+                22,
+                30,
+                31,
+                32,
+                37,
+                38,
+                39,  #
             ]
         )
 
     elif dim_arm == 16:
         return torch.tensor(
             [
-                            13, 14,
-                    20, 21, 22, 23, 24,
-                28, 29, 30, 31, 32, 33,
-                37, 38, 39, #
+                13,
+                14,
+                20,
+                21,
+                22,
+                23,
+                24,
+                28,
+                29,
+                30,
+                31,
+                32,
+                33,
+                37,
+                38,
+                39,  #
             ]
         )
 
     elif dim_arm == 24:
         return torch.tensor(
             [
-                                4 ,
-                        11, 12, 13, 14, 15,
-                    19, 20, 21, 22, 23, 24, 25,
-                    28, 29, 30, 31, 32, 33, 34,
-                36, 37, 38, 39, #
+                4,
+                11,
+                12,
+                13,
+                14,
+                15,
+                19,
+                20,
+                21,
+                22,
+                23,
+                24,
+                25,
+                28,
+                29,
+                30,
+                31,
+                32,
+                33,
+                34,
+                36,
+                37,
+                38,
+                39,  #
             ]
         )
 
     elif dim_arm == 32:
         return torch.tensor(
             [
-                        2 , 3 , 4 , 5 ,
-                    10, 11, 12, 13, 14, 15, 16,
-                    19, 20, 21, 22, 23, 24, 25, 26,
-                27, 28, 29, 30, 31, 32, 33, 34, 35,
-                36, 37, 38, 39, #
+                2,
+                3,
+                4,
+                5,
+                10,
+                11,
+                12,
+                13,
+                14,
+                15,
+                16,
+                19,
+                20,
+                21,
+                22,
+                23,
+                24,
+                25,
+                26,
+                27,
+                28,
+                29,
+                30,
+                31,
+                32,
+                33,
+                34,
+                35,
+                36,
+                37,
+                38,
+                39,  #
             ]
         )

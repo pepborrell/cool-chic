@@ -18,9 +18,11 @@ C++ decode interface
 if __name__ == "__main__":
     # =========================== Parse arguments =========================== #
     parser = argparse.ArgumentParser()
-    parser.add_argument( "--input", "-i", type=str, default="./bitstream.cool", help="Bitstream path.")
-    parser.add_argument( "--output", "-o", default="", help="output ppm (rgb) or yuv")
-    parser.add_argument( "--no_avx2", action='store_true', help="Disable AVX2 support")
+    parser.add_argument(
+        "--input", "-i", type=str, default="./bitstream.cool", help="Bitstream path."
+    )
+    parser.add_argument("--output", "-o", default="", help="output ppm (rgb) or yuv")
+    parser.add_argument("--no_avx2", action="store_true", help="Disable AVX2 support")
     args = parser.parse_args()
     # =========================== Parse arguments =========================== #
 
@@ -38,6 +40,7 @@ if __name__ == "__main__":
 
     if use_avx2:
         from CCLIB.ccdecapi_avx2 import cc_decode_avx2
+
         print("Using AVX2 instructions for faster decoding")
         cc_decode_avx2(args.input, args.output)
     else:

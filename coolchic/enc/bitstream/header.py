@@ -248,7 +248,7 @@ class FrameHeader(TypedDict):
     ac_max_val_latent: (
         int  # The range coder AC_MAX_VAL parameters for entropy coding the latents
     )
-    hls_sig_blksize: int                # zero-significants-in-block block detection size
+    hls_sig_blksize: int  # zero-significants-in-block block detection size
     image_type: str  # Image type from the list possible_image_type defined above
     flow_gain: int  # Multiply the optical flow coming from cool chic
 
@@ -297,10 +297,9 @@ def write_frame_header(
     n_bytes_header += 3 * len(frame_encoder.coolchic_encoder_param.layers_synthesis)
     n_bytes_header += 1  # Flow gain
 
-
     n_bytes_header += 2  # AC_MAX_VAL for neural networks
     n_bytes_header += 2  # AC_MAX_VAL for the latent variables
-    n_bytes_header += 1     # hls_sig_blksize
+    n_bytes_header += 1  # hls_sig_blksize
 
     n_bytes_header += 1  # Index of the quantization step weight ARM
     n_bytes_header += 1  # Index of the quantization step bias ARM
@@ -332,11 +331,9 @@ def write_frame_header(
         n_bytes_per_latent
     )  # Number of bytes for each 2D latent grid
 
-
     byte_to_write = b""
     byte_to_write += n_bytes_header.to_bytes(2, byteorder="big", signed=False)
     byte_to_write += frame.display_order.to_bytes(1, byteorder="big", signed=False)
-
 
     # Since the dimension of the hidden layer and of the context is always a multiple of
     # 8, we can spare 3 bits by dividing it by 8
@@ -392,8 +389,6 @@ def write_frame_header(
     ), f"Flow gain should be in [0, 255], found {flow_gain}"
     byte_to_write += flow_gain.to_bytes(1, byteorder="big", signed=False)
 
-
-
     if ac_max_val_nn > MAX_AC_MAX_VAL:
         print("AC_MAX_VAL NN is too big!")
         print(f"Found {ac_max_val_nn}, should be smaller than {MAX_AC_MAX_VAL}")
@@ -407,14 +402,12 @@ def write_frame_header(
 
     byte_to_write += ac_max_val_nn.to_bytes(2, byteorder="big", signed=False)
     byte_to_write += ac_max_val_latent.to_bytes(2, byteorder="big", signed=False)
-    byte_to_write += hls_sig_blksize.to_bytes(1, byteorder='big', signed=True)
+    byte_to_write += hls_sig_blksize.to_bytes(1, byteorder="big", signed=True)
 
     for nn_name in ["arm", "upsampling", "synthesis"]:
         for nn_param in ["weight", "bias"]:
             cur_q_step_index = q_step_index_nn.get(nn_name).get(nn_param)
-            byte_to_write += cur_q_step_index.to_bytes(
-                1, byteorder="big", signed=False
-            )
+            byte_to_write += cur_q_step_index.to_bytes(1, byteorder="big", signed=False)
 
     for nn_name in ["arm", "upsampling", "synthesis"]:
         for nn_param in ["weight", "bias"]:
@@ -531,7 +524,9 @@ def read_frame_header(bitstream: bytes) -> FrameHeader:
         bitstream[ptr : ptr + 2], byteorder="big", signed=False
     )
     ptr += 2
-    hls_sig_blksize = int.from_bytes(bitstream[ptr: ptr + 1], byteorder='big', signed=True)
+    hls_sig_blksize = int.from_bytes(
+        bitstream[ptr : ptr + 1], byteorder="big", signed=True
+    )
     ptr += 1
 
     q_step_index_nn: DescriptorCoolChic = {}

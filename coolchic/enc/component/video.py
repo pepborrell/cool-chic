@@ -25,8 +25,8 @@ from enc.utils.codingstructure import CodingStructure, Frame, FrameData
 from enc.utils.misc import POSSIBLE_DEVICE, TrainingExitCode, is_job_over, mem_info
 from enc.utils.yuv import load_frame_data_from_file
 
-class VideoEncoder():
 
+class VideoEncoder:
     def __init__(
         self,
         coding_structure: CodingStructure,
@@ -60,7 +60,6 @@ class VideoEncoder():
         self.all_frame_encoders: Dict[
             str, Tuple[FrameEncoder, FrameEncoderManager]
         ] = {}
-
 
     def encode(
         self,
@@ -140,9 +139,7 @@ class VideoEncoder():
                 case "B":
                     n_output_synthesis = 9
                 case _:
-                    print(
-                        f"Unknown frame_type {frame.frame_type}"
-                    )
+                    print(f"Unknown frame_type {frame.frame_type}")
 
             # Change the number of channels for the synthesis output
             current_coolchic_parameter.layers_synthesis = [
@@ -150,18 +147,18 @@ class VideoEncoder():
                 for lay in current_coolchic_parameter.layers_synthesis
             ]
 
-
             # We have started to encode this frame so we already have a
             # frame_encoder_manager associated
             if str(idx_coding_order) in self.all_frame_encoders:
-                _, frame_encoder_manager = (
-                    self.all_frame_encoders.get(str(idx_coding_order))
+                _, frame_encoder_manager = self.all_frame_encoders.get(
+                    str(idx_coding_order)
                 )
 
             # We need to create a new frame_encoder_manager
             else:
                 print(
-                    "-" * 80 + "\n"
+                    "-" * 80
+                    + "\n"
                     + f'{" " * 12} Coding frame {frame.coding_order + 1} / {n_frames} '
                     + f"- Display order: {frame.display_order} - "
                     + f"Coding order: {frame.coding_order}\n"
@@ -169,9 +166,7 @@ class VideoEncoder():
                 )
 
                 # ----- Set the parameters for the frame
-                frame_encoder_manager = copy.deepcopy(
-                    self.shared_frame_encoder_manager
-                )
+                frame_encoder_manager = copy.deepcopy(self.shared_frame_encoder_manager)
                 # Change the lambda according to the depth of the frame in the GOP
                 # The deeper the frame, the bigger the lambda, the smaller the rate
                 frame_encoder_manager.lmbda = self.get_lmbda_from_depth(
@@ -181,14 +176,12 @@ class VideoEncoder():
                 # Plug the current frame type into the current frame encoder manager
                 frame_encoder_manager.frame_type = frame.frame_type
 
-
                 subprocess.call(f"mkdir -p {frame_workdir}", shell=True)
 
                 # Log a few details about the model
                 print(f"\n{frame_encoder_manager.pretty_string()}")
                 print(f"{current_coolchic_parameter.pretty_string()}")
                 print(f"{frame_encoder_manager.preset.pretty_string()}")
-
 
             for index_loop in range(
                 frame_encoder_manager.loop_counter,
@@ -205,18 +198,16 @@ class VideoEncoder():
                 frame.to_device(device)
 
                 # Get the number of candidates from the initial warm-up phase
-                n_initial_warmup_candidate = (
-                    frame_encoder_manager.preset.warmup.phases[
-                        0
-                    ].candidates
-                )
+                n_initial_warmup_candidate = frame_encoder_manager.preset.warmup.phases[
+                    0
+                ].candidates
 
                 list_candidates = [
                     FrameEncoder(
                         coolchic_encoder_param=current_coolchic_parameter,
                         frame_type=frame.frame_type,
                         frame_data_type=frame.data.frame_data_type,
-                        bitdepth=frame.data.bitdepth
+                        bitdepth=frame.data.bitdepth,
                     )
                     for _ in range(n_initial_warmup_candidate)
                 ]
@@ -224,7 +215,9 @@ class VideoEncoder():
                 # Use the first candidate of the list to log the architecture
                 with open(f"{frame_workdir}/archi.txt", "w") as f_out:
                     f_out.write(str(list_candidates[0].coolchic_encoder) + "\n\n")
-                    f_out.write(list_candidates[0].coolchic_encoder.str_complexity() + "\n")
+                    f_out.write(
+                        list_candidates[0].coolchic_encoder.str_complexity() + "\n"
+                    )
 
                 # Use warm-up to find the best initialization among the list
                 # of candidates parameters.
@@ -236,7 +229,9 @@ class VideoEncoder():
                 )
                 frame_encoder.to_device(device)
 
-                for idx_phase, training_phase in enumerate(frame_encoder_manager.preset.all_phases):
+                for idx_phase, training_phase in enumerate(
+                    frame_encoder_manager.preset.all_phases
+                ):
                     print(f'{"-" * 30} Training phase: {idx_phase:>2} {"-" * 30}\n')
                     mem_info("Training phase " + str(idx_phase))
                     frame_encoder = train(
@@ -288,20 +283,30 @@ class VideoEncoder():
                 path_results_log = f"{frame_workdir}results_loop_{frame_encoder_manager.loop_counter + 1}.tsv"
                 with open(path_results_log, "w") as f_out:
                     f_out.write(
-                        loop_results.pretty_string(show_col_name=True, mode="all") + "\n"
+                        loop_results.pretty_string(show_col_name=True, mode="all")
+                        + "\n"
                     )
 
                 # We've beaten our record
                 if frame_encoder_manager.record_beaten(loop_results.loss):
-                    print(f'Best loss beaten at loop {frame_encoder_manager.loop_counter + 1}')
-                    print(f'Previous best loss: {frame_encoder_manager.best_loss * 1e3 :.6f}')
-                    print(f'New best loss     : {loop_results.loss.cpu().item() * 1e3 :.6f}')
+                    print(
+                        f"Best loss beaten at loop {frame_encoder_manager.loop_counter + 1}"
+                    )
+                    print(
+                        f"Previous best loss: {frame_encoder_manager.best_loss * 1e3 :.6f}"
+                    )
+                    print(
+                        f"New best loss     : {loop_results.loss.cpu().item() * 1e3 :.6f}"
+                    )
 
                     frame_encoder_manager.set_best_loss(loop_results.loss.cpu().item())
 
                     # Save best results
-                    with open(f'{frame_workdir}results_best.tsv', 'w') as f_out:
-                        f_out.write(loop_results.pretty_string(show_col_name=True, mode='all') + '\n')
+                    with open(f"{frame_workdir}results_best.tsv", "w") as f_out:
+                        f_out.write(
+                            loop_results.pretty_string(show_col_name=True, mode="all")
+                            + "\n"
+                        )
                     self.concat_results_file(workdir)
 
                     best_frame_encoder = frame_encoder
@@ -309,7 +314,9 @@ class VideoEncoder():
                 # We haven't beaten our record, keep the old frame encoder as
                 # the current best frame encoder
                 else:
-                    best_frame_encoder = self.all_frame_encoders[str(frame.coding_order)][0]
+                    best_frame_encoder = self.all_frame_encoders[
+                        str(frame.coding_order)
+                    ][0]
 
                 frame_encoder_manager.loop_counter += 1
 
@@ -317,12 +324,12 @@ class VideoEncoder():
                 # frame_encoder_manager
                 self.all_frame_encoders[str(frame.coding_order)] = (
                     copy.deepcopy(best_frame_encoder),
-                    copy.deepcopy(frame_encoder_manager)
+                    copy.deepcopy(frame_encoder_manager),
                 )
 
-                print('End of training loop\n\n')
+                print("End of training loop\n\n")
 
-                self.save(f'{workdir}video_encoder.pt')
+                self.save(f"{workdir}video_encoder.pt")
                 # The save function unload the decoded frames and the original
                 # ones. We need to reload them
                 frame.data = load_frame_data_from_file(
@@ -330,14 +337,16 @@ class VideoEncoder():
                 )
                 frame.refs_data = self.get_ref_data(frame)
 
-                if is_job_over(start_time=start_time, max_duration_job_min=job_duration_min):
+                if is_job_over(
+                    start_time=start_time, max_duration_job_min=job_duration_min
+                ):
                     return TrainingExitCode.REQUEUE
 
             self.coding_structure.set_encoded_flag(
                 coding_order=frame.coding_order, flag_value=True
             )
             print(self.coding_structure.pretty_string())
-            self.save(f'{workdir}video_encoder.pt')
+            self.save(f"{workdir}video_encoder.pt")
 
         return TrainingExitCode.END
 
@@ -408,14 +417,14 @@ class VideoEncoder():
                 pass
             else:
                 ref_frame.refs_data = self.get_ref_data(ref_frame)
-                print(
-                    f"get_ref_data(): Decoding frame {ref_frame.display_order:<3}..."
-                )
+                print(f"get_ref_data(): Decoding frame {ref_frame.display_order:<3}...")
 
                 # Load the best encoder for the reference frame
                 # No need to load the corresponding frame_encoder_manager
                 # hence the "_"
-                frame_encoder, _ = self.all_frame_encoders.get(str(ref_frame.coding_order))
+                frame_encoder, _ = self.all_frame_encoders.get(
+                    str(ref_frame.coding_order)
+                )
 
                 # Infer it to get the data of the references
                 frame_encoder.set_to_eval()
@@ -487,9 +496,13 @@ class VideoEncoder():
 
         for k, v in self.all_frame_encoders.items():
             frame_encoder, frame_encoder_manager = v
-            data_to_save["all_frame_encoders"][k] = (frame_encoder.save(), frame_encoder_manager)
+            data_to_save["all_frame_encoders"][k] = (
+                frame_encoder.save(),
+                frame_encoder_manager,
+            )
 
         torch.save(data_to_save, save_path)
+
 
 def load_video_encoder(load_path: str) -> VideoEncoder:
     """Load a video encoder.

@@ -49,11 +49,13 @@ def decode_network(
 
     loaded_param = {}
     for k, v in empty_module.named_parameters():
-        if k.endswith('.w') or k.endswith('.weight'):
+        if k.endswith(".w") or k.endswith(".weight"):
             cur_scale = scale_nn.weight
             cur_q_step = q_step_nn.weight
-            cur_param = bac_ctx_weight.decode_wb_continue(len(v.flatten()), scale_nn.weight)
-        elif k.endswith('.b') or k.endswith('.bias'):
+            cur_param = bac_ctx_weight.decode_wb_continue(
+                len(v.flatten()), scale_nn.weight
+            )
+        elif k.endswith(".b") or k.endswith(".bias"):
             cur_scale = scale_nn.bias
             cur_q_step = q_step_nn.bias
             cur_param = bac_ctx_bias.decode_wb_continue(len(v.flatten()), scale_nn.bias)
@@ -62,7 +64,7 @@ def decode_network(
             continue
 
         # Don't forget inverse quantization!
-        loaded_param[k] = torch.tensor(cur_param).reshape_as(v)  * cur_q_step
+        loaded_param[k] = torch.tensor(cur_param).reshape_as(v) * cur_q_step
 
     # empty_module.load_state_dict(loaded_param)
     if "arm" in bitstream_path.weight:

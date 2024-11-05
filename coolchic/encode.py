@@ -1,4 +1,4 @@
- # Software Name: Cool-Chic
+# Software Name: Cool-Chic
 # SPDX-FileCopyrightText: Copyright (c) 2023-2024 Orange
 # SPDX-License-Identifier: BSD 3-Clause "New"
 #
@@ -30,7 +30,6 @@ image is simply a GOP of size 1 with no inter frames.
 """
 
 if __name__ == "__main__":
-
     # =========================== Parse arguments =========================== #
     # By increasing priority order, the arguments work as follows:
     #
@@ -47,20 +46,20 @@ if __name__ == "__main__":
     parser = configargparse.ArgumentParser()
     # -------- These arguments are not in the configuration files
     parser.add(
-        "-i", "--input",
+        "-i",
+        "--input",
         help="Path of the input image. Either .png (RGB444) or .yuv (YUV420)",
         type=str,
     )
     parser.add(
-        "-o", "--output",
+        "-o",
+        "--output",
         help="Path of the compressed bitstream. If empty, no bitstream is written",
         type=str,
         default="",
     )
 
-    parser.add(
-        "--workdir", help="Path of the working_directory", type=str, default="."
-    )
+    parser.add("--workdir", help="Path of the working_directory", type=str, default=".")
     parser.add("--lmbda", help="Rate constraint", type=float, default=1e-3)
     parser.add(
         "--job_duration_min",
@@ -70,13 +69,9 @@ if __name__ == "__main__":
     )
 
     # -------- Configuration files
-    parser.add(
-        "--enc_cfg", is_config_file=True, help="Encoder configuration file"
-    )
+    parser.add("--enc_cfg", is_config_file=True, help="Encoder configuration file")
 
-    parser.add(
-        "--dec_cfg", is_config_file=True, help="Decoder configuration file"
-    )
+    parser.add("--dec_cfg", is_config_file=True, help="Decoder configuration file")
 
     # -------- These arguments are in the configuration files
 
@@ -94,18 +89,14 @@ if __name__ == "__main__":
         default=0,
     )
 
-    parser.add(
-        "--start_lr", help="Initial learning rate", type=float, default=1e-2
-    )
+    parser.add("--start_lr", help="Initial learning rate", type=float, default=1e-2)
     parser.add(
         "--n_itr",
         help="Maximum number of iterations per phase",
         type=int,
         default=int(1e4),
     )
-    parser.add(
-        "--n_train_loops", help="Number of training loops", type=int, default=1
-    )
+    parser.add("--n_train_loops", help="Number of training loops", type=int, default=1)
     parser.add(
         "--recipe",
         help='Recipe type. Either "c3x" or "debug".',
@@ -129,7 +120,7 @@ if __name__ == "__main__":
         "<kernel_size> is the spatial dimension of the kernel. Use 1 to mimic an MLP."
         "<type> is either 'linear' for a standard conv or 'residual' for a residual"
         " block i.e. layer(x) = x + conv(x). <non_linearity> Can be'none' for no"
-        " non-linearity, 'relu' for a ReLU"
+        " non-linearity, 'relu' for a ReLU",
     )
     parser.add(
         "--arm",
@@ -164,7 +155,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
     print(args)
     print("----------")
-    print(parser.format_values())    # useful for logging where different settings came from
+    print(
+        parser.format_values()
+    )  # useful for logging where different settings came from
     # =========================== Parse arguments =========================== #
 
     # =========================== Parse arguments =========================== #
@@ -175,27 +168,25 @@ if __name__ == "__main__":
         video_encoder = load_video_encoder(path_video_encoder)
 
     else:
-
         start_print = (
-            '\n\n'
-            '*----------------------------------------------------------------------------------------------------------*\n'
-            '|                                                                                                          |\n'
-            '|                                                                                                          |\n'
-            '|       ,gggg,                                                                                             |\n'
+            "\n\n"
+            "*----------------------------------------------------------------------------------------------------------*\n"
+            "|                                                                                                          |\n"
+            "|                                                                                                          |\n"
+            "|       ,gggg,                                                                                             |\n"
             '|     ,88"""Y8b,                           ,dPYb,                             ,dPYb,                       |\n'
-            '|    d8"     `Y8                           IP\'`Yb                             IP\'`Yb                       |\n'
-            '|   d8\'   8b  d8                           I8  8I                             I8  8I      gg               |\n'
-            '|  ,8I    "Y88P\'                           I8  8\'                             I8  8\'      ""               |\n'
-            '|  I8\'             ,ggggg,      ,ggggg,    I8 dP      aaaaaaaa        ,gggg,  I8 dPgg,    gg     ,gggg,    |\n'
+            "|    d8\"     `Y8                           IP'`Yb                             IP'`Yb                       |\n"
+            "|   d8'   8b  d8                           I8  8I                             I8  8I      gg               |\n"
+            "|  ,8I    \"Y88P'                           I8  8'                             I8  8'      \"\"               |\n"
+            "|  I8'             ,ggggg,      ,ggggg,    I8 dP      aaaaaaaa        ,gggg,  I8 dPgg,    gg     ,gggg,    |\n"
             '|  d8             dP"  "Y8ggg  dP"  "Y8ggg I8dP       """"""""       dP"  "Yb I8dP" "8I   88    dP"  "Yb   |\n'
-            '|  Y8,           i8\'    ,8I   i8\'    ,8I   I8P                      i8\'       I8P    I8   88   i8\'         |\n'
-            '|  `Yba,,_____, ,d8,   ,d8\'  ,d8,   ,d8\'  ,d8b,_                   ,d8,_    _,d8     I8,_,88,_,d8,_    _   |\n'
+            "|  Y8,           i8'    ,8I   i8'    ,8I   I8P                      i8'       I8P    I8   88   i8'         |\n"
+            "|  `Yba,,_____, ,d8,   ,d8'  ,d8,   ,d8'  ,d8b,_                   ,d8,_    _,d8     I8,_,88,_,d8,_    _   |\n"
             '|    `"Y8888888 P"Y8888P"    P"Y8888P"    8P\'"Y88                  P""Y8888PP88P     `Y88P""Y8P""Y8888PP   |\n'
-            '|                                                                                                          |\n'
-            '|                                                                                                          |\n'
-            '| version 3.3                                                                           © 2023-2024 Orange |\n'
-            '*----------------------------------------------------------------------------------------------------------*\n'
-
+            "|                                                                                                          |\n"
+            "|                                                                                                          |\n"
+            "| version 3.3                                                                           © 2023-2024 Orange |\n"
+            "*----------------------------------------------------------------------------------------------------------*\n"
         )
 
         print(start_print)
@@ -207,7 +198,9 @@ if __name__ == "__main__":
             f_out.write(str(args))
             f_out.write("\n")
             f_out.write("----------\n")
-            f_out.write(parser.format_values())    # useful for logging where different settings came from
+            f_out.write(
+                parser.format_values()
+            )  # useful for logging where different settings came from
 
         # ----- Create coding configuration
         assert args.intra_period >= 0 and args.intra_period <= 255, (
@@ -244,9 +237,9 @@ if __name__ == "__main__":
         layers_synthesis = [x for x in args.layers_synthesis.split(",") if x != ""]
         n_ft_per_res = [int(x) for x in args.n_ft_per_res.split(",") if x != ""]
 
-        assert set(n_ft_per_res) == {1}, (
-            f"--n_ft_per_res should only contains 1. Found {args.n_ft_per_res}"
-        )
+        assert set(n_ft_per_res) == {
+            1
+        }, f"--n_ft_per_res should only contains 1. Found {args.n_ft_per_res}"
 
         assert len(args.arm.split(",")) == 2, (
             f"--arm format should be X,Y." f" Found {args.arm}"
@@ -321,8 +314,8 @@ if __name__ == "__main__":
     # Bitstream
     if args.output != "":
         from enc.bitstream.encode import encode_video
+
         # video_encoder = load_video_encoder(video_encoder_savepath)
         encode_video(video_encoder, args.output, hls_sig_blksize=16)
 
     sys.exit(exit_code.value)
-

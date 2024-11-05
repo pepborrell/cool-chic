@@ -274,7 +274,9 @@ class FrameEncoder(nn.Module):
         }
 
         if self.coolchic_encoder.full_precision_param is not None:
-            data_to_save["coolchic_full_precision_param"] = self.coolchic_encoder.full_precision_param
+            data_to_save["coolchic_full_precision_param"] = (
+                self.coolchic_encoder.full_precision_param
+            )
 
         torch.save(data_to_save, buffer)
 
@@ -282,6 +284,7 @@ class FrameEncoder(nn.Module):
         #     print(f"{k:>30}: {v.abs().sum().item()}")
 
         return buffer
+
 
 def load_frame_encoder(raw_bytes: BytesIO) -> FrameEncoder:
     """From already loaded raw bytes, load & return a CoolChicEncoder
@@ -311,9 +314,13 @@ def load_frame_encoder(raw_bytes: BytesIO) -> FrameEncoder:
     # Check if coolchic_nn_expgol_cnt is present in loaded data for backward
     # compatibility. Not meant to stay very long.
     if "coolchic_nn_expgol_cnt" in loaded_data:
-        frame_encoder.coolchic_encoder.nn_expgol_cnt = loaded_data["coolchic_nn_expgol_cnt"]
+        frame_encoder.coolchic_encoder.nn_expgol_cnt = loaded_data[
+            "coolchic_nn_expgol_cnt"
+        ]
 
     if "coolchic_full_precision_param" in loaded_data:
-        frame_encoder.coolchic_encoder.full_precision_param = loaded_data["coolchic_full_precision_param"]
+        frame_encoder.coolchic_encoder.full_precision_param = loaded_data[
+            "coolchic_full_precision_param"
+        ]
 
     return frame_encoder

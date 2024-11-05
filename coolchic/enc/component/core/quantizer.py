@@ -94,7 +94,9 @@ def generate_kumaraswamy_noise(
 
 
 POSSIBLE_QUANTIZATION_NOISE_TYPE = Literal["kumaraswamy", "gaussian", "none"]
-POSSIBLE_QUANTIZER_TYPE = Literal["softround_alone", "softround", "hardround", "ste", "none"]
+POSSIBLE_QUANTIZER_TYPE = Literal[
+    "softround_alone", "softround", "hardround", "ste", "none"
+]
 
 
 def quantize(

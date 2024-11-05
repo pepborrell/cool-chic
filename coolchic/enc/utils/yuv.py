@@ -70,7 +70,12 @@ def load_frame_data_from_file(filename: str, idx_display_order: int) -> FrameDat
     return FrameData(bitdepth, frame_data_type, data)
 
 
-def read_yuv(filename: str, frame_idx: int, frame_data_type: FRAME_DATA_TYPE, bit_depth: POSSIBLE_BITDEPTH) -> DictTensorYUV:
+def read_yuv(
+    filename: str,
+    frame_idx: int,
+    frame_data_type: FRAME_DATA_TYPE,
+    bit_depth: POSSIBLE_BITDEPTH,
+) -> DictTensorYUV:
     """From a filename /a/b/c.yuv, read the desired frame_index
     and return a dictionary of tensor containing the YUV values:
         {

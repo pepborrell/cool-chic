@@ -75,6 +75,7 @@ class TrainerPhase:
             optimized. Most often you'd want to use ``optimized_module = ['all']``.
             Defaults to ``['all']``.
     """
+
     lr: float = 1e-2
     max_itr: int = 5000
     freq_valid: int = 100
@@ -103,10 +104,10 @@ class TrainerPhase:
         s += f"{self.quantize_model:^{13}}|"
         s += f"{self.schedule_lr:^{13}}|"
 
-        softround_str= ', '.join([f'{x:1.1e}' for x in self.softround_temperature])
+        softround_str = ", ".join([f"{x:1.1e}" for x in self.softround_temperature])
         s += f'{f"{softround_str}":^{18}}|'
 
-        noise_str = ', '.join([f'{x:1.2f}' for x in self.noise_parameter])
+        noise_str = ", ".join([f"{x:1.2f}" for x in self.noise_parameter])
         s += f'{f"{noise_str}":^{14}}|'
         return s
 
@@ -127,14 +128,14 @@ class TrainerPhase:
     def _vertical_line_array(cls) -> str:
         """Return a string made of "-" and "+" matching the columns
         of the print detailed above"""
-        s = '-' * 14 + '+'
-        s += '-' * 9 + '+'
-        s += '-' * 16 + '+'
-        s += '-' * 13 + '+'
-        s += '-' * 13 + '+'
-        s += '-' * 13 + '+'
-        s += '-' * 18 + '+'
-        s += '-' * 14 + '+'
+        s = "-" * 14 + "+"
+        s += "-" * 9 + "+"
+        s += "-" * 16 + "+"
+        s += "-" * 13 + "+"
+        s += "-" * 13 + "+"
+        s += "-" * 13 + "+"
+        s += "-" * 18 + "+"
+        s += "-" * 14 + "+"
         return s
 
 
@@ -162,7 +163,7 @@ class WarmupPhase:
     def _pretty_string_column_name(cls) -> str:
         """Return the name of the column aligned with the pretty_string function"""
         s = f'|{"Candidates":^{14}}|'
-        s += f'{TrainerPhase._pretty_string_column_name()}'
+        s += f"{TrainerPhase._pretty_string_column_name()}"
         return s
 
 
@@ -175,6 +176,7 @@ class Warmup:
         phase (List[WarmupPhase]): The successive phases of the Warmup.
             Defaults to ``[]``.
     """
+
     phases: List[WarmupPhase] = field(default_factory=lambda: [])
 
     def _get_total_warmup_iterations(self) -> int:
@@ -202,9 +204,12 @@ class Preset:
             phase. Defaults to ``[]``.
         warmup (Warmup): The warm-up parameters. Defaults to ``Warmup()``.
     """
+
     preset_name: str
     # Dummy empty training phases and warm-up
-    all_phases: List[TrainerPhase] = field(default_factory=lambda: []) # All the post-warm-up training phases
+    all_phases: List[TrainerPhase] = field(
+        default_factory=lambda: []
+    )  # All the post-warm-up training phases
     warmup: Warmup = field(default_factory=lambda: Warmup())  # All the warm-up phases
 
     def __post_init__(self):
@@ -223,9 +228,7 @@ class Preset:
 
     def _get_total_training_iterations(self) -> int:
         """Return the total number of iterations for the whole warm-up."""
-        return sum(
-            [phase.max_itr for phase in self.all_phases]
-        )
+        return sum([phase.max_itr for phase in self.all_phases])
 
     def pretty_string(self) -> str:
         """Return a pretty string describing a warm-up phase"""
@@ -252,7 +255,7 @@ class Preset:
         s += "\nMaximum number of iterations (warm-up / training / total):"
         warmup_max_itr = self.warmup._get_total_warmup_iterations()
         training_max_itr = self._get_total_training_iterations()
-        total_max_itr  =warmup_max_itr + training_max_itr
+        total_max_itr = warmup_max_itr + training_max_itr
         s += f"{warmup_max_itr:^8} / {training_max_itr:^8} / {total_max_itr:^8}\n\n"
         return s
 
@@ -284,7 +287,7 @@ class PresetC3x(Preset):
                 quantizer_noise_type="none",
                 # This is only used to parameterize the backward of the quantization
                 softround_temperature=(1e-4, 1e-4),
-                noise_parameter=(1.0, 1.0),     # not used since quantizer type is "ste"
+                noise_parameter=(1.0, 1.0),  # not used since quantizer type is "ste"
                 quantize_model=True,  # ! This is an important parameter
             ),
             # Re-tune the latent
@@ -297,7 +300,7 @@ class PresetC3x(Preset):
                 optimized_module=["latent"],  # ! Only fine tune the latent
                 freq_valid=10,
                 softround_temperature=(1e-4, 1e-4),
-                noise_parameter=(1.0, 1.0),     # not used since quantizer type is "ste"
+                noise_parameter=(1.0, 1.0),  # not used since quantizer type is "ste"
             ),
         ]
 
@@ -317,7 +320,7 @@ class PresetC3x(Preset):
                         quantizer_noise_type="kumaraswamy",
                         quantizer_type="softround",
                         optimized_module=["all"],
-                    )
+                    ),
                 ),
                 WarmupPhase(
                     candidates=2,
@@ -333,8 +336,8 @@ class PresetC3x(Preset):
                         quantizer_noise_type="kumaraswamy",
                         quantizer_type="softround",
                         optimized_module=["all"],
-                    )
-                )
+                    ),
+                ),
             ]
         )
 
@@ -368,7 +371,7 @@ class PresetDebug(Preset):
                 quantizer_noise_type="none",
                 quantize_model=True,
                 softround_temperature=(1e-4, 1e-4),
-                noise_parameter=(1.0, 1.0),     # not used since quantizer type is "ste"
+                noise_parameter=(1.0, 1.0),  # not used since quantizer type is "ste"
             )
         )
 
@@ -382,7 +385,7 @@ class PresetDebug(Preset):
                 quantizer_type="ste",
                 quantizer_noise_type="none",
                 softround_temperature=(1e-4, 1e-4),
-                noise_parameter=(1.0, 1.0),     # not used since quantizer type is "ste"
+                noise_parameter=(1.0, 1.0),  # not used since quantizer type is "ste"
             )
         )
 

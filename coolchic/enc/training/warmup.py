@@ -115,7 +115,7 @@ def warmup(
                 quantizer_type=warmup_phase.training_phase.quantizer_type,
                 quantizer_noise_type=warmup_phase.training_phase.quantizer_noise_type,
                 softround_temperature=warmup_phase.training_phase.softround_temperature,
-                noise_parameter=warmup_phase.training_phase.noise_parameter
+                noise_parameter=warmup_phase.training_phase.noise_parameter,
             )
 
             metrics = test(frame_encoder, frame, frame_encoder_manager)
