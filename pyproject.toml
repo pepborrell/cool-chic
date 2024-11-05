@@ -21,3 +21,7 @@ ConfigArgParse = "*"
 psutil = "*"
 pytest = "*"
 pytest-order = "*"
+
+[tool.poetry.group.dev.dependencies]
+ruff = "^0.7.2"
+
