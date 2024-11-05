@@ -3,7 +3,6 @@
 import subprocess
 
 from pybind11.setup_helpers import Pybind11Extension, build_ext
-from setuptools import setup
 from sys import platform
 
 __version__ = "3.4.0"
@@ -114,6 +113,19 @@ setup(
         "pytest-order",
     ],
 )
+
+
+def build(setup_kwargs):
+    setup_kwargs.update(
+        {
+            "ext_modules": ext_modules,
+            "cmd_class": {"build_ext": build_ext},
+            "zip_safe": False,
+            "extras_require": {},
+            "python_requires": ">=3.10",
+        }
+    )
+
 
 subprocess.call(f"mkdir -p {CCLIB_PATH}", shell=True)
 
