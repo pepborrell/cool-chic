@@ -72,6 +72,17 @@ Check-out the [release history](https://github.com/Orange-OpenSource/Cool-Chic/r
 
 More details are available on the [Cool-chic page](https://orange-opensource.github.io/Cool-Chic/getting_started/quickstart.html)
 
+With the new poetry setup:
+```bash
+# If poetry is not installed:
+pip install poetry
+# Build associated packages using setuptools (triggered by poetry)
+poetry build
+# Install python dependencies
+poetry install
+```
+
+Old setup system (probably doesn't work anymore):
 ```bash
 # We need to get these packages to compile the C API and bind it to python.
 sudo add-apt-repository -y ppa:deadsnakes/ppa && sudo apt update
