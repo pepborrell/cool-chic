@@ -66,6 +66,7 @@ def train(
     quantizer_noise_type: POSSIBLE_QUANTIZATION_NOISE_TYPE = "kumaraswamy",
     softround_temperature: Tuple[float, float] = (0.3, 0.2),
     noise_parameter: Tuple[float, float] = (2.0, 1.0),
+    frac_latents_to_optimize: float | None = None,
 ) -> FrameEncoder:
     """Train a ``FrameEncoder`` and return the updated module. This function is
     supposed to be called any time we want to optimize the parameters of a
@@ -239,6 +240,7 @@ def train(
             quantizer_type=quantizer_type,
             soft_round_temperature=cur_softround_temperature,
             noise_parameter=cur_noise_parameter,
+            frac_latents_to_optimize=frac_latents_to_optimize,
         )
 
         loss_function_output = loss_function(

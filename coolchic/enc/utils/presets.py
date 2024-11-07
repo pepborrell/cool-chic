@@ -87,6 +87,7 @@ class TrainerPhase:
     quantizer_noise_type: POSSIBLE_QUANTIZATION_NOISE_TYPE = "kumaraswamy"
     quantizer_type: POSSIBLE_QUANTIZER_TYPE = "softround"
     optimized_module: List[MODULE_TO_OPTIMIZE] = field(default_factory=lambda: ["all"])
+    frac_latents_to_optimize: float | None = None
 
     def __post_init__(self):
         # If all is present in the list of modules to be optimized, alongside something else,
@@ -275,6 +276,7 @@ class PresetC3x(Preset):
                 quantizer_noise_type="gaussian",
                 softround_temperature=(0.3, 0.1),
                 noise_parameter=(0.25, 0.1),
+                # frac_latents_to_optimize=0.5,
             ),
             # Stage with STE then network quantization
             TrainerPhase(
@@ -289,6 +291,7 @@ class PresetC3x(Preset):
                 softround_temperature=(1e-4, 1e-4),
                 noise_parameter=(1.0, 1.0),  # not used since quantizer type is "ste"
                 quantize_model=True,  # ! This is an important parameter
+                # frac_latents_to_optimize=0.5,
             ),
             # Re-tune the latent
             TrainerPhase(
@@ -397,7 +400,92 @@ class PresetDebug(Preset):
         )
 
 
+class PresetOnlySTE(Preset):
+    def __init__(self, start_lr: float = 1e-2, n_itr_per_phase: int = 100000):
+        super().__init__(preset_name="onlyste")
+        # 1st stage: with soft round and quantization noise
+        self.all_phases: List[TrainerPhase] = [
+            TrainerPhase(
+                lr=start_lr,
+                max_itr=n_itr_per_phase + 600,
+                patience=5000,
+                optimized_module=["all"],
+                schedule_lr=True,
+                quantizer_type="ste",
+                quantizer_noise_type="none",
+                softround_temperature=(0.3, 0.1),
+                noise_parameter=(0.25, 0.1),  # not used.
+                # frac_latents_to_optimize=0.5,
+            ),
+            # Stage with STE then network quantization
+            TrainerPhase(
+                lr=1.0e-4,
+                max_itr=1500,
+                patience=1500,
+                optimized_module=["all"],
+                schedule_lr=True,
+                quantizer_type="ste",
+                quantizer_noise_type="none",
+                # This is only used to parameterize the backward of the quantization
+                softround_temperature=(1e-4, 1e-4),
+                noise_parameter=(1.0, 1.0),  # not used since quantizer type is "ste"
+                quantize_model=True,  # ! This is an important parameter
+                # frac_latents_to_optimize=0.5,
+            ),
+            # Re-tune the latent
+            TrainerPhase(
+                lr=1.0e-4,
+                max_itr=1000,
+                patience=50,
+                quantizer_type="ste",
+                quantizer_noise_type="none",
+                optimized_module=["latent"],  # ! Only fine tune the latent
+                freq_valid=10,
+                softround_temperature=(1e-4, 1e-4),
+                noise_parameter=(1.0, 1.0),  # not used since quantizer type is "ste"
+            ),
+        ]
+
+        self.warmup = Warmup(
+            [
+                WarmupPhase(
+                    candidates=5,
+                    training_phase=TrainerPhase(
+                        lr=start_lr,
+                        max_itr=400,
+                        freq_valid=400,
+                        patience=100000,
+                        quantize_model=False,
+                        schedule_lr=False,
+                        softround_temperature=(0.3, 0.3),
+                        noise_parameter=(2.0, 2.0),
+                        quantizer_noise_type="kumaraswamy",
+                        quantizer_type="softround",
+                        optimized_module=["all"],
+                    ),
+                ),
+                WarmupPhase(
+                    candidates=2,
+                    training_phase=TrainerPhase(
+                        lr=start_lr,
+                        max_itr=400,
+                        freq_valid=400,
+                        patience=100000,
+                        quantize_model=False,
+                        schedule_lr=False,
+                        softround_temperature=(0.3, 0.3),
+                        noise_parameter=(2.0, 2.0),
+                        quantizer_noise_type="kumaraswamy",
+                        quantizer_type="softround",
+                        optimized_module=["all"],
+                    ),
+                ),
+            ]
+        )
+
+
 AVAILABLE_PRESETS: Dict[str, Preset] = {
     "c3x": PresetC3x,
     "debug": PresetDebug,
+    "onlyste": PresetOnlySTE,
 }

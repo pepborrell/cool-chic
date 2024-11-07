@@ -248,6 +248,7 @@ class VideoEncoder:
                         quantizer_noise_type=training_phase.quantizer_noise_type,
                         softround_temperature=training_phase.softround_temperature,
                         noise_parameter=training_phase.noise_parameter,
+                        frac_latents_to_optimize=training_phase.frac_latents_to_optimize,
                     )
 
                     if training_phase.quantize_model:

@@ -278,6 +278,7 @@ class CoolChicEncoder(nn.Module):
         noise_parameter: Optional[float] = 1.0,
         AC_MAX_VAL: int = -1,
         flag_additional_outputs: bool = False,
+        frac_latents_to_optimize: float | None = None,
     ) -> CoolChicEncoderOutput:
         """Perform CoolChicEncoder forward pass, to be used during the training.
         The main step are as follows:
@@ -377,7 +378,7 @@ class CoolChicEncoder(nn.Module):
         # flat_context: [N, context_size] tensor describing each latent context
 
         # Get all the context as a single 2D vector of size [B, context size]
-        flat_context = torch.cat(
+        flat_context: torch.Tensor = torch.cat(
             [
                 _get_neighbor(
                     spatial_latent_i, self.mask_size, self.non_zero_pixel_ctx_index
@@ -392,6 +393,20 @@ class CoolChicEncoder(nn.Module):
             [spatial_latent_i.view(-1) for spatial_latent_i in decoder_side_latent],
             dim=0,
         )
+
+        # NOTE: here i restrict gradients flowing back to the rate optimization,
+        # so that only the arm is optimized here.
+        # flat_context = flat_context.detach()
+        # flat_latent = flat_latent.detach()
+
+        # NOTE: i select a fraction of the elements of the latents to see if I can speed up this process without major quality losses.
+        if frac_latents_to_optimize:
+            latent_batch_size = flat_latent.shape[0]
+            selected_ids = torch.randint(
+                latent_batch_size, (int(frac_latents_to_optimize * latent_batch_size),)
+            )
+            flat_context = flat_context[selected_ids, :]
+            flat_latent = flat_latent[selected_ids]
 
         # Feed the spatial context to the arm MLP and get mu and scale
         flat_mu, flat_scale, flat_log_scale = self.arm(flat_context)

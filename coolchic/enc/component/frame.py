@@ -102,6 +102,7 @@ class FrameEncoder(nn.Module):
         noise_parameter: Optional[float] = 1.0,
         AC_MAX_VAL: int = -1,
         flag_additional_outputs: bool = False,
+        frac_latents_to_optimize: float | None = None,
     ) -> FrameEncoderOutput:
         """Perform the entire forward pass of a video frame / image.
 
@@ -160,6 +161,7 @@ class FrameEncoder(nn.Module):
             noise_parameter=noise_parameter,
             AC_MAX_VAL=AC_MAX_VAL,
             flag_additional_outputs=flag_additional_outputs,
+            frac_latents_to_optimize=frac_latents_to_optimize,
         )
 
         # Combine CoolChic output and reference frames through the inter coding modules
