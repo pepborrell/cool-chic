@@ -6,6 +6,7 @@ venv/
 *.pt
 *.png
 *.out
+wandb/
 
 docs/build/
 .DS_Store
