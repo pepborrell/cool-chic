@@ -1,9 +1,18 @@
 from pathlib import Path
-from typing import Any, override
+import yaml
+from typing import Any, Literal, override
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from coolchic.enc.utils.presets import TrainerPhase, Warmup, WarmupPhase
+from coolchic.utils.paths import COOLCHIC_PYTHON_ROOT
+
+PRESET_NAMES = Literal["c3x", "debug"]
+preset_configs_dir = COOLCHIC_PYTHON_ROOT / "preset_cfg"
+PRESET_PATHS: dict[PRESET_NAMES, Path] = {
+    "c3x": preset_configs_dir / "c3x.yaml",
+    "debug": preset_configs_dir / "debug.yaml",
+}
 
 
 class PresetConfig(BaseModel):
@@ -66,7 +75,33 @@ class EncoderConfig(BaseModel):
     start_lr: float = 1e-2
     n_itr: int = int(1e4)
     n_train_loops: int = 1
-    recipe: PresetConfig
+    # The recipe parameters are mutually exclusive.
+    recipe: PresetConfig | None
+    std_recipe_name: PRESET_NAMES | None  # Declares a standardised preset by its name.
+
+    def model_post_init(self, __context: Any) -> None:
+        # If std_recipe_name was provided, assign the right recipe preset.
+        if self.std_recipe_name:
+            if self.recipe:
+                # Check that both are not given at the same time.
+                raise ValueError(
+                    "Only one of 'recipe' or 'std_recipe_name' must be provided, not both."
+                )
+            with open(PRESET_PATHS[self.std_recipe_name], "r") as stream:
+                self.recipe = PresetConfig(**yaml.safe_load(stream))
+
+    @model_validator(mode="after")
+    def check_mutually_exclusive_recipes(self):
+        """Checks that only one of recipe and std_recipe are provided."""
+        # Check if both fields are provided
+        if self.recipe and self.std_recipe_name:
+            raise ValueError(
+                "Only one of 'recipe' or 'std_recipe_name' must be provided, not both."
+            )
+        # Check if neither field is provided
+        if not self.recipe and not self.std_recipe_name:
+            raise ValueError("One of 'recipe' or 'std_recipe_name' must be provided.")
+        return self
 
 
 class DecoderConfig(BaseModel):

@@ -12,7 +12,8 @@ import os
 import sys
 from pathlib import Path
 
-from coolchic.types import Config
+from coolchic.utils.paths import COOLCHIC_REPO_ROOT
+from coolchic.utils.types import Config
 import torch
 import yaml
 from coolchic.enc.component.coolchic import CoolChicEncoderParameter
@@ -60,7 +61,7 @@ if __name__ == "__main__":
         config.workdir
         if config.workdir is not None
         # If no workdir is specified, results will be saved in results/{path_to_config_relative_to_cfg}/
-        else Path(__file__).parent.parent  # cool-chic base dir
+        else COOLCHIC_REPO_ROOT
         / "results"
         / config_path.relative_to("cfg").with_suffix("")
     )
