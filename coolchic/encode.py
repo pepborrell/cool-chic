@@ -65,8 +65,8 @@ if __name__ == "__main__":
         / "results"
         / config_path.relative_to("cfg").with_suffix("")
     )
-    assert workdir.is_dir()
     workdir.mkdir(parents=True, exist_ok=True)
+    assert workdir.is_dir()
 
     path_video_encoder = workdir / "video_encoder.pt"
     if config.load_models and os.path.exists(path_video_encoder):
