@@ -14,16 +14,21 @@ import time
 from typing import Dict, List, Tuple
 
 import torch
-from enc.utils.manager import FrameEncoderManager
-from enc.component.coolchic import CoolChicEncoderParameter
-from enc.component.frame import FrameEncoder, load_frame_encoder
-from enc.training.quantizemodel import quantize_model
-from enc.training.test import test
-from enc.training.train import train
-from enc.training.warmup import warmup
-from enc.utils.codingstructure import CodingStructure, Frame, FrameData
-from enc.utils.misc import POSSIBLE_DEVICE, TrainingExitCode, is_job_over, mem_info
-from enc.utils.yuv import load_frame_data_from_file
+from coolchic.enc.utils.manager import FrameEncoderManager
+from coolchic.enc.component.coolchic import CoolChicEncoderParameter
+from coolchic.enc.component.frame import FrameEncoder, load_frame_encoder
+from coolchic.enc.training.quantizemodel import quantize_model
+from coolchic.enc.training.test import test
+from coolchic.enc.training.train import train
+from coolchic.enc.training.warmup import warmup
+from coolchic.enc.utils.codingstructure import CodingStructure, Frame, FrameData
+from coolchic.enc.utils.misc import (
+    POSSIBLE_DEVICE,
+    TrainingExitCode,
+    is_job_over,
+    mem_info,
+)
+from coolchic.enc.utils.yuv import load_frame_data_from_file
 
 
 class VideoEncoder:

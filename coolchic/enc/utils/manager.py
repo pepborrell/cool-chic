@@ -7,6 +7,7 @@
 # Authors: see CONTRIBUTORS.md
 
 from dataclasses import dataclass, field, fields
+from coolchic.types import PresetConfig
 from enc.utils.presets import AVAILABLE_PRESETS, Preset
 
 
@@ -19,7 +20,8 @@ class FrameEncoderManager:
     """
 
     # ----- Encoding (i.e. training) options
-    preset_name: str  # Preset name, should be a key in AVAILABLE_PRESETS utils/encoding_management/presets.py
+    # preset_name: str  # Preset name, should be a key in AVAILABLE_PRESETS utils/encoding_management/presets.py
+    preset_config: PresetConfig
     start_lr: float = 1e-2  # Initial learning rate
     lmbda: float = 1e-3  # Rate constraint. Loss = D + lmbda R
     n_itr: int = int(
@@ -48,14 +50,15 @@ class FrameEncoderManager:
     # ==================== Not set by the init function ===================== #
 
     def __post_init__(self):
-        assert self.preset_name in AVAILABLE_PRESETS, (
-            f"Preset named {self.preset_name} does not exist."
+        assert self.preset_config.preset_name in AVAILABLE_PRESETS, (
+            f"Preset named {self.preset_config.preset_name} does not exist."
             f" List of available preset:\n{list(AVAILABLE_PRESETS.keys())}."
         )
 
-        self.preset = AVAILABLE_PRESETS.get(self.preset_name)(
-            start_lr=self.start_lr, n_itr_per_phase=self.n_itr
-        )
+        self.preset = self.preset_config
+        # self.preset = AVAILABLE_PRESETS.get(self.preset_name)(
+        #     start_lr=self.start_lr, n_itr_per_phase=self.n_itr
+        # )
 
         flag_quantize_model = False
         for training_phase in self.preset.all_phases:
