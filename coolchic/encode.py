@@ -7,11 +7,11 @@
 # Authors: Theo Ladune <theo.ladune@orange.com>
 #          Pierrick Philippe <pierrick.philippe@orange.com>
 
+import argparse
 import os
 import sys
 from pathlib import Path
 
-import configargparse
 from coolchic.types import Config
 import torch
 import yaml
@@ -46,8 +46,8 @@ if __name__ == "__main__":
     #      overrides both the default value and the value listed in the
     #      configuration file.
 
-    parser = configargparse.ArgumentParser()
-    parser.add(
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
         "--config", help="Specifies the path to the config file that will be used."
     )
     args = parser.parse_args()
@@ -196,6 +196,9 @@ if __name__ == "__main__":
         if n_cores is None:
             n_cores = os.cpu_count()
 
+        assert isinstance(
+            n_cores, int
+        ), "The 'SLURM_JOB_CPUS_PER_NODE' environment variable returned a non-integer value."
         n_cores = int(n_cores)
         print(f'{"CPU cores":<20}: {n_cores}')
 
