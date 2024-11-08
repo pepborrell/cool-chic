@@ -7,8 +7,8 @@
 # Authors: see CONTRIBUTORS.md
 
 from dataclasses import dataclass, field, fields
-from coolchic.types import PresetConfig
-from enc.utils.presets import AVAILABLE_PRESETS, Preset
+from coolchic.utils.types import PresetConfig
+from coolchic.enc.utils.presets import AVAILABLE_PRESETS, Preset
 
 
 @dataclass
@@ -65,7 +65,7 @@ class FrameEncoderManager:
             if training_phase.quantize_model:
                 flag_quantize_model = True
         assert flag_quantize_model, (
-            f"The selected preset ({self.preset_name}) does not include "
+            f"The selected preset ({self.preset_config.preset_name}) does not include "
             f" a training phase with neural network quantization.\n{self.preset.pretty_string()}"
         )
 
