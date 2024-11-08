@@ -58,7 +58,7 @@ if __name__ == "__main__":
 
     workdir = config.workdir
 
-    path_video_encoder = f"{workdir}video_encoder.pt"
+    path_video_encoder = workdir / "video_encoder.pt"
     if os.path.exists(path_video_encoder):
         video_encoder = load_video_encoder(path_video_encoder)
 
@@ -89,7 +89,7 @@ if __name__ == "__main__":
         workdir.mkdir(exist_ok=True)
 
         # Dump raw parameters into a text file to keep track
-        with open(f"{workdir}param.txt", "w") as f_out:
+        with open(workdir / "param.txt", "w") as f_out:
             f_out.write(yaml.dump(config.model_dump()))
             # f_out.write(str(args))
             # f_out.write("\n")
@@ -215,7 +215,7 @@ if __name__ == "__main__":
         job_duration_min=config.job_duration_min,
     )
 
-    video_encoder_savepath = f"{workdir}video_encoder.pt"
+    video_encoder_savepath = workdir / "video_encoder.pt"
     video_encoder.save(video_encoder_savepath)
 
     # Bitstream

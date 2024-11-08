@@ -39,3 +39,5 @@ pydantic = "^2.9.2"
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.7.2"
 
+[tool.pyright]
+include = ["coolchic/"]

@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any
+from typing import Any, override
 
 from pydantic import BaseModel, Field
 
@@ -11,6 +11,7 @@ class PresetConfig(BaseModel):
     warmup: Warmup
     all_phases: list[TrainerPhase]
 
+    @override
     def model_post_init(self, __context: Any) -> None:
         # Check that we do quantize the model at least once during the training
         flag_quantize_model = False
@@ -71,29 +72,35 @@ class EncoderConfig(BaseModel):
 class DecoderConfig(BaseModel):
     layers_synthesis: str = Field(
         default="40-1-linear-relu,X-1-linear-none,X-3-residual-relu,X-3-residual-none",
-        description="Syntax example for the synthesis:"
-        " 12-1-linear-relu,12-1-residual-relu,X-1-linear-relu,X-3-residual-none"
-        "This is a 4 layers synthesis. Now the output layer (computing the final RGB"
-        "values) must be specified i.e. a 12,12 should now be called a 12,12,3. Each layer"
-        "is described using the following syntax:"
-        "<output_dim>-<kernel_size>-<type>-<non_linearity>. "
-        "<output_dim> is the number of output features. If set to X, this is replaced by the"
-        "number of required output features i.e. 3 for a RGB or YUV frame."
-        "<kernel_size> is the spatial dimension of the kernel. Use 1 to mimic an MLP."
-        "<type> is either 'linear' for a standard conv or 'residual' for a residual"
-        " block i.e. layer(x) = x + conv(x). <non_linearity> Can be'none' for no"
-        " non-linearity, 'relu' for a ReLU",
+        description=(
+            "Syntax example for the synthesis:"
+            " 12-1-linear-relu,12-1-residual-relu,X-1-linear-relu,X-3-residual-none"
+            "This is a 4 layers synthesis. Now the output layer (computing the final RGB"
+            "values) must be specified i.e. a 12,12 should now be called a 12,12,3. Each layer"
+            "is described using the following syntax:"
+            "<output_dim>-<kernel_size>-<type>-<non_linearity>. "
+            "<output_dim> is the number of output features. If set to X, this is replaced by the"
+            "number of required output features i.e. 3 for a RGB or YUV frame."
+            "<kernel_size> is the spatial dimension of the kernel. Use 1 to mimic an MLP."
+            "<type> is either 'linear' for a standard conv or 'residual' for a residual"
+            " block i.e. layer(x) = x + conv(x). <non_linearity> Can be'none' for no"
+            " non-linearity, 'relu' for a ReLU"
+        ),
     )
     arm: str = Field(
         default="24,2",
-        description="<arm_context_and_layer_dimension>,<number_of_hidden_layers>"
-        "First number indicates both the context size **AND** the hidden layer dimension."
-        "Second number indicates the number of hidden layer(s). 0 gives a linear ARM module.",
+        description=(
+            "<arm_context_and_layer_dimension>,<number_of_hidden_layers>"
+            "First number indicates both the context size **AND** the hidden layer dimension."
+            "Second number indicates the number of hidden layer(s). 0 gives a linear ARM module."
+        ),
     )
     n_ft_per_res: str = Field(
         default="1,1,1,1,1,1,1",
-        description="Number of feature for each latent resolution. e.g. --n_ft_per_res=1,2,2,2,3,3,3"
-        " for 7 latent grids with variable resolutions.",
+        description=(
+            "Number of feature for each latent resolution. e.g. --n_ft_per_res=1,2,2,2,3,3,3"
+            " for 7 latent grids with variable resolutions."
+        ),
     )
     upsampling_kernel_size: int = 8
     static_upsampling_kernel: bool = False
@@ -101,8 +108,8 @@ class DecoderConfig(BaseModel):
 
 class Config(BaseModel):
     input: Path
-    output: Path = ""
-    workdir: Path = "."
+    output: Path = Path("")
+    workdir: Path = Path(".")
     lmbda: float = 1e-3
     job_duration_min: int = -1
     enc_cfg: EncoderConfig
