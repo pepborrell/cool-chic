@@ -56,10 +56,19 @@ if __name__ == "__main__":
     with open(config_path, "r") as stream:
         config = Config(**yaml.safe_load(stream))
 
-    workdir = config.workdir
+    workdir = (
+        config.workdir
+        if config.workdir is not None
+        # If no workdir is specified, results will be saved in results/{path_to_config_relative_to_cfg}/
+        else Path(__file__).parent.parent  # cool-chic base dir
+        / "results"
+        / config_path.relative_to("cfg").with_suffix("")
+    )
+    assert workdir.is_dir()
+    workdir.mkdir(parents=True, exist_ok=True)
 
     path_video_encoder = workdir / "video_encoder.pt"
-    if os.path.exists(path_video_encoder):
+    if config.load_models and os.path.exists(path_video_encoder):
         video_encoder = load_video_encoder(path_video_encoder)
 
     else:
@@ -208,6 +217,11 @@ if __name__ == "__main__":
 
     print(f"\n{video_encoder.coding_structure.pretty_string()}\n")
 
+    if config.disable_wandb:
+        # To disable wandb completely.
+        os.environ["WANDB_MODE"] = "disabled"
+    else:
+        os.environ["WANDB_MODE"] = "online"
     # Start wandb logging.
     wandb.init(project="coolchic-runs", config=config.model_dump())
 
@@ -225,7 +239,7 @@ if __name__ == "__main__":
     if config.output != "":
         from coolchic.enc.bitstream.encode import encode_video
 
-        # video_encoder = load_video_encoder(video_encoder_savepath)
+        video_encoder = load_video_encoder(video_encoder_savepath)
         encode_video(video_encoder, config.output, hls_sig_blksize=16)
 
     wandb.finish()

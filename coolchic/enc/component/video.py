@@ -8,7 +8,6 @@
 
 
 import copy
-import os
 import subprocess
 import time
 from pathlib import Path
@@ -485,7 +484,7 @@ class VideoEncoder:
         Args:
             save_path: Where to save the model
         """
-        save_path.mkdir(parents=True, exist_ok=True)
+        save_path.parent.mkdir(parents=True, exist_ok=True)
 
         # We don't need to save the original frames nor the coded ones.
         # The original frames can be reloaded from the dataset. The coded ones

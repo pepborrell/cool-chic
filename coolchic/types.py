@@ -109,8 +109,10 @@ class DecoderConfig(BaseModel):
 class Config(BaseModel):
     input: Path
     output: Path = Path("")
-    workdir: Path = Path(".")
+    workdir: Path | None = None
     lmbda: float = 1e-3
     job_duration_min: int = -1
     enc_cfg: EncoderConfig
     dec_cfg: DecoderConfig
+    disable_wandb: bool = False
+    load_models: bool = True
