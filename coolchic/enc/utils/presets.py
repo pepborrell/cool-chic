@@ -9,9 +9,10 @@
 """Gather the different encoding presets here."""
 
 from dataclasses import dataclass, field
+from pydantic import BaseModel, Field
 from typing import Dict, List, Literal, Tuple
 
-from enc.component.core.quantizer import (
+from coolchic.enc.component.core.quantizer import (
     POSSIBLE_QUANTIZATION_NOISE_TYPE,
     POSSIBLE_QUANTIZER_TYPE,
 )
@@ -20,8 +21,7 @@ from enc.component.core.quantizer import (
 MODULE_TO_OPTIMIZE = Literal["all", "arm", "upsampling", "synthesis", "latent"]
 
 
-@dataclass
-class TrainerPhase:
+class TrainerPhase(BaseModel):
     """Dataclass representing one phase of an encoding preset.
 
     Args:
@@ -86,7 +86,7 @@ class TrainerPhase:
     noise_parameter: Tuple[float, float] = (1.0, 1.0)
     quantizer_noise_type: POSSIBLE_QUANTIZATION_NOISE_TYPE = "kumaraswamy"
     quantizer_type: POSSIBLE_QUANTIZER_TYPE = "softround"
-    optimized_module: List[MODULE_TO_OPTIMIZE] = field(default_factory=lambda: ["all"])
+    optimized_module: List[MODULE_TO_OPTIMIZE] = Field(default_factory=lambda: ["all"])
 
     def __post_init__(self):
         # If all is present in the list of modules to be optimized, alongside something else,
@@ -111,8 +111,8 @@ class TrainerPhase:
         s += f'{f"{noise_str}":^{14}}|'
         return s
 
-    @classmethod
-    def _pretty_string_column_name(cls) -> str:
+    @staticmethod
+    def _pretty_string_column_name() -> str:
         """Return the name of the column aligned with the pretty_string function"""
         s = f'{"Learn rate":^{14}}|'
         s += f'{"Max itr":^{9}}|'
@@ -124,8 +124,8 @@ class TrainerPhase:
         s += f'{"Noise":^{14}}|'
         return s
 
-    @classmethod
-    def _vertical_line_array(cls) -> str:
+    @staticmethod
+    def _vertical_line_array() -> str:
         """Return a string made of "-" and "+" matching the columns
         of the print detailed above"""
         s = "-" * 14 + "+"
@@ -139,8 +139,7 @@ class TrainerPhase:
         return s
 
 
-@dataclass
-class WarmupPhase:
+class WarmupPhase(BaseModel):
     """Describe one phase of the :doc:`warm-up <../training/warmup>`. At the
     beginning of each warm-up phase, we start by keeping the best ``candidates``
     systems. We then perform a short training, and we go to the next phase.
@@ -159,16 +158,15 @@ class WarmupPhase:
         s += f"{self.training_phase.pretty_string()}"
         return s
 
-    @classmethod
-    def _pretty_string_column_name(cls) -> str:
+    @staticmethod
+    def _pretty_string_column_name() -> str:
         """Return the name of the column aligned with the pretty_string function"""
         s = f'|{"Candidates":^{14}}|'
         s += f"{TrainerPhase._pretty_string_column_name()}"
         return s
 
 
-@dataclass
-class Warmup:
+class Warmup(BaseModel):
     """A :doc:`warm-up <../training/warmup>` is composed of different phases
     where the worse candidates are successively eliminated.
 
@@ -177,7 +175,7 @@ class Warmup:
             Defaults to ``[]``.
     """
 
-    phases: List[WarmupPhase] = field(default_factory=lambda: [])
+    phases: List[WarmupPhase] = Field(default_factory=lambda: [])
 
     def _get_total_warmup_iterations(self) -> int:
         """Return the total number of iterations for the whole warm-up."""
