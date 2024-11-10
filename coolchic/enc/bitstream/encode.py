@@ -7,22 +7,23 @@
 # Authors: see CONTRIBUTORS.md
 
 import os
+from pathlib import Path
 import subprocess
 import time
 
 import torch
 
-from dec.nn import decode_network
+from coolchic.dec.nn import decode_network
 
-from enc.bitstream.utils import get_sub_bitstream_path
-from enc.bitstream.header import write_frame_header, write_gop_header
-from CCLIB.ccencapi import cc_code_latent_layer_bac, cc_code_wb_bac
-from enc.bitstream.armint import ArmInt
-from enc.component.core.synthesis import Synthesis
-from enc.component.core.upsampling import Upsampling
-from enc.component.frame import FrameEncoder
-from enc.component.video import VideoEncoder
-from enc.utils.misc import (
+from coolchic.enc.bitstream.utils import get_sub_bitstream_path
+from coolchic.enc.bitstream.header import write_frame_header, write_gop_header
+from coolchic.CCLIB.ccencapi import cc_code_latent_layer_bac, cc_code_wb_bac
+from coolchic.enc.component.core.armint import ArmInt
+from coolchic.enc.component.core.synthesis import Synthesis
+from coolchic.enc.component.core.upsampling import Upsampling
+from coolchic.enc.component.frame import FrameEncoder
+from coolchic.enc.component.video import VideoEncoder
+from coolchic.enc.utils.misc import (
     FIXED_POINT_FRACTIONAL_MULT,
     FIXED_POINT_FRACTIONAL_BITS,
     POSSIBLE_Q_STEP_SHIFT,
@@ -159,19 +160,22 @@ def get_ac_max_val_latent(frame_encoder: FrameEncoder) -> int:
 
 
 def encode_video(
-    video_encoder: VideoEncoder, bitstream_path: str, hls_sig_blksize: int
+    video_encoder: VideoEncoder, bitstream_path: Path, hls_sig_blksize: int
 ):
     start_time = time.time()
 
     # ======================== GOP HEADER ======================== #
     # Write the header
-    header_path = f"{bitstream_path}_gop_header"
-    write_gop_header(video_encoder, header_path)
+    # header_path = f"{bitstream_path}_gop_header"
+    header_path = bitstream_path.with_suffix("_gop_header")
+    write_gop_header(video_encoder, str(header_path))
 
     # Concatenate everything inside a single file
-    subprocess.call(f"rm -f {bitstream_path}", shell=True)
+    # subprocess.call(f"rm -f {bitstream_path}", shell=True)
+    bitstream_path.unlink(missing_ok=True)
     subprocess.call(f"cat {header_path} >> {bitstream_path}", shell=True)
-    subprocess.call(f"rm -f {header_path}", shell=True)
+    # subprocess.call(f"rm -f {header_path}", shell=True)
+    header_path.unlink(missing_ok=True)
     # ======================== GOP HEADER ======================== #
 
     for idx_coding_order in range(
@@ -180,7 +184,7 @@ def encode_video(
         # Retrieve the frame encoder corresponding to the frame
         frame_encoder, _ = video_encoder.all_frame_encoders.get(str(idx_coding_order))
 
-        frame_bitstream_path = f"{bitstream_path}_{idx_coding_order}"
+        frame_bitstream_path = str(bitstream_path.with_suffix("_idx_coding_order"))
         encode_frame(
             video_encoder,
             frame_encoder,

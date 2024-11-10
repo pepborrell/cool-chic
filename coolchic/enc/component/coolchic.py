@@ -16,21 +16,20 @@ from torch import nn, Tensor
 
 import torch
 from fvcore.nn import FlopCountAnalysis, flop_count_table
-
-from enc.component.core.arm import (
+from coolchic.enc.component.core.arm import (
     Arm,
     _get_neighbor,
     _get_non_zero_pixel_ctx_index,
     _laplace_cdf,
 )
-from enc.component.core.quantizer import (
+from coolchic.enc.component.core.quantizer import (
     POSSIBLE_QUANTIZATION_NOISE_TYPE,
     POSSIBLE_QUANTIZER_TYPE,
     quantize,
 )
-from enc.component.core.synthesis import Synthesis
-from enc.component.core.upsampling import Upsampling
-from enc.utils.misc import (
+from coolchic.enc.component.core.synthesis import Synthesis
+from coolchic.enc.component.core.upsampling import Upsampling
+from coolchic.enc.utils.misc import (
     MAX_ARM_MASK_SIZE,
     POSSIBLE_DEVICE,
     DescriptorCoolChic,
@@ -262,7 +261,6 @@ class CoolChicEncoder(nn.Module):
         # Fill the two attributes aboves
         self.get_flops()
         # ======================== Monitoring ======================== #
-
 
         # Track the quantization step of each neural network, None if the
         # module is not yet quantized
@@ -739,14 +737,10 @@ class CoolChicEncoder(nn.Module):
         n_pixels = self.param.img_size[-2] * self.param.img_size[-1]
         total_mac_per_pix = self.get_total_mac_per_pixel()
 
-
         title = f"Cool-chic architecture {total_mac_per_pix:.0f} MAC / pixel"
-        s += (
-            f"\n{title}\n"
-            f"{'-' * len(title)}\n\n"
-        )
+        s += f"\n{title}\n" f"{'-' * len(title)}\n\n"
 
-        complexity = self.flops_per_module['upsampling'] / n_pixels
+        complexity = self.flops_per_module["upsampling"] / n_pixels
         share_complexity = 100 * complexity / total_mac_per_pix
         title = f"Upsampling {complexity:.0f} MAC/pixel ; {share_complexity:.1f} % of the complexity"
         s += (
@@ -754,36 +748,23 @@ class CoolChicEncoder(nn.Module):
             f"{'=' * len(title)}\n"
             "Note: all upsampling layers are separable and symmetric "
             "(transposed) convolutions.\n\n"
-
         )
         s += pretty_string_ups(self.upsampling, "")
 
-        complexity = self.flops_per_module['arm'] / n_pixels
+        complexity = self.flops_per_module["arm"] / n_pixels
         share_complexity = 100 * complexity / total_mac_per_pix
         title = f"ARM {complexity:.0f} MAC/pixel ; {share_complexity:.1f} % of the complexity"
-        s += (
-            f"\n\n\n{title}\n"
-            f"{'=' * len(title)}\n\n\n"
-
-        )
+        s += f"\n\n\n{title}\n" f"{'=' * len(title)}\n\n\n"
         input_arm = f"{self.arm.dim_arm}-pixel context"
         output_arm = "mu, log scale"
-        s += pretty_string_nn(
-            self.arm.mlp, "", input_arm, output_arm
-        )
+        s += pretty_string_nn(self.arm.mlp, "", input_arm, output_arm)
 
-        complexity = self.flops_per_module['synthesis'] / n_pixels
+        complexity = self.flops_per_module["synthesis"] / n_pixels
         share_complexity = 100 * complexity / total_mac_per_pix
         title = f"Synthesis {complexity:.0f} MAC/pixel ; {share_complexity:.1f} % of the complexity"
-        s += (
-            f"\n\n\n{title}\n"
-            f"{'=' * len(title)}\n\n\n"
-
-        )
+        s += f"\n\n\n{title}\n" f"{'=' * len(title)}\n\n\n"
         input_syn = f"{self.synthesis.input_ft} features"
         output_syn = "Decoded image"
-        s += pretty_string_nn(
-            self.synthesis.layers, "", input_syn, output_syn
-        )
+        s += pretty_string_nn(self.synthesis.layers, "", input_syn, output_syn)
 
         return s

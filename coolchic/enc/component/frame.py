@@ -15,19 +15,19 @@ from io import BytesIO
 from typing import Any, Dict, List, Optional, OrderedDict, Union
 
 import torch
-from enc.component.coolchic import (
+from coolchic.enc.component.coolchic import (
     CoolChicEncoder,
     CoolChicEncoderParameter,
 )
-from enc.component.core.quantizer import (
+from coolchic.enc.component.core.quantizer import (
     POSSIBLE_QUANTIZATION_NOISE_TYPE,
     POSSIBLE_QUANTIZER_TYPE,
 )
-from enc.component.intercoding import InterCodingModule
-from enc.io.format.data_type import FRAME_DATA_TYPE, POSSIBLE_BITDEPTH
-from enc.io.format.yuv import DictTensorYUV, convert_444_to_420, yuv_dict_clamp
-from enc.utils.codingstructure import FRAME_TYPE
-from enc.utils.misc import POSSIBLE_DEVICE
+from coolchic.enc.component.intercoding import InterCodingModule
+from coolchic.enc.io.format.data_type import FRAME_DATA_TYPE, POSSIBLE_BITDEPTH
+from coolchic.enc.io.format.yuv import DictTensorYUV, convert_444_to_420, yuv_dict_clamp
+from coolchic.enc.utils.codingstructure import FRAME_TYPE
+from coolchic.enc.utils.misc import POSSIBLE_DEVICE
 from torch import Tensor, nn
 
 

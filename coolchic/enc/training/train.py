@@ -14,15 +14,15 @@ from typing import List, Tuple
 
 import torch
 import wandb
-from enc.component.core.quantizer import (
+from coolchic.enc.component.core.quantizer import (
     POSSIBLE_QUANTIZATION_NOISE_TYPE,
     POSSIBLE_QUANTIZER_TYPE,
 )
-from enc.component.frame import FrameEncoder
-from enc.training.loss import loss_function
-from enc.training.test import test
-from enc.utils.codingstructure import Frame
-from enc.training.presets import MODULE_TO_OPTIMIZE
+from coolchic.enc.component.frame import FrameEncoder
+from coolchic.enc.training.loss import loss_function
+from coolchic.enc.training.test import test
+from coolchic.enc.utils.codingstructure import Frame
+from coolchic.enc.training.presets import MODULE_TO_OPTIMIZE
 
 
 # Custom scheduling function for the soft rounding temperature and the noise parameter
@@ -74,8 +74,8 @@ def train(
 
     .. math::
 
-        \\mathcal{L} = ||\\mathbf{x} - \hat{\\mathbf{x}}||^2 + \\lambda
-        \\mathrm{R}(\hat{\\mathbf{x}}), \\text{ with } \\begin{cases}
+        \\mathcal{L} = ||\\mathbf{x} - \\hat{\\mathbf{x}}||^2 + \\lambda
+        \\mathrm{R}(\\hat{\\mathbf{x}}), \\text{ with } \\begin{cases}
             \\mathbf{x} & \\text{the original image}\\\\ \\hat{\\mathbf{x}} &
             \\text{the coded image}\\\\ \\mathrm{R}(\\hat{\\mathbf{x}}) &
             \\text{A measure of the rate of } \\hat{\\mathbf{x}}

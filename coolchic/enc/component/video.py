@@ -8,22 +8,27 @@
 
 
 import copy
-import os
 import subprocess
 import time
+from pathlib import Path
 from typing import Dict, List, Tuple
 
 import torch
-from enc.utils.manager import FrameEncoderManager
-from enc.component.coolchic import CoolChicEncoderParameter
-from enc.component.frame import FrameEncoder, load_frame_encoder
-from enc.training.quantizemodel import quantize_model
-from enc.training.test import test
-from enc.training.train import train
-from enc.training.warmup import warmup
-from enc.utils.codingstructure import CodingStructure, Frame, FrameData
-from enc.utils.misc import POSSIBLE_DEVICE, TrainingExitCode, is_job_over, mem_info
-from enc.io.io import load_frame_data_from_file
+from coolchic.enc.utils.manager import FrameEncoderManager
+from coolchic.enc.component.coolchic import CoolChicEncoderParameter
+from coolchic.enc.component.frame import FrameEncoder, load_frame_encoder
+from coolchic.enc.training.quantizemodel import quantize_model
+from coolchic.enc.training.test import test
+from coolchic.enc.training.train import train
+from coolchic.enc.training.warmup import warmup
+from coolchic.enc.utils.codingstructure import CodingStructure, Frame, FrameData
+from coolchic.enc.utils.misc import (
+    POSSIBLE_DEVICE,
+    TrainingExitCode,
+    is_job_over,
+    mem_info,
+)
+from coolchic.enc.io.io import load_frame_data_from_file
 
 
 class VideoEncoder:
@@ -65,7 +70,7 @@ class VideoEncoder:
         self,
         path_original_sequence: str,
         device: POSSIBLE_DEVICE,
-        workdir: str,
+        workdir: Path,
         job_duration_min: int = -1,
     ) -> TrainingExitCode:
         """Main training function of a ``VideoEncoder``. Encode all required
@@ -333,7 +338,7 @@ class VideoEncoder:
 
                 print("End of training loop\n\n")
 
-                self.save(f"{workdir}video_encoder.pt")
+                self.save(workdir / "video_encoder.pt")
                 # The save function unload the decoded frames and the original
                 # ones. We need to reload them
                 frame.data = load_frame_data_from_file(
@@ -350,11 +355,11 @@ class VideoEncoder:
                 coding_order=frame.coding_order, flag_value=True
             )
             print(self.coding_structure.pretty_string())
-            self.save(f"{workdir}video_encoder.pt")
+            self.save(workdir / "video_encoder.pt")
 
         return TrainingExitCode.END
 
-    def get_frame_workdir(self, workdir: str, frame_display_order: int) -> str:
+    def get_frame_workdir(self, workdir: Path, frame_display_order: int) -> Path:
         """Compute the absolute path for the workdir of one frame.
 
         Args:
@@ -364,9 +369,9 @@ class VideoEncoder:
         Returns:
             Working directory of the frame
         """
-        return f"{workdir}/frame_{str(frame_display_order).zfill(3)}/"
+        return workdir / f"frame_{str(frame_display_order).zfill(3)}"
 
-    def concat_results_file(self, workdir: str) -> None:
+    def concat_results_file(self, workdir: Path) -> None:
         """Look at all the already encoded frames inside ``workdir`` and
         concatenate their result files (``workdir/frame_XXX/results_best.tsv``)
         into a single result file ``workdir/results_best.tsv``.
@@ -377,17 +382,17 @@ class VideoEncoder:
         list_results_file = []
         for idx_display_order in range(self.coding_structure.get_number_of_frames()):
             cur_res_file = (
-                self.get_frame_workdir(workdir, idx_display_order) + "results_best.tsv"
+                self.get_frame_workdir(workdir, idx_display_order) / "results_best.tsv"
             )
-            if not os.path.isfile(cur_res_file):
+            if not cur_res_file.is_file():
                 continue
 
             list_results_file.append(cur_res_file)
 
         # decoded_frame_name is something like decoded_416x240_1p_yuv420_8b.yuv
-        out_path = workdir + "results_best.tsv"
+        out_path = workdir / "results_best.tsv"
 
-        subprocess.call(f"rm -f {out_path}", shell=True)
+        out_path.unlink(missing_ok=True)
         for idx, frame_path in enumerate(list_results_file):
             if idx == 0:
                 subprocess.call(f"cat {frame_path} >> {out_path}", shell=True)
@@ -473,7 +478,7 @@ class VideoEncoder:
         """
         return initial_lmbda * (1.5**depth)
 
-    def save(self, save_path: str) -> None:
+    def save(self, save_path: Path) -> None:
         """Save current VideoEncoder at given path. It contains everything,
         the ``CodingStructure``, the shared parameters between the different frames
         as well as all the successive ``FrameEncoder`` and their respective
@@ -482,7 +487,7 @@ class VideoEncoder:
         Args:
             save_path: Where to save the model
         """
-        subprocess.call(f"mkdir -p {os.path.dirname(save_path)}", shell=True)
+        save_path.parent.mkdir(parents=True, exist_ok=True)
 
         # We don't need to save the original frames nor the coded ones.
         # The original frames can be reloaded from the dataset. The coded ones
@@ -508,7 +513,7 @@ class VideoEncoder:
         torch.save(data_to_save, save_path)
 
 
-def load_video_encoder(load_path: str) -> VideoEncoder:
+def load_video_encoder(load_path: Path) -> VideoEncoder:
     """Load a video encoder.
 
     Args:

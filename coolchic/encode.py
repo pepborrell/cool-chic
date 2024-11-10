@@ -7,6 +7,7 @@
 # Authors: see CONTRIBUTORS.md
 
 
+import argparse
 import os
 import subprocess
 import sys
@@ -14,8 +15,15 @@ import configargparse
 import wandb
 
 import torch
-from enc.component.coolchic import CoolChicEncoderParameter
-from enc.component.video import (
+import sys
+from pathlib import Path
+
+from coolchic.utils.paths import COOLCHIC_REPO_ROOT
+from coolchic.utils.types import Config
+import torch
+import yaml
+from coolchic.enc.component.coolchic import CoolChicEncoderParameter
+from coolchic.enc.component.video import (
     FrameEncoderManager,
     VideoEncoder,
     load_video_encoder,
@@ -27,6 +35,9 @@ from enc.utils.parsecli import (
     get_coolchic_param_from_args,
     get_manager_from_args,
 )
+from coolchic.enc.utils.codingstructure import CodingStructure
+
+import wandb
 
 """
 Use this file to train i.e. encode a GOP i.e. something which starts with one
@@ -48,13 +59,9 @@ if __name__ == "__main__":
     #      overrides both the default value and the value listed in the
     #      configuration file.
 
-    parser = configargparse.ArgumentParser()
-    # -------- These arguments are not in the configuration files
-    parser.add(
-        "-i",
-        "--input",
-        help="Path of the input image. Either .png (RGB444) or .yuv (YUV420)",
-        type=str,
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--config", help="Specifies the path to the config file that will be used."
     )
     parser.add(
         "-o",
@@ -171,18 +178,24 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
-    print(args)
-    print("----------")
-    print(
-        parser.format_values()
-    )  # useful for logging where different settings came from
-    # =========================== Parse arguments =========================== #
 
-    # =========================== Parse arguments =========================== #
-    workdir = f'{args.workdir.rstrip("/")}/'
+    config_path = Path(args.config)
+    with open(config_path, "r") as stream:
+        config = Config(**yaml.safe_load(stream))
 
-    path_video_encoder = f"{workdir}video_encoder.pt"
-    if os.path.exists(path_video_encoder):
+    workdir = (
+        config.workdir
+        if config.workdir is not None
+        # If no workdir is specified, results will be saved in results/{path_to_config_relative_to_cfg}/
+        else COOLCHIC_REPO_ROOT
+        / "results"
+        / config_path.relative_to("cfg").with_suffix("")
+    )
+    workdir.mkdir(parents=True, exist_ok=True)
+    assert workdir.is_dir()
+
+    path_video_encoder = workdir / "video_encoder.pt"
+    if config.load_models and os.path.exists(path_video_encoder):
         video_encoder = load_video_encoder(path_video_encoder)
 
     else:
@@ -209,16 +222,17 @@ if __name__ == "__main__":
 
         print(start_print)
 
-        subprocess.call(f"mkdir -p {workdir}", shell=True)
+        workdir.mkdir(exist_ok=True)
 
         # Dump raw parameters into a text file to keep track
-        with open(f"{workdir}param.txt", "w") as f_out:
-            f_out.write(str(args))
-            f_out.write("\n")
-            f_out.write("----------\n")
-            f_out.write(
-                parser.format_values()
-            )  # useful for logging where different settings came from
+        with open(workdir / "param.txt", "w") as f_out:
+            f_out.write(yaml.dump(config.model_dump()))
+            # f_out.write(str(args))
+            # f_out.write("\n")
+            # f_out.write("----------\n")
+            # f_out.write(
+            #     parser.format_values()
+            # )  # useful for logging where different settings came from
 
         # ----- Parse arguments & construct video encoder
         coding_structure = CodingStructure(**get_coding_structure_from_args(args))
@@ -243,25 +257,30 @@ if __name__ == "__main__":
 
     print(f"\n{video_encoder.coding_structure.pretty_string()}\n")
 
+    if config.disable_wandb:
+        # To disable wandb completely.
+        os.environ["WANDB_MODE"] = "disabled"
+    else:
+        os.environ["WANDB_MODE"] = "online"
     # Start wandb logging.
-    wandb.init(project="coolchic-runs", config=vars(args))
+    wandb.init(project="coolchic-runs", config=config.model_dump())
 
     exit_code = video_encoder.encode(
-        path_original_sequence=args.input,
+        path_original_sequence=str(config.input.absolute()),
         device=device,
         workdir=workdir,
-        job_duration_min=args.job_duration_min,
+        job_duration_min=config.job_duration_min,
     )
 
-    video_encoder_savepath = f"{workdir}video_encoder.pt"
+    video_encoder_savepath = workdir / "video_encoder.pt"
     video_encoder.save(video_encoder_savepath)
 
     # Bitstream
-    if args.output != "" and exit_code == TrainingExitCode.END:
-        from enc.bitstream.encode import encode_video
+    if config.output != "" and exit_code == TrainingExitCode.END:
+        from coolchic.enc.bitstream.encode import encode_video
 
-        # video_encoder = load_video_encoder(video_encoder_savepath)
-        encode_video(video_encoder, args.output, hls_sig_blksize=16)
+        video_encoder = load_video_encoder(video_encoder_savepath)
+        encode_video(video_encoder, config.output, hls_sig_blksize=16)
 
     wandb.finish()
 
