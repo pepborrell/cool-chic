@@ -218,7 +218,6 @@ class Synthesis(nn.Module):
         """
         return self.layers(x)
 
-
     def get_param(self) -> OrderedDict[str, Tensor]:
         """Return **a copy** of the weights and biases inside the module.
 

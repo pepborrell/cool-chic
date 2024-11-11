@@ -71,7 +71,10 @@ def read_yuv(
     # Parse height and width from the file_path
     w, h = [
         int(tmp_str)
-        for tmp_str in os.path.basename(file_path).split(".")[0].split("_")[1].split("x")
+        for tmp_str in os.path.basename(file_path)
+        .split(".")[0]
+        .split("_")[1]
+        .split("x")
     ]
 
     if frame_data_type == "yuv420":

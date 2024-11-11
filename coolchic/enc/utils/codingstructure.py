@@ -102,6 +102,7 @@ class FrameData:
 
         return s
 
+
 @dataclass
 class Frame:
     """Dataclass representing a frame to be encoded. It contains useful info

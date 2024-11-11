@@ -74,7 +74,6 @@ def _parse_n_ft_per_res(n_ft_per_res: str) -> List[int]:
 
 
 def get_coolchic_param_from_args(args: argparse.Namespace) -> Dict[str, Any]:
-
     layers_synthesis = _parse_synthesis_layers(getattr(args, "layers_synthesis"))
     n_ft_per_res = _parse_n_ft_per_res(getattr(args, "n_ft_per_res"))
 
@@ -113,6 +112,7 @@ def _is_image(file_path: str) -> bool:
 
     return False
 
+
 def get_coding_structure_from_args(args: argparse.Namespace) -> Dict[str, Any]:
     """Perform some check on the argparse object used to collect the command
     line parameters. Return a dictionary ready to be plugged into the
@@ -128,13 +128,13 @@ def get_coding_structure_from_args(args: argparse.Namespace) -> Dict[str, Any]:
     intra_period = args.intra_period
     p_period = args.p_period
 
-    assert intra_period >= 0 and intra_period <= 255, (
-        f"Intra period should be in [0, 255]. Found {intra_period}"
-    )
+    assert (
+        intra_period >= 0 and intra_period <= 255
+    ), f"Intra period should be in [0, 255]. Found {intra_period}"
 
-    assert p_period >= 0 and p_period <= 255, (
-        f"P period should be in [0, 255]. Found {p_period}"
-    )
+    assert (
+        p_period >= 0 and p_period <= 255
+    ), f"P period should be in [0, 255]. Found {p_period}"
 
     if _is_image(args.input):
         assert intra_period == 0 and p_period == 0, (

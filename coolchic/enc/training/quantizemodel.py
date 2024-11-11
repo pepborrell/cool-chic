@@ -51,9 +51,9 @@ def _quantize_parameters(
         sent_param = torch.round(v / current_q_step)
 
         if sent_param.abs().max() > MAX_AC_MAX_VAL:
-            #print(
+            # print(
             #    f"Sent param {k} exceed MAX_AC_MAX_VAL! Q step {current_q_step} too small."
-            #)
+            # )
             return None
 
         q_param[k] = sent_param * current_q_step
