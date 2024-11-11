@@ -8,8 +8,10 @@
 
 
 import argparse
-import os
+from pathlib import Path
 from typing import Any, Dict, List
+
+from coolchic.utils.types import Config
 
 
 # ----- Arguments related to Cool-chic parameters
@@ -91,7 +93,7 @@ def get_coolchic_param_from_args(args: argparse.Namespace) -> Dict[str, Any]:
 
 
 # ----- Arguments related to the coding structure
-def _is_image(file_path: str) -> bool:
+def _is_image(file_path: Path | str) -> bool:
     """Return True is file extension is an image extension ie JPEG, PNG or PPM.
 
     Args:
@@ -103,17 +105,18 @@ def _is_image(file_path: str) -> bool:
 
     possible_file_extension = ["png", "jpeg", "jpg", "ppm"]
 
+    file_path = Path(file_path)
     for ext in possible_file_extension:
-        if file_path.endswith(f".{ext}"):
+        if file_path.suffix == f".{ext}":
             return True
 
-        if file_path.endswith(f".{ext.capitalize()}"):
+        if file_path.suffix == f".{ext.capitalize()}":
             return True
 
     return False
 
 
-def get_coding_structure_from_args(args: argparse.Namespace) -> Dict[str, Any]:
+def get_coding_structure_from_args(config: Config) -> Dict[str, Any]:
     """Perform some check on the argparse object used to collect the command
     line parameters. Return a dictionary ready to be plugged into the
     ``CodingStructure`` constructor.
@@ -125,8 +128,8 @@ def get_coding_structure_from_args(args: argparse.Namespace) -> Dict[str, Any]:
         Dict[str, Any]: Dictionary ready to be plugged into the ``CodingStructure``
             constructor.
     """
-    intra_period = args.intra_period
-    p_period = args.p_period
+    intra_period = config.enc_cfg.intra_period
+    p_period = config.enc_cfg.p_period
 
     assert (
         intra_period >= 0 and intra_period <= 255
@@ -136,23 +139,24 @@ def get_coding_structure_from_args(args: argparse.Namespace) -> Dict[str, Any]:
         p_period >= 0 and p_period <= 255
     ), f"P period should be in [0, 255]. Found {p_period}"
 
-    if _is_image(args.input):
+    if _is_image(config.input):
         assert intra_period == 0 and p_period == 0, (
-            f"Encoding a PNG, JPEG or PPM image {args.input} must be done with"
+            f"Encoding a PNG, JPEG or PPM image {config.input} must be done with"
             "intra_period = 0 and p_period = 0. Found intra_period = "
-            f"{args.intra_period} and p_period = {args.p_period}"
+            f"{intra_period} and p_period = {p_period}"
         )
 
     coding_structure_config = {
         "intra_period": intra_period,
         "p_period": p_period,
-        "seq_name": os.path.basename(args.input).split(".")[0],
+        # "seq_name": os.path.basename(args.input).split(".")[0],
+        "seq_name": config.input.stem,
     }
     return coding_structure_config
 
 
 # ----- Arguments related to the frame encoder manager i.e. training preset etc.
-def get_manager_from_args(args: argparse.Namespace) -> Dict[str, Any]:
+def get_manager_from_args(config: Config) -> Dict[str, Any]:
     """Perform some check on the argparse object used to collect the command
     line parameters. Return a dictionary ready to be plugged into the
     ``FrameEncoderManager`` constructor.
@@ -165,10 +169,11 @@ def get_manager_from_args(args: argparse.Namespace) -> Dict[str, Any]:
             ``FrameEncoderManager`` constructor.
     """
     frame_encoder_manager = {
-        "preset_name": args.recipe,
-        "start_lr": args.start_lr,
-        "lmbda": args.lmbda,
-        "n_loops": args.n_train_loops,
-        "n_itr": args.n_itr,
+        # "preset_name": config.enc_cfg.recipe.preset_name,
+        "preset_config": config.enc_cfg.recipe,
+        "start_lr": config.enc_cfg.start_lr,
+        "lmbda": config.lmbda,
+        "n_loops": config.enc_cfg.n_train_loops,
+        "n_itr": config.enc_cfg.n_itr,
     }
     return frame_encoder_manager

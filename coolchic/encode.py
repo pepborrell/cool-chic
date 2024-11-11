@@ -7,20 +7,17 @@
 # Authors: see CONTRIBUTORS.md
 
 
-import argparse
-import os
-import subprocess
-import sys
+# import argparse
 import configargparse
+import os
+import sys
 import wandb
 
 import torch
-import sys
 from pathlib import Path
 
 from coolchic.utils.paths import COOLCHIC_REPO_ROOT
 from coolchic.utils.types import Config
-import torch
 import yaml
 from coolchic.enc.component.coolchic import CoolChicEncoderParameter
 from coolchic.enc.component.video import (
@@ -28,16 +25,14 @@ from coolchic.enc.component.video import (
     VideoEncoder,
     load_video_encoder,
 )
-from enc.utils.codingstructure import CodingStructure
+from coolchic.enc.utils.codingstructure import CodingStructure
 from enc.utils.misc import TrainingExitCode, get_best_device
-from enc.utils.parsecli import (
+from coolchic.enc.utils.parsecli import (
     get_coding_structure_from_args,
     get_coolchic_param_from_args,
     get_manager_from_args,
 )
-from coolchic.enc.utils.codingstructure import CodingStructure
 
-import wandb
 
 """
 Use this file to train i.e. encode a GOP i.e. something which starts with one
@@ -59,7 +54,8 @@ if __name__ == "__main__":
     #      overrides both the default value and the value listed in the
     #      configuration file.
 
-    parser = argparse.ArgumentParser()
+    # parser = argparse.ArgumentParser()
+    parser = configargparse.ArgumentParser()
     parser.add_argument(
         "--config", help="Specifies the path to the config file that will be used."
     )
@@ -235,11 +231,11 @@ if __name__ == "__main__":
             # )  # useful for logging where different settings came from
 
         # ----- Parse arguments & construct video encoder
-        coding_structure = CodingStructure(**get_coding_structure_from_args(args))
+        coding_structure = CodingStructure(**get_coding_structure_from_args(config))
         coolchic_encoder_parameter = CoolChicEncoderParameter(
             **get_coolchic_param_from_args(args)
         )
-        frame_encoder_manager = FrameEncoderManager(**get_manager_from_args(args))
+        frame_encoder_manager = FrameEncoderManager(**get_manager_from_args(config))
 
         video_encoder = VideoEncoder(
             coding_structure=coding_structure,

@@ -1,10 +1,10 @@
 from pathlib import Path
-from typing import Any, Literal, override
+from typing import Any, Literal
 
 import yaml
 from pydantic import BaseModel, Field
 
-from coolchic.enc.utils.presets import TrainerPhase, Warmup, WarmupPhase
+from coolchic.enc.training.presets import TrainerPhase, Warmup, WarmupPhase
 from coolchic.utils.paths import COOLCHIC_REPO_ROOT
 
 PRESET_NAMES = Literal["c3x", "debug"]
@@ -20,7 +20,6 @@ class PresetConfig(BaseModel):
     warmup: Warmup
     all_phases: list[TrainerPhase]
 
-    @override
     def model_post_init(self, __context: Any) -> None:
         # Check that we do quantize the model at least once during the training
         flag_quantize_model = False
