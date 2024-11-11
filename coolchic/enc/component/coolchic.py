@@ -16,20 +16,20 @@ from enc.visu.console import pretty_string_nn, pretty_string_ups
 from fvcore.nn import FlopCountAnalysis, flop_count_table
 from torch import Tensor, nn
 
-from coolchic.enc.component.core.arm import (
+from enc.component.core.arm import (
     Arm,
     _get_neighbor,
     _get_non_zero_pixel_ctx_index,
     _laplace_cdf,
 )
-from coolchic.enc.component.core.quantizer import (
+from enc.component.core.quantizer import (
     POSSIBLE_QUANTIZATION_NOISE_TYPE,
     POSSIBLE_QUANTIZER_TYPE,
     quantize,
 )
-from coolchic.enc.component.core.synthesis import Synthesis
-from coolchic.enc.component.core.upsampling import Upsampling
-from coolchic.enc.utils.misc import (
+from enc.component.core.synthesis import Synthesis
+from enc.component.core.upsampling import Upsampling
+from enc.utils.misc import (
     MAX_ARM_MASK_SIZE,
     POSSIBLE_DEVICE,
     DescriptorCoolChic,

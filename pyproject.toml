@@ -1,43 +1,70 @@
-# [build-system]
-# requires = ["setuptools>=42", "pybind11>=2.6.1"]
-# build-backend = "setuptools.build_meta"
-
-[build-system]
-requires = [
-    "poetry-core>=1.1.0",
-    "setuptools>=65.4.1",
-    "pybind11>=2.8.0"
-]
-build-backend = "poetry.core.masonry.api"
-
-[tool.poetry]
+[project]
 name="coolchic"
 version="3.4.0"
-authors = ["Orange <theo.ladune@orange.com>"]
+authors =[{"name"= "Theo Ladune", "email"= "theo.ladune@orange.com"}]
 # url="https://github.com/Orange-OpenSource/Cool-Chic"
 description="Cool-Chic: lightweight neural video codec."
+requires-python = ">=3.12"
+dependencies = [
+    "torch",
+    "torchvision",
+    "matplotlib",
+    "einops",
+    "fvcore",
+    "cmake",
+    "ConfigArgParse",
+    "psutil",
+    "pytest",
+    "pytest-order",
+    "wandb",
+    "pydantic",
+    "python-build",
+    "coolchic",
+]
 
-[tool.poetry.build]
-script = "build.py"
-generate-setup-file = true
+[build-system]
+requires = ["setuptools>=42", "pybind11>=2.6.1"]
+build-backend = "setuptools.build_meta"
 
-[tool.poetry.dependencies]
-python = "^3.12"
-torch = ">=2.3.0"
-torchvision = "*"
-matplotlib = "*"
-einops = "*"
-fvcore = "*"
-cmake = "*"
-ConfigArgParse = "*"
-psutil = "*"
-pytest = "*"
-pytest-order = "*"
-wandb = "^0.18.5"
-pydantic = "^2.9.2"
+[tool.uv.sources]
+coolchic = { path = "./coolchic"}
 
-[tool.poetry.group.dev.dependencies]
-ruff = "^0.7.2"
+# [build-system]
+# requires = [
+#     "poetry-core>=1.1.0",
+#     "setuptools>=65.4.1",
+#     "pybind11>=2.8.0"
+# ]
+# build-backend = "poetry.core.masonry.api"
+
+# [tool.poetry]
+# name="coolchic"
+# version="3.4.0"
+# authors = ["Orange <theo.ladune@orange.com>"]
+# # url="https://github.com/Orange-OpenSource/Cool-Chic"
+# description="Cool-Chic: lightweight neural video codec."
+#
+# [tool.poetry.build]
+# script = "build.py"
+# generate-setup-file = true
+#
+# [tool.poetry.dependencies]
+# python = "^3.12"
+# torch = ">=2.3.0"
+# torchvision = "*"
+# matplotlib = "*"
+# einops = "*"
+# fvcore = "*"
+# cmake = "*"
+# ConfigArgParse = "*"
+# psutil = "*"
+# pytest = "*"
+# pytest-order = "*"
+# wandb = "^0.18.5"
+# pydantic = "^2.9.2"
+#
+# [tool.poetry.group.dev.dependencies]
+# ruff = "^0.7.2"
 
 [tool.pyright]
 include = ["coolchic/"]

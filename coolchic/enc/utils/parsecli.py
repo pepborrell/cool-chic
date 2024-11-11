@@ -11,7 +11,7 @@ import argparse
 from pathlib import Path
 from typing import Any, Dict, List
 
-from coolchic.utils.types import Config
+from utils.types import Config
 
 
 # ----- Arguments related to Cool-chic parameters

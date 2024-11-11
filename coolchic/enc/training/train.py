@@ -16,16 +16,16 @@ import torch
 from torch.nn.utils import clip_grad_norm_
 
 import wandb
-from coolchic.enc.component.core.quantizer import (
+from enc.component.core.quantizer import (
     POSSIBLE_QUANTIZATION_NOISE_TYPE,
     POSSIBLE_QUANTIZER_TYPE,
 )
-from coolchic.enc.component.frame import FrameEncoder
-from coolchic.enc.training.loss import loss_function
-from coolchic.enc.training.presets import MODULE_TO_OPTIMIZE
-from coolchic.enc.training.test import test
-from coolchic.enc.utils.codingstructure import Frame
-from coolchic.enc.utils.manager import FrameEncoderManager
+from enc.component.frame import FrameEncoder
+from enc.training.loss import loss_function
+from enc.training.presets import MODULE_TO_OPTIMIZE
+from enc.training.test import test
+from enc.utils.codingstructure import Frame
+from enc.utils.manager import FrameEncoderManager
 
 
 # Custom scheduling function for the soft rounding temperature and the noise parameter

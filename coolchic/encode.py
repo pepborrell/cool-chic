@@ -18,20 +18,20 @@ import yaml
 from enc.utils.misc import TrainingExitCode, get_best_device
 
 import wandb
-from coolchic.enc.component.coolchic import CoolChicEncoderParameter
-from coolchic.enc.component.video import (
+from enc.component.coolchic import CoolChicEncoderParameter
+from enc.component.video import (
     FrameEncoderManager,
     VideoEncoder,
     load_video_encoder,
 )
-from coolchic.enc.utils.codingstructure import CodingStructure
-from coolchic.enc.utils.parsecli import (
+from enc.utils.codingstructure import CodingStructure
+from enc.utils.parsecli import (
     get_coding_structure_from_args,
     get_coolchic_param_from_args,
     get_manager_from_args,
 )
-from coolchic.utils.paths import COOLCHIC_REPO_ROOT
-from coolchic.utils.types import Config
+from utils.paths import COOLCHIC_REPO_ROOT
+from utils.types import Config
 
 """
 Use this file to train i.e. encode a GOP i.e. something which starts with one
@@ -272,7 +272,7 @@ if __name__ == "__main__":
 
     # Bitstream
     if config.output != "" and exit_code == TrainingExitCode.END:
-        from coolchic.enc.bitstream.encode import encode_video
+        from enc.bitstream.encode import encode_video
 
         video_encoder = load_video_encoder(video_encoder_savepath)
         encode_video(video_encoder, config.output, hls_sig_blksize=16)

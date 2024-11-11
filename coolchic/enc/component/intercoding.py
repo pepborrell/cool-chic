@@ -13,8 +13,8 @@ from typing import Any, Dict, List, Optional
 import torch
 from torch import Tensor, nn
 
-from coolchic.enc.component.coolchic import CoolChicEncoderOutput
-from coolchic.enc.utils.codingstructure import FRAME_TYPE
+from enc.component.coolchic import CoolChicEncoderOutput
+from enc.utils.codingstructure import FRAME_TYPE
 
 
 def warp(x, flo, interpol_mode="bilinear", padding_mode="border", align_corners=True):

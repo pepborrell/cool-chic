@@ -15,16 +15,16 @@ from typing import Dict, List, Tuple
 
 import torch
 
-from coolchic.enc.component.coolchic import CoolChicEncoderParameter
-from coolchic.enc.component.frame import FrameEncoder, load_frame_encoder
-from coolchic.enc.io.io import load_frame_data_from_file
-from coolchic.enc.training.quantizemodel import quantize_model
-from coolchic.enc.training.test import test
-from coolchic.enc.training.train import train
-from coolchic.enc.training.warmup import warmup
-from coolchic.enc.utils.codingstructure import CodingStructure, Frame, FrameData
-from coolchic.enc.utils.manager import FrameEncoderManager
-from coolchic.enc.utils.misc import (
+from enc.component.coolchic import CoolChicEncoderParameter
+from enc.component.frame import FrameEncoder, load_frame_encoder
+from enc.io.io import load_frame_data_from_file
+from enc.training.quantizemodel import quantize_model
+from enc.training.test import test
+from enc.training.train import train
+from enc.training.warmup import warmup
+from enc.utils.codingstructure import CodingStructure, Frame, FrameData
+from enc.utils.manager import FrameEncoderManager
+from enc.utils.misc import (
     POSSIBLE_DEVICE,
     TrainingExitCode,
     is_job_over,

@@ -4,8 +4,8 @@ from typing import Any, Literal
 import yaml
 from pydantic import BaseModel, Field
 
-from coolchic.enc.training.presets import TrainerPhase, Warmup, WarmupPhase
-from coolchic.utils.paths import COOLCHIC_REPO_ROOT
+from enc.training.presets import TrainerPhase, Warmup, WarmupPhase
+from utils.paths import COOLCHIC_REPO_ROOT
 
 PRESET_NAMES = Literal["c3x", "debug"]
 preset_configs_dir = COOLCHIC_REPO_ROOT / "preset_cfg"

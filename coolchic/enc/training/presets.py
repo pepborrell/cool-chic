@@ -13,7 +13,7 @@ from typing import Dict, List, Literal, Tuple
 
 from pydantic import BaseModel, Field
 
-from coolchic.enc.component.core.quantizer import (
+from enc.component.core.quantizer import (
     POSSIBLE_QUANTIZATION_NOISE_TYPE,
     POSSIBLE_QUANTIZER_TYPE,
 )
