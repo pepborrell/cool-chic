@@ -8,7 +8,7 @@ from sys import platform
 
 __version__ = "3.4.0"
 
-CCLIB_PATH = 'coolchic/CCLIB'
+CCLIB_PATH = "coolchic/CCLIB"
 
 subprocess.call(f"rm -rf {CCLIB_PATH}/*", shell=True)
 subprocess.call("rm -rf coolchic/coolchic.egg-info/*", shell=True)
@@ -32,7 +32,7 @@ ext_modules = [
             "coolchic/cpp/TDecBinCoderCABAC.cpp",
             "coolchic/cpp/Contexts.cpp",
             "coolchic/cpp/BitStream.cpp",
-            "coolchic/cpp/cc-contexts.cpp"
+            "coolchic/cpp/cc-contexts.cpp",
         ],
         # Example: passing in the version to the compiled code
         define_macros=[("VERSION_INFO", __version__)],
@@ -51,7 +51,8 @@ ext_modules = [
             "coolchic/cpp/syn_cpu.cpp",
             "coolchic/cpp/BitStream.cpp",
             "coolchic/cpp/TDecBinCoderCABAC.cpp",
-            "coolchic/cpp/Contexts.cpp"],
+            "coolchic/cpp/Contexts.cpp",
+        ],
         # Example: passing in the version to the compiled code
         define_macros=[("VERSION_INFO", __version__), ("CCDECAPI_CPU", "1")],
         extra_compile_args=["-g", "-O3"],
@@ -76,7 +77,7 @@ if platform != "darwin":
                 "coolchic/cpp/syn_avx2.cpp",
                 "coolchic/cpp/BitStream.cpp",
                 "coolchic/cpp/TDecBinCoderCABAC.cpp",
-                "coolchic/cpp/Contexts.cpp"
+                "coolchic/cpp/Contexts.cpp",
             ],
             # Example: passing in the version to the compiled code
             define_macros=[("VERSION_INFO", __version__), ("CCDECAPI_AVX2", "1")],
@@ -111,7 +112,7 @@ setup(
         "psutil",
         "pytest",
         "pytest-order",
-    ]
+    ],
 )
 
 subprocess.call(f"mkdir -p {CCLIB_PATH}", shell=True)
