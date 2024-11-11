@@ -252,7 +252,7 @@ extern MuSigGTs g_contexts[N_MUQ+1][N_SIGQ];""",
 
         with open(contexts_cpp + ".cpp", "wt") as f:
             print(
-                f"""
+                """
 /*
     Software Name: Cool-Chic
     SPDX-FileCopyrightText: Copyright (c) 2023-2024 Orange

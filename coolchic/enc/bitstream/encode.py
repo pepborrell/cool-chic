@@ -498,9 +498,10 @@ def encode_frame(
         current_mu = encoder_output.additional_data.get("detailed_mu")[
             index_lat_resolution
         ]
-        current_scale = encoder_output.additional_data.get("detailed_scale")[
-            index_lat_resolution
-        ]
+        # NOTE: variable current_scale is not used. Commenting out in case it's needed later on.
+        # current_scale = encoder_output.additional_data.get("detailed_scale")[
+        #     index_lat_resolution
+        # ]
         current_log_scale = encoder_output.additional_data.get("detailed_log_scale")[
             index_lat_resolution
         ]
