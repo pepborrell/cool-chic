@@ -1,7 +1,7 @@
+import argparse
 import glob
 import os
 import subprocess
-import argparse
 
 POSSIBLE_DATASETS_PER_CONFIG = {
     "image": ["kodak", "clic20-pro-valid", "jvet"],

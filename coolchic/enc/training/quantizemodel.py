@@ -11,16 +11,16 @@ import time
 from typing import Optional, OrderedDict
 
 import torch
-from enc.utils.misc import exp_golomb_nbins
-from enc.training.loss import loss_function
-from enc.utils.manager import FrameEncoderManager
 from enc.component.frame import FrameEncoder
+from enc.training.loss import loss_function
 from enc.utils.codingstructure import Frame
+from enc.utils.manager import FrameEncoderManager
 from enc.utils.misc import (
     MAX_AC_MAX_VAL,
     POSSIBLE_EXP_GOL_COUNT,
     POSSIBLE_Q_STEP,
     DescriptorNN,
+    exp_golomb_nbins,
     get_q_step_from_parameter_name,
 )
 from torch import Tensor

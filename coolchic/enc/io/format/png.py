@@ -10,8 +10,8 @@
 import os
 from typing import Tuple
 
-from einops import rearrange
 import torch
+from einops import rearrange
 from enc.io.format.data_type import POSSIBLE_BITDEPTH
 from PIL import Image
 from torch import Tensor

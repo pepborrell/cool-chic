@@ -8,12 +8,13 @@
 
 
 import copy
-from dataclasses import asdict
 import time
+from dataclasses import asdict
 from typing import List, Tuple
 
 import torch
 from torch.nn.utils import clip_grad_norm_
+
 import wandb
 from coolchic.enc.component.core.quantizer import (
     POSSIBLE_QUANTIZATION_NOISE_TYPE,
@@ -21,9 +22,9 @@ from coolchic.enc.component.core.quantizer import (
 )
 from coolchic.enc.component.frame import FrameEncoder
 from coolchic.enc.training.loss import loss_function
+from coolchic.enc.training.presets import MODULE_TO_OPTIMIZE
 from coolchic.enc.training.test import test
 from coolchic.enc.utils.codingstructure import Frame
-from coolchic.enc.training.presets import MODULE_TO_OPTIMIZE
 from coolchic.enc.utils.manager import FrameEncoderManager
 
 

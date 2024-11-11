@@ -10,6 +10,7 @@
 """Fixed point implementation of the ARM to avoid floating point drift."""
 
 from typing import OrderedDict, Tuple
+
 import torch
 import torch.nn.functional as F
 from torch import Tensor, nn

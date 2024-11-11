@@ -8,8 +8,8 @@
 
 
 import math
-from typing import Literal, Optional
 import typing
+from typing import Literal, Optional
 
 import torch
 from torch import Tensor

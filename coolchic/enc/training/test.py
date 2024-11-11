@@ -13,7 +13,6 @@ from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 
 import torch
 import torch.nn.functional as F
-from enc.utils.manager import FrameEncoderManager
 from enc.component.frame import FrameEncoder, FrameEncoderOutput
 from enc.training.loss import (
     LossFunctionOutput,
@@ -21,6 +20,7 @@ from enc.training.loss import (
     loss_function,
 )
 from enc.utils.codingstructure import Frame, convert_420_to_444
+from enc.utils.manager import FrameEncoderManager
 from enc.utils.misc import DescriptorCoolChic
 from torch import Tensor
 

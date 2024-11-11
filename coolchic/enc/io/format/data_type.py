@@ -9,6 +9,5 @@
 
 from typing import Literal
 
-
 FRAME_DATA_TYPE = Literal["rgb", "yuv420", "yuv444"]
 POSSIBLE_BITDEPTH = Literal[8, 9, 10, 11, 12, 13, 14, 15, 16]

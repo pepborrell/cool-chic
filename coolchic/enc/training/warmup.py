@@ -11,11 +11,11 @@ import copy
 import time
 from typing import List
 
-from enc.utils.manager import FrameEncoderManager
 from enc.component.frame import FrameEncoder
 from enc.training.test import test
 from enc.training.train import train
 from enc.utils.codingstructure import Frame
+from enc.utils.manager import FrameEncoderManager
 from enc.utils.misc import POSSIBLE_DEVICE, mem_info
 
 

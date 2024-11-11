@@ -13,9 +13,8 @@ from typing import Tuple
 
 import numpy as np
 import torch
-from torch import Tensor
-
 from enc.io.format.data_type import POSSIBLE_BITDEPTH
+from torch import Tensor
 
 
 def _skip_one_byte(data: bytearray) -> bytearray:

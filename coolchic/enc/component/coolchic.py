@@ -11,11 +11,11 @@ import typing
 from dataclasses import dataclass, field, fields
 from typing import Any, Dict, List, Optional, OrderedDict, Tuple, TypedDict
 
-from enc.visu.console import pretty_string_nn, pretty_string_ups
-from torch import nn, Tensor
-
 import torch
+from enc.visu.console import pretty_string_nn, pretty_string_ups
 from fvcore.nn import FlopCountAnalysis, flop_count_table
+from torch import Tensor, nn
+
 from coolchic.enc.component.core.arm import (
     Arm,
     _get_neighbor,
@@ -36,7 +36,6 @@ from coolchic.enc.utils.misc import (
     DescriptorNN,
     measure_expgolomb_rate,
 )
-
 
 """A cool-chic encoder is composed of:
     - A set of 2d hierarchical latent grids

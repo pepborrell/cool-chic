@@ -9,9 +9,8 @@
 
 import torch
 import torch.nn as nn
-
-from enc.utils.misc import DescriptorNN
 from CCLIB.ccencapi import cc_decode_wb
+from enc.utils.misc import DescriptorNN
 
 
 def decode_network(

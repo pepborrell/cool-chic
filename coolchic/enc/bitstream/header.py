@@ -95,7 +95,6 @@ from enc.component.video import VideoEncoder
 from enc.utils.codingstructure import FRAME_DATA_TYPE, POSSIBLE_BITDEPTH, Frame
 from enc.utils.misc import MAX_AC_MAX_VAL, DescriptorCoolChic
 
-
 # Quick & dirty copy and paste from utils.coding_structure
 _FRAME_DATA_TYPE = ["rgb", "yuv420", "yuv444"]
 _POSSIBLE_BITDEPTH = [8, 9, 10, 11, 12, 13, 14, 15, 16]

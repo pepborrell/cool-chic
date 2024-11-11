@@ -8,17 +8,16 @@
 
 
 # import argparse
-import configargparse
 import os
 import sys
-import wandb
-
-import torch
 from pathlib import Path
 
-from coolchic.utils.paths import COOLCHIC_REPO_ROOT
-from coolchic.utils.types import Config
+import configargparse
+import torch
 import yaml
+from enc.utils.misc import TrainingExitCode, get_best_device
+
+import wandb
 from coolchic.enc.component.coolchic import CoolChicEncoderParameter
 from coolchic.enc.component.video import (
     FrameEncoderManager,
@@ -26,13 +25,13 @@ from coolchic.enc.component.video import (
     load_video_encoder,
 )
 from coolchic.enc.utils.codingstructure import CodingStructure
-from enc.utils.misc import TrainingExitCode, get_best_device
 from coolchic.enc.utils.parsecli import (
     get_coding_structure_from_args,
     get_coolchic_param_from_args,
     get_manager_from_args,
 )
-
+from coolchic.utils.paths import COOLCHIC_REPO_ROOT
+from coolchic.utils.types import Config
 
 """
 Use this file to train i.e. encode a GOP i.e. something which starts with one

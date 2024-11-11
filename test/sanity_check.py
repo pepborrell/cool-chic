@@ -1,8 +1,8 @@
 import os
 import subprocess
 
-from PIL import Image
 import numpy as np
+from PIL import Image
 
 # To be launched with python3 -m test.sanity_check from the root of the git repo
 
