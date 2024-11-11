@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Dict, List, Tuple
 
 import torch
-
+from coolchic.enc.utils.manager import FrameEncoderManager
 from coolchic.enc.component.coolchic import CoolChicEncoderParameter
 from coolchic.enc.component.frame import FrameEncoder, load_frame_encoder
 from coolchic.enc.training.quantizemodel import quantize_model
@@ -22,14 +22,13 @@ from coolchic.enc.training.test import test
 from coolchic.enc.training.train import train
 from coolchic.enc.training.warmup import warmup
 from coolchic.enc.utils.codingstructure import CodingStructure, Frame, FrameData
-from coolchic.enc.utils.manager import FrameEncoderManager
 from coolchic.enc.utils.misc import (
     POSSIBLE_DEVICE,
     TrainingExitCode,
     is_job_over,
     mem_info,
 )
-from coolchic.enc.utils.yuv import load_frame_data_from_file
+from coolchic.enc.io.io import load_frame_data_from_file
 
 
 class VideoEncoder:
@@ -171,6 +170,8 @@ class VideoEncoder:
                     + "-" * 80
                 )
 
+                print("\n" + frame.data.to_string() + "\n")
+
                 # ----- Set the parameters for the frame
                 frame_encoder_manager = copy.deepcopy(self.shared_frame_encoder_manager)
                 # Change the lambda according to the depth of the frame in the GOP
@@ -224,6 +225,8 @@ class VideoEncoder:
                     f_out.write(
                         list_candidates[0].coolchic_encoder.str_complexity() + "\n"
                     )
+
+                print(list_candidates[0].coolchic_encoder.pretty_string() + "\n\n")
 
                 # Use warm-up to find the best initialization among the list
                 # of candidates parameters.
@@ -521,7 +524,7 @@ def load_video_encoder(load_path: Path) -> VideoEncoder:
     """
     print(f"Loading a video encoder from {load_path}")
 
-    raw_data = torch.load(load_path, map_location="cpu")
+    raw_data = torch.load(load_path, map_location="cpu", weights_only=False)
 
     # Calling the VideoEncoder constructor automatically reload the
     # original frames.

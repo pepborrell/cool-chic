@@ -7,7 +7,7 @@
 # Authors: see CONTRIBUTORS.md
 
 
-"""A frame encoder is composed of a CoolChicEncoder and a InterCodingModule."""
+"""A frame encoder is composed of a CoolChicEncoder and an InterCodingModule."""
 
 import typing
 from dataclasses import dataclass, field
@@ -24,16 +24,11 @@ from coolchic.enc.component.core.quantizer import (
     POSSIBLE_QUANTIZER_TYPE,
 )
 from coolchic.enc.component.intercoding import InterCodingModule
-from torch import Tensor, nn
-from coolchic.enc.utils.codingstructure import (
-    FRAME_DATA_TYPE,
-    FRAME_TYPE,
-    POSSIBLE_BITDEPTH,
-    DictTensorYUV,
-    convert_444_to_420,
-)
+from coolchic.enc.io.format.data_type import FRAME_DATA_TYPE, POSSIBLE_BITDEPTH
+from coolchic.enc.io.format.yuv import DictTensorYUV, convert_444_to_420, yuv_dict_clamp
+from coolchic.enc.utils.codingstructure import FRAME_TYPE
 from coolchic.enc.utils.misc import POSSIBLE_DEVICE
-from coolchic.enc.utils.yuv import yuv_dict_clamp
+from torch import Tensor, nn
 
 
 @dataclass
@@ -280,9 +275,6 @@ class FrameEncoder(nn.Module):
 
         torch.save(data_to_save, buffer)
 
-        # for k, v in self.coolchic_encoder.get_param().items():
-        #     print(f"{k:>30}: {v.abs().sum().item()}")
-
         return buffer
 
 
@@ -298,7 +290,7 @@ def load_frame_encoder(raw_bytes: BytesIO) -> FrameEncoder:
     """
     # Reset the stream position to the beginning of the BytesIO object & load it
     raw_bytes.seek(0)
-    loaded_data = torch.load(raw_bytes, map_location="cpu")
+    loaded_data = torch.load(raw_bytes, map_location="cpu", weights_only=False)
 
     # Create a frame encoder from the stored parameters
     frame_encoder = FrameEncoder(

@@ -4,11 +4,17 @@
 #
 # This software is distributed under the BSD-3-Clause license.
 #
-# Authors: Theo Ladune <theo.ladune@orange.com>
-#          Pierrick Philippe <pierrick.philippe@orange.com>
+# Authors: see CONTRIBUTORS.md
+
 
 import argparse
 import os
+import subprocess
+import sys
+import configargparse
+import wandb
+
+import torch
 import sys
 from pathlib import Path
 
@@ -22,8 +28,14 @@ from coolchic.enc.component.video import (
     VideoEncoder,
     load_video_encoder,
 )
+from enc.utils.codingstructure import CodingStructure
+from enc.utils.misc import TrainingExitCode, get_best_device
+from enc.utils.parsecli import (
+    get_coding_structure_from_args,
+    get_coolchic_param_from_args,
+    get_manager_from_args,
+)
 from coolchic.enc.utils.codingstructure import CodingStructure
-from coolchic.enc.utils.misc import get_best_device
 
 import wandb
 
@@ -51,6 +63,120 @@ if __name__ == "__main__":
     parser.add_argument(
         "--config", help="Specifies the path to the config file that will be used."
     )
+    parser.add(
+        "-o",
+        "--output",
+        help="Path of the compressed bitstream. If empty, no bitstream is written",
+        type=str,
+        default="",
+    )
+
+    parser.add("--workdir", help="Path of the working_directory", type=str, default=".")
+    parser.add("--lmbda", help="Rate constraint", type=float, default=1e-3)
+    parser.add(
+        "--job_duration_min",
+        type=int,
+        default=-1,
+        help="Exit and save the encoding after this duration. Use -1 to only exit at the end.",
+    )
+
+    # -------- Configuration files
+    parser.add("--enc_cfg", is_config_file=True, help="Encoder configuration file")
+
+    parser.add("--dec_cfg", is_config_file=True, help="Decoder configuration file")
+
+    # -------- These arguments are in the configuration files
+
+    # ==== Encoder-side arguments
+    parser.add(
+        "--intra_period",
+        help="Number of inter frames in the GOP. 0 for image coding",
+        type=int,
+        default=0,
+    )
+    parser.add(
+        "--p_period",
+        help="Distance between P-frames. 0 for image coding",
+        type=int,
+        default=0,
+    )
+
+    parser.add("--start_lr", help="Initial learning rate", type=float, default=1e-2)
+    parser.add(
+        "--n_itr",
+        help="Maximum number of iterations per phase",
+        type=int,
+        default=int(1e4),
+    )
+    parser.add("--n_train_loops", help="Number of training loops", type=int, default=1)
+    parser.add(
+        "--recipe",
+        help='Recipe type. Either "c3x" or "debug".',
+        type=str,
+        default="c3x",
+    )
+
+    # ==== Encoder-side arguments
+    parser.add(
+        "--layers_synthesis",
+        type=str,
+        default="40-1-linear-relu,X-1-linear-none,X-3-residual-relu,X-3-residual-none",
+        help="Syntax example: "
+        " "
+        "    12-1-linear-relu,12-1-residual-relu,X-1-linear-relu,X-3-residual-none "
+        " "
+        "    This is a 4 layers synthesis. Each layer is separated by comas and is "
+        "described using the following syntax: "
+        " "
+        "    <output_dim>-<kernel_size>-<type>-<non_linearity>. "
+        " "
+        "<output_dim> is the number of output features. If set to X, this is replaced by the "
+        "number of required output features i.e. 3 for a RGB or YUV frame. "
+        " "
+        "<kernel_size> is the spatial dimension of the kernel. Use 1 to mimic an MLP. "
+        " "
+        "<type> is either 'linear' for a standard conv or 'residual' for a convolution "
+        "with a residual connexion block i.e. layer(x) = x + conv(x). "
+        " "
+        "<non_linearity> Can be 'none' for no non-linearity, 'relu' for a ReLU "
+        "non-linearity. ",
+    )
+
+    parser.add(
+        "--arm",
+        type=str,
+        default="24,2",
+        help="<arm_context_and_layer_dimension>,<number_of_hidden_layers>"
+        "First number indicates both the context size **AND** the hidden layer dimension."
+        "Second number indicates the number of hidden layer(s). 0 gives a linear ARM module.",
+    )
+
+    parser.add(
+        "--ups_k_size",
+        type=int,
+        default=8,
+        help="Upsampling kernel size for the transposed convolutions. "
+        "Must be even and >= 4.",
+    )
+
+    parser.add(
+        "--ups_preconcat_k_size",
+        type=int,
+        default=7,
+        help="Upsampling kernel size for the pre-concatenation convolutions. "
+        "Must be odd.",
+    )
+
+    parser.add(
+        "--n_ft_per_res",
+        type=str,
+        default="1,1,1,1,1,1,1",
+        help="Number of feature for each latent resolution. e.g. "
+        " --n_ft_per_res_residue=1,1,1,1,1,1,1 "
+        " for 7 latent grids with variable resolutions. "
+        " Parameterize the residue decoder.",
+    )
+
     args = parser.parse_args()
 
     config_path = Path(args.config)
@@ -90,7 +216,7 @@ if __name__ == "__main__":
             '|    `"Y8888888 P"Y8888P"    P"Y8888P"    8P\'"Y88                  P""Y8888PP88P     `Y88P""Y8P""Y8888PP   |\n'
             "|                                                                                                          |\n"
             "|                                                                                                          |\n"
-            "| version 3.3                                                                           © 2023-2024 Orange |\n"
+            "| version 3.4, Nov. 2024                                                                © 2023-2024 Orange |\n"
             "*----------------------------------------------------------------------------------------------------------*\n"
         )
 
@@ -108,78 +234,15 @@ if __name__ == "__main__":
             #     parser.format_values()
             # )  # useful for logging where different settings came from
 
-        # ----- Create coding configuration
-        assert (
-            config.enc_cfg.intra_period >= 0 and config.enc_cfg.intra_period <= 255
-        ), (
-            f"Intra period should be "
-            f"  in [0, 255]. Found {config.enc_cfg.intra_period}"
-        )
-
-        assert config.enc_cfg.p_period >= 0 and config.enc_cfg.p_period <= 255, (
-            f"P period should be " f"  in [0, 255]. Found {config.enc_cfg.p_period}"
-        )
-
-        input_path_str = str(config.input.absolute())
-        is_image = (
-            input_path_str.endswith(".png")
-            or input_path_str.endswith(".PNG")
-            or input_path_str.endswith(".jpeg")
-            or input_path_str.endswith(".JPEG")
-            or input_path_str.endswith(".jpg")
-            or input_path_str.endswith(".JPG")
-        )
-
-        if is_image:
-            assert config.enc_cfg.intra_period == 0 and config.enc_cfg.p_period == 0, (
-                f"Encoding a PNG or JPEG image {config.input} must be done with "
-                "intra_period = 0 and p_period = 0. Found intra_period = "
-                f"{config.enc_cfg.intra_period} and p_period = {config.enc_cfg.p_period}"
-            )
-
-        coding_config = CodingStructure(
-            intra_period=config.enc_cfg.intra_period,
-            p_period=config.enc_cfg.p_period,
-            seq_name=os.path.basename(config.input).split(".")[0],
-        )
-
-        # Parse arguments
-        layers_synthesis = [
-            x for x in config.dec_cfg.layers_synthesis.split(",") if x != ""
-        ]
-        n_ft_per_res = [
-            int(x) for x in config.dec_cfg.n_ft_per_res.split(",") if x != ""
-        ]
-
-        assert set(n_ft_per_res) == {
-            1
-        }, f"--n_ft_per_res should only contains 1. Found {config.dec_cfg.n_ft_per_res}"
-
-        assert len(config.dec_cfg.arm.split(",")) == 2, (
-            f"--arm format should be X,Y." f" Found {config.dec_cfg.arm}"
-        )
-
-        dim_arm, n_hidden_layers_arm = [int(x) for x in config.dec_cfg.arm.split(",")]
-
+        # ----- Parse arguments & construct video encoder
+        coding_structure = CodingStructure(**get_coding_structure_from_args(args))
         coolchic_encoder_parameter = CoolChicEncoderParameter(
-            layers_synthesis=layers_synthesis,
-            dim_arm=dim_arm,
-            n_hidden_layers_arm=n_hidden_layers_arm,
-            n_ft_per_res=n_ft_per_res,
-            upsampling_kernel_size=config.dec_cfg.upsampling_kernel_size,
-            static_upsampling_kernel=config.dec_cfg.static_upsampling_kernel,
+            **get_coolchic_param_from_args(args)
         )
-
-        frame_encoder_manager = FrameEncoderManager(
-            preset_config=config.enc_cfg.recipe,
-            start_lr=config.enc_cfg.start_lr,
-            lmbda=config.lmbda,
-            n_loops=config.enc_cfg.n_train_loops,
-            n_itr=config.enc_cfg.n_itr,
-        )
+        frame_encoder_manager = FrameEncoderManager(**get_manager_from_args(args))
 
         video_encoder = VideoEncoder(
-            coding_structure=coding_config,
+            coding_structure=coding_structure,
             shared_coolchic_parameter=coolchic_encoder_parameter,
             shared_frame_encoder_manager=frame_encoder_manager,
         )
@@ -188,32 +251,8 @@ if __name__ == "__main__":
     device = get_best_device()
     print(f'{"Device":<20}: {device}')
 
-    # # ====================== Torchscript JIT parameters ===================== #
-    # # From https://github.com/pytorch/pytorch/issues/52286
-    # # This is no longer the case with the with torch.jit.fuser
-    # # ! This gives a significant (+25 %) speed up
-    # torch._C._jit_set_profiling_executor(False)
-    # torch._C._jit_set_texpr_fuser_enabled(False)
-    # torch._C._jit_set_profiling_mode(False)
-
-    # torch.set_float32_matmul_precision("high")
-    # # ====================== Torchscript JIT parameters ===================== #
-
-    if device == "cpu":
-        # the number of cores is adjusted wrt to the slurm variable if exists
-        n_cores = os.getenv("SLURM_JOB_CPUS_PER_NODE")
-        # otherwise use the machine cpu count
-        if n_cores is None:
-            n_cores = os.cpu_count()
-
-        assert isinstance(
-            n_cores, int
-        ), "The 'SLURM_JOB_CPUS_PER_NODE' environment variable returned a non-integer value."
-        n_cores = int(n_cores)
-        print(f'{"CPU cores":<20}: {n_cores}')
-
-    elif device == "cuda:0":
-        # ! This one makes the training way faster!
+    # This makes the training faster
+    if device == "cuda:0":
         torch.backends.cudnn.benchmark = True
 
     print(f"\n{video_encoder.coding_structure.pretty_string()}\n")
@@ -237,7 +276,7 @@ if __name__ == "__main__":
     video_encoder.save(video_encoder_savepath)
 
     # Bitstream
-    if config.output != "":
+    if config.output != "" and exit_code == TrainingExitCode.END:
         from coolchic.enc.bitstream.encode import encode_video
 
         video_encoder = load_video_encoder(video_encoder_savepath)

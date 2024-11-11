@@ -8,7 +8,7 @@
 
 from dataclasses import dataclass, field, fields
 from coolchic.utils.types import PresetConfig
-from coolchic.enc.utils.presets import AVAILABLE_PRESETS, Preset
+from coolchic.enc.training.presets import AVAILABLE_PRESETS, Preset
 
 
 @dataclass

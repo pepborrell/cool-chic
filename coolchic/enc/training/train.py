@@ -22,9 +22,7 @@ from coolchic.enc.component.frame import FrameEncoder
 from coolchic.enc.training.loss import loss_function
 from coolchic.enc.training.test import test
 from coolchic.enc.utils.codingstructure import Frame
-from coolchic.enc.utils.manager import FrameEncoderManager
-from coolchic.enc.utils.presets import MODULE_TO_OPTIMIZE
-from torch.nn.utils import clip_grad_norm_
+from coolchic.enc.training.presets import MODULE_TO_OPTIMIZE
 
 
 # Custom scheduling function for the soft rounding temperature and the noise parameter
@@ -307,7 +305,7 @@ def train(
                 "patience": (patience - cnt + cnt_record) // frequency_validation,
                 "q_type": f"{quantizer_type:12s}",
                 "sr_temp": f"{cur_softround_temperature:.5f}",
-                "n_type": f"{quantizer_noise_type:20s}",
+                "n_type": f"{quantizer_noise_type:12s}",
                 "noise": f"{cur_noise_parameter:.2f}",
                 "record": log_new_record,
             }

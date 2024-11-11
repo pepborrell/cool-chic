@@ -5,7 +5,7 @@ import subprocess
 from pybind11.setup_helpers import Pybind11Extension, build_ext
 from sys import platform
 
-__version__ = "3.3.0"
+__version__ = "3.4.0"
 
 CCLIB_PATH = "coolchic/CCLIB"
 
@@ -46,6 +46,7 @@ ext_modules = [
             "coolchic/cpp/cc-frame-decoder.cpp",
             "coolchic/cpp/frame-memory.cpp",
             "coolchic/cpp/arm_cpu.cpp",
+            "coolchic/cpp/ups_cpu.cpp",
             "coolchic/cpp/syn_cpu.cpp",
             "coolchic/cpp/BitStream.cpp",
             "coolchic/cpp/TDecBinCoderCABAC.cpp",
@@ -69,6 +70,7 @@ if platform != "darwin":
                 "coolchic/cpp/frame-memory.cpp",
                 "coolchic/cpp/arm_cpu.cpp",
                 "coolchic/cpp/arm_avx2.cpp",
+                "coolchic/cpp/ups_cpu.cpp",
                 "coolchic/cpp/ups_avx2.cpp",
                 "coolchic/cpp/syn_cpu.cpp",
                 "coolchic/cpp/syn_avx2.cpp",
@@ -82,34 +84,35 @@ if platform != "darwin":
         )
     )
 
-# setup(
-#     name="coolchic",
-#     version=__version__,
-#     author="Orange",
-#     author_email="theo.ladune@orange.com",
-#     url="https://github.com/Orange-OpenSource/Cool-Chic",
-#     description="Cool-Chic: lightweight neural video codec.",
-#     long_description="",
-#     ext_modules=ext_modules,
-#     extras_require={},
-#     # Currently, build_ext only provides an optional "highest supported C++
-#     # level" feature, but in the future it may provide more features.
-#     cmdclass={"build_ext": build_ext},
-#     zip_safe=False,
-#     python_requires=">=3.10",
-#     # install_requires=[
-#     #     "torch>=2.3.0",
-#     #     "torchvision",
-#     #     "matplotlib",
-#     #     "einops",
-#     #     "fvcore",
-#     #     "cmake",
-#     #     "ConfigArgParse",
-#     #     "psutil",
-#     #     "pytest",
-#     #     "pytest-order",
-#     # ]
-# )
+# added netpbmfile import
+setup(
+    name="coolchic",
+    version=__version__,
+    author="Orange",
+    author_email="theo.ladune@orange.com",
+    url="https://github.com/Orange-OpenSource/Cool-Chic",
+    description="Cool-Chic: lightweight neural video codec.",
+    long_description="",
+    ext_modules=ext_modules,
+    extras_require={},
+    # Currently, build_ext only provides an optional "highest supported C++
+    # level" feature, but in the future it may provide more features.
+    cmdclass={"build_ext": build_ext},
+    zip_safe=False,
+    python_requires=">=3.10",
+    install_requires=[
+        "torch>=2.5.0",
+        "torchvision",
+        "matplotlib",
+        "einops",
+        "fvcore",
+        "cmake",
+        "ConfigArgParse",
+        "psutil",
+        "pytest",
+        "pytest-order",
+    ],
+)
 
 
 def build(setup_kwargs):
