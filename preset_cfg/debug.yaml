@@ -1,0 +1,58 @@
+# Very fast training schedule, should only be used to ensure that the code works properly!
+preset_name: debug
+warmup:
+  phases:
+    - candidates: 3
+      training_phase:
+        lr: 1e-2
+        max_itr: 10
+        freq_valid: 400
+        patience: 100000
+        quantize_model: False
+        schedule_lr: False
+        softround_temperature: [0.3, 0.3]
+        noise_parameter: [2.0, 2.0]
+        quantizer_noise_type: "kumaraswamy"
+        quantizer_type: "softround"
+        optimized_module: ["all"]
+    - candidates: 2
+      training_phase:
+        lr: 1e-2
+        max_itr: 10
+        freq_valid: 400
+        patience: 100000
+        quantize_model: False
+        schedule_lr: False
+        softround_temperature: [0.3, 0.3]
+        noise_parameter: [2.0, 2.0]
+        quantizer_noise_type: "kumaraswamy"
+        quantizer_type: "softround"
+        optimized_module: ["all"]
+all_phases:
+- lr: 1e-2
+  max_itr: 50
+  patience: 100000
+  optimized_module: ["all"]
+  schedule_lr: True
+  quantizer_type: "softround"
+  quantizer_noise_type: "gaussian"
+  softround_temperature: [ 0.3, 0.1 ]
+  noise_parameter: [ 0.25, 0.1 ]
+- lr: 1e-4
+  max_itr: 10
+  patience: 10
+  optimized_module: ["all"]
+  quantizer_type: "ste"
+  quantizer_noise_type: "none"
+  quantize_model: True
+  softround_temperature: [ 1e-4, 1e-4 ]
+  noise_parameter: [ 1.0, 1.0 ]  # not used since quantizer type is "ste"
+- lr: 1e-4
+  max_itr: 10
+  patience: 50
+  optimized_module: ["latent"]
+  freq_valid: 5
+  quantizer_type: "ste"
+  quantizer_noise_type: "none"
+  softround_temperature: [ 1e-4, 1e-4 ]
+  noise_parameter: [ 1.0, 1.0 ]  # not used since quantizer type is "ste"
