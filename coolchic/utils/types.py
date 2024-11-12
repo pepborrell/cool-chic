@@ -121,6 +121,20 @@ class DecoderConfig(BaseModel):
             "Second number indicates the number of hidden layer(s). 0 gives a linear ARM module."
         ),
     )
+    ups_k_size: int = Field(
+        default=8,
+        description=(
+            "Upsampling kernel size for the transposed convolutions. "
+            "Must be even and >= 4."
+        ),
+    )
+    ups_preconcat_k_size: int = Field(
+        default=7,
+        description=(
+            "Upsampling kernel size for the pre-concatenation convolutions. "
+            "Must be odd."
+        ),
+    )
     n_ft_per_res: str = Field(
         default="1,1,1,1,1,1,1",
         description=(
@@ -128,8 +142,6 @@ class DecoderConfig(BaseModel):
             " for 7 latent grids with variable resolutions."
         ),
     )
-    upsampling_kernel_size: int = 8
-    static_upsampling_kernel: bool = False
 
 
 class Config(BaseModel):

@@ -7,12 +7,11 @@
 # Authors: see CONTRIBUTORS.md
 
 
-# import argparse
+import argparse
 import os
 import sys
 from pathlib import Path
 
-import configargparse
 import torch
 import yaml
 from enc.utils.misc import TrainingExitCode, get_best_device
@@ -53,125 +52,10 @@ if __name__ == "__main__":
     #      overrides both the default value and the value listed in the
     #      configuration file.
 
-    # parser = argparse.ArgumentParser()
-    parser = configargparse.ArgumentParser()
+    parser = argparse.ArgumentParser()
     parser.add_argument(
         "--config", help="Specifies the path to the config file that will be used."
     )
-    parser.add(
-        "-o",
-        "--output",
-        help="Path of the compressed bitstream. If empty, no bitstream is written",
-        type=str,
-        default="",
-    )
-
-    parser.add("--workdir", help="Path of the working_directory", type=str, default=".")
-    parser.add("--lmbda", help="Rate constraint", type=float, default=1e-3)
-    parser.add(
-        "--job_duration_min",
-        type=int,
-        default=-1,
-        help="Exit and save the encoding after this duration. Use -1 to only exit at the end.",
-    )
-
-    # -------- Configuration files
-    parser.add("--enc_cfg", is_config_file=True, help="Encoder configuration file")
-
-    parser.add("--dec_cfg", is_config_file=True, help="Decoder configuration file")
-
-    # -------- These arguments are in the configuration files
-
-    # ==== Encoder-side arguments
-    parser.add(
-        "--intra_period",
-        help="Number of inter frames in the GOP. 0 for image coding",
-        type=int,
-        default=0,
-    )
-    parser.add(
-        "--p_period",
-        help="Distance between P-frames. 0 for image coding",
-        type=int,
-        default=0,
-    )
-
-    parser.add("--start_lr", help="Initial learning rate", type=float, default=1e-2)
-    parser.add(
-        "--n_itr",
-        help="Maximum number of iterations per phase",
-        type=int,
-        default=int(1e4),
-    )
-    parser.add("--n_train_loops", help="Number of training loops", type=int, default=1)
-    parser.add(
-        "--recipe",
-        help='Recipe type. Either "c3x" or "debug".',
-        type=str,
-        default="c3x",
-    )
-
-    # ==== Encoder-side arguments
-    parser.add(
-        "--layers_synthesis",
-        type=str,
-        default="40-1-linear-relu,X-1-linear-none,X-3-residual-relu,X-3-residual-none",
-        help="Syntax example: "
-        " "
-        "    12-1-linear-relu,12-1-residual-relu,X-1-linear-relu,X-3-residual-none "
-        " "
-        "    This is a 4 layers synthesis. Each layer is separated by comas and is "
-        "described using the following syntax: "
-        " "
-        "    <output_dim>-<kernel_size>-<type>-<non_linearity>. "
-        " "
-        "<output_dim> is the number of output features. If set to X, this is replaced by the "
-        "number of required output features i.e. 3 for a RGB or YUV frame. "
-        " "
-        "<kernel_size> is the spatial dimension of the kernel. Use 1 to mimic an MLP. "
-        " "
-        "<type> is either 'linear' for a standard conv or 'residual' for a convolution "
-        "with a residual connexion block i.e. layer(x) = x + conv(x). "
-        " "
-        "<non_linearity> Can be 'none' for no non-linearity, 'relu' for a ReLU "
-        "non-linearity. ",
-    )
-
-    parser.add(
-        "--arm",
-        type=str,
-        default="24,2",
-        help="<arm_context_and_layer_dimension>,<number_of_hidden_layers>"
-        "First number indicates both the context size **AND** the hidden layer dimension."
-        "Second number indicates the number of hidden layer(s). 0 gives a linear ARM module.",
-    )
-
-    parser.add(
-        "--ups_k_size",
-        type=int,
-        default=8,
-        help="Upsampling kernel size for the transposed convolutions. "
-        "Must be even and >= 4.",
-    )
-
-    parser.add(
-        "--ups_preconcat_k_size",
-        type=int,
-        default=7,
-        help="Upsampling kernel size for the pre-concatenation convolutions. "
-        "Must be odd.",
-    )
-
-    parser.add(
-        "--n_ft_per_res",
-        type=str,
-        default="1,1,1,1,1,1,1",
-        help="Number of feature for each latent resolution. e.g. "
-        " --n_ft_per_res_residue=1,1,1,1,1,1,1 "
-        " for 7 latent grids with variable resolutions. "
-        " Parameterize the residue decoder.",
-    )
-
     args = parser.parse_args()
 
     config_path = Path(args.config)
