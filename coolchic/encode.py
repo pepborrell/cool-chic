@@ -116,7 +116,7 @@ if __name__ == "__main__":
         # ----- Parse arguments & construct video encoder
         coding_structure = CodingStructure(**get_coding_structure_from_args(config))
         coolchic_encoder_parameter = CoolChicEncoderParameter(
-            **get_coolchic_param_from_args(args)
+            **get_coolchic_param_from_args(config)
         )
         frame_encoder_manager = FrameEncoderManager(**get_manager_from_args(config))
 
