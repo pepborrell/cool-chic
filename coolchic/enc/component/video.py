@@ -118,6 +118,9 @@ class VideoEncoder:
 
         for idx_coding_order in range(n_frames):
             frame = self.coding_structure.get_frame_from_coding_order(idx_coding_order)
+            assert (
+                frame is not None
+            ), f"Expected frame at position {idx_coding_order} in the coding order, but got None."
 
             if frame.already_encoded:
                 continue
