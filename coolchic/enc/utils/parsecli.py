@@ -7,7 +7,6 @@
 # Authors: see CONTRIBUTORS.md
 
 
-import argparse
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -75,19 +74,19 @@ def _parse_n_ft_per_res(n_ft_per_res: str) -> List[int]:
     return n_ft_per_res
 
 
-def get_coolchic_param_from_args(args: argparse.Namespace) -> Dict[str, Any]:
-    layers_synthesis = _parse_synthesis_layers(getattr(args, "layers_synthesis"))
-    n_ft_per_res = _parse_n_ft_per_res(getattr(args, "n_ft_per_res"))
+def get_coolchic_param_from_args(config: Config) -> Dict[str, Any]:
+    layers_synthesis = _parse_synthesis_layers(config.dec_cfg.layers_synthesis)
+    n_ft_per_res = _parse_n_ft_per_res(config.dec_cfg.n_ft_per_res)
 
     coolchic_param = {
         "layers_synthesis": layers_synthesis,
         "n_ft_per_res": n_ft_per_res,
-        "ups_k_size": getattr(args, "ups_k_size"),
-        "ups_preconcat_k_size": getattr(args, "ups_preconcat_k_size"),
+        "ups_k_size": config.dec_cfg.ups_k_size,
+        "ups_preconcat_k_size": config.dec_cfg.ups_preconcat_k_size,
     }
 
     # Add ARM parameters
-    coolchic_param.update(_parse_arm_archi(getattr(args, "arm")))
+    coolchic_param.update(_parse_arm_archi(config.dec_cfg.arm))
 
     return coolchic_param
 
