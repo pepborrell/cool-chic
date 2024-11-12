@@ -6,7 +6,6 @@
 #
 # Authors: see CONTRIBUTORS.md
 
-
 import copy
 import subprocess
 import time
@@ -14,7 +13,6 @@ from pathlib import Path
 from typing import Dict, List, Tuple
 
 import torch
-
 from enc.component.coolchic import CoolChicEncoderParameter
 from enc.component.frame import FrameEncoder, load_frame_encoder
 from enc.io.io import load_frame_data_from_file
@@ -30,6 +28,7 @@ from enc.utils.misc import (
     is_job_over,
     mem_info,
 )
+from torch.profiler import ProfilerActivity, profile, record_function
 
 
 class VideoEncoder:
@@ -232,128 +231,143 @@ class VideoEncoder:
 
                 print(list_candidates[0].coolchic_encoder.pretty_string() + "\n\n")
 
-                # Use warm-up to find the best initialization among the list
-                # of candidates parameters.
-                frame_encoder = warmup(
-                    frame_encoder_manager=frame_encoder_manager,
-                    list_candidates=list_candidates,
-                    frame=frame,
-                    device=device,
-                )
-                frame_encoder.to_device(device)
+                with profile(
+                    activites=[ProfilerActivity.CPU], record_shapes=True
+                ) as prof:
+                    with record_function("warmup"):
+                        # Use warm-up to find the best initialization among the list
+                        # of candidates parameters.
+                        frame_encoder = warmup(
+                            frame_encoder_manager=frame_encoder_manager,
+                            list_candidates=list_candidates,
+                            frame=frame,
+                            device=device,
+                        )
+                    with record_function("encoding"):
+                        frame_encoder.to_device(device)
 
-                for idx_phase, training_phase in enumerate(
-                    frame_encoder_manager.preset.all_phases
-                ):
-                    print(f'{"-" * 30} Training phase: {idx_phase:>2} {"-" * 30}\n')
-                    mem_info("Training phase " + str(idx_phase))
-                    frame_encoder = train(
-                        frame_encoder=frame_encoder,
-                        frame=frame,
-                        frame_encoder_manager=frame_encoder_manager,
-                        start_lr=training_phase.lr,
-                        cosine_scheduling_lr=training_phase.schedule_lr,
-                        max_iterations=training_phase.max_itr,
-                        frequency_validation=training_phase.freq_valid,
-                        patience=training_phase.patience,
-                        optimized_module=training_phase.optimized_module,
-                        quantizer_type=training_phase.quantizer_type,
-                        quantizer_noise_type=training_phase.quantizer_noise_type,
-                        softround_temperature=training_phase.softround_temperature,
-                        noise_parameter=training_phase.noise_parameter,
-                    )
+                        for idx_phase, training_phase in enumerate(
+                            frame_encoder_manager.preset.all_phases
+                        ):
+                            print(
+                                f'{"-" * 30} Training phase: {idx_phase:>2} {"-" * 30}\n'
+                            )
+                            mem_info("Training phase " + str(idx_phase))
+                            frame_encoder = train(
+                                frame_encoder=frame_encoder,
+                                frame=frame,
+                                frame_encoder_manager=frame_encoder_manager,
+                                start_lr=training_phase.lr,
+                                cosine_scheduling_lr=training_phase.schedule_lr,
+                                max_iterations=training_phase.max_itr,
+                                frequency_validation=training_phase.freq_valid,
+                                patience=training_phase.patience,
+                                optimized_module=training_phase.optimized_module,
+                                quantizer_type=training_phase.quantizer_type,
+                                quantizer_noise_type=training_phase.quantizer_noise_type,
+                                softround_temperature=training_phase.softround_temperature,
+                                noise_parameter=training_phase.noise_parameter,
+                            )
 
-                    if training_phase.quantize_model:
-                        # Store full precision parameters inside the
-                        # frame_encoder for later use if needed
-                        frame_encoder.coolchic_encoder._store_full_precision_param()
-                        frame_encoder = quantize_model(
+                            if training_phase.quantize_model:
+                                # Store full precision parameters inside the
+                                # frame_encoder for later use if needed
+                                frame_encoder.coolchic_encoder._store_full_precision_param()
+                                frame_encoder = quantize_model(
+                                    frame_encoder,
+                                    frame,
+                                    frame_encoder_manager,
+                                )
+
+                            phase_results = test(
+                                frame_encoder,
+                                frame,
+                                frame_encoder_manager,
+                            )
+
+                            print("\nResults at the end of the phase:")
+                            print("--------------------------------")
+                            print(
+                                f'\n{phase_results.pretty_string(show_col_name=True, mode="short")}\n'
+                            )
+
+                        # At the end of each loop, compute the final loss
+                        loop_results = test(
                             frame_encoder,
                             frame,
                             frame_encoder_manager,
                         )
 
-                    phase_results = test(
-                        frame_encoder,
-                        frame,
-                        frame_encoder_manager,
-                    )
+                        # Write results file
+                        path_results_log = f"{frame_workdir}results_loop_{frame_encoder_manager.loop_counter + 1}.tsv"
+                        with open(path_results_log, "w") as f_out:
+                            f_out.write(
+                                loop_results.pretty_string(
+                                    show_col_name=True, mode="all"
+                                )
+                                + "\n"
+                            )
 
-                    print("\nResults at the end of the phase:")
-                    print("--------------------------------")
-                    print(
-                        f'\n{phase_results.pretty_string(show_col_name=True, mode="short")}\n'
-                    )
+                        # We've beaten our record
+                        if frame_encoder_manager.record_beaten(loop_results.loss):
+                            print(
+                                f"Best loss beaten at loop {frame_encoder_manager.loop_counter + 1}"
+                            )
+                            print(
+                                f"Previous best loss: {frame_encoder_manager.best_loss * 1e3 :.6f}"
+                            )
+                            print(
+                                f"New best loss     : {loop_results.loss.cpu().item() * 1e3 :.6f}"
+                            )
 
-                # At the end of each loop, compute the final loss
-                loop_results = test(
-                    frame_encoder,
-                    frame,
-                    frame_encoder_manager,
-                )
+                            frame_encoder_manager.set_best_loss(
+                                loop_results.loss.cpu().item()
+                            )
 
-                # Write results file
-                path_results_log = f"{frame_workdir}results_loop_{frame_encoder_manager.loop_counter + 1}.tsv"
-                with open(path_results_log, "w") as f_out:
-                    f_out.write(
-                        loop_results.pretty_string(show_col_name=True, mode="all")
-                        + "\n"
-                    )
+                            # Save best results
+                            with open(f"{frame_workdir}results_best.tsv", "w") as f_out:
+                                f_out.write(
+                                    loop_results.pretty_string(
+                                        show_col_name=True, mode="all"
+                                    )
+                                    + "\n"
+                                )
+                            self.concat_results_file(workdir)
 
-                # We've beaten our record
-                if frame_encoder_manager.record_beaten(loop_results.loss):
-                    print(
-                        f"Best loss beaten at loop {frame_encoder_manager.loop_counter + 1}"
-                    )
-                    print(
-                        f"Previous best loss: {frame_encoder_manager.best_loss * 1e3 :.6f}"
-                    )
-                    print(
-                        f"New best loss     : {loop_results.loss.cpu().item() * 1e3 :.6f}"
-                    )
+                            best_frame_encoder = frame_encoder
 
-                    frame_encoder_manager.set_best_loss(loop_results.loss.cpu().item())
+                        # We haven't beaten our record, keep the old frame encoder as
+                        # the current best frame encoder
+                        else:
+                            best_frame_encoder = self.all_frame_encoders[
+                                str(frame.coding_order)
+                            ][0]
 
-                    # Save best results
-                    with open(f"{frame_workdir}results_best.tsv", "w") as f_out:
-                        f_out.write(
-                            loop_results.pretty_string(show_col_name=True, mode="all")
-                            + "\n"
+                        frame_encoder_manager.loop_counter += 1
+
+                        # Store the current best FrameEncoder and the corresponding
+                        # frame_encoder_manager
+                        self.all_frame_encoders[str(frame.coding_order)] = (
+                            copy.deepcopy(best_frame_encoder),
+                            copy.deepcopy(frame_encoder_manager),
                         )
-                    self.concat_results_file(workdir)
 
-                    best_frame_encoder = frame_encoder
+                        print("End of training loop\n\n")
 
-                # We haven't beaten our record, keep the old frame encoder as
-                # the current best frame encoder
-                else:
-                    best_frame_encoder = self.all_frame_encoders[
-                        str(frame.coding_order)
-                    ][0]
+                        self.save(workdir / "video_encoder.pt")
+                        # The save function unload the decoded frames and the original
+                        # ones. We need to reload them
+                        frame.data = load_frame_data_from_file(
+                            path_original_sequence, frame.display_order
+                        )
+                        frame.refs_data = self.get_ref_data(frame)
 
-                frame_encoder_manager.loop_counter += 1
+                        if is_job_over(
+                            start_time=start_time, max_duration_job_min=job_duration_min
+                        ):
+                            return TrainingExitCode.REQUEUE
 
-                # Store the current best FrameEncoder and the corresponding
-                # frame_encoder_manager
-                self.all_frame_encoders[str(frame.coding_order)] = (
-                    copy.deepcopy(best_frame_encoder),
-                    copy.deepcopy(frame_encoder_manager),
-                )
-
-                print("End of training loop\n\n")
-
-                self.save(workdir / "video_encoder.pt")
-                # The save function unload the decoded frames and the original
-                # ones. We need to reload them
-                frame.data = load_frame_data_from_file(
-                    path_original_sequence, frame.display_order
-                )
-                frame.refs_data = self.get_ref_data(frame)
-
-                if is_job_over(
-                    start_time=start_time, max_duration_job_min=job_duration_min
-                ):
-                    return TrainingExitCode.REQUEUE
+                print(prof.key_averages().table(sort_by="cpu_time_total", row_limit=10))
 
             self.coding_structure.set_encoded_flag(
                 coding_order=frame.coding_order, flag_value=True
