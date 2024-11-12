@@ -232,7 +232,7 @@ class VideoEncoder:
                 print(list_candidates[0].coolchic_encoder.pretty_string() + "\n\n")
 
                 with profile(
-                    activites=[ProfilerActivity.CPU], record_shapes=True
+                    activities=[ProfilerActivity.CPU], record_shapes=False
                 ) as prof:
                     with record_function("warmup"):
                         # Use warm-up to find the best initialization among the list
@@ -243,6 +243,7 @@ class VideoEncoder:
                             frame=frame,
                             device=device,
                         )
+
                     with record_function("encoding"):
                         frame_encoder.to_device(device)
 
@@ -367,6 +368,9 @@ class VideoEncoder:
                         ):
                             return TrainingExitCode.REQUEUE
 
+                print("-" * 20)
+                print("Gathering all profiler statistics.")
+                print("-" * 20)
                 print(prof.key_averages().table(sort_by="cpu_time_total", row_limit=10))
 
             self.coding_structure.set_encoded_flag(
