@@ -27,6 +27,9 @@ class PresetConfig(BaseModel):
             if training_phase.quantize_model:
                 flag_quantize_model = True
 
+        # If we are debugging code, do not run this assertion.
+        if self.preset_name in {"debug", "profile"}:
+            return
         # Ignore this assertion if there is no self.all_phases described
         assert flag_quantize_model or len(self.all_phases) == 0, (
             f"The selected preset ({self.preset_name}) does not include "
