@@ -231,22 +231,21 @@ class VideoEncoder:
 
                 print(list_candidates[0].coolchic_encoder.pretty_string() + "\n\n")
 
+                # Use warm-up to find the best initialization among the list
+                # of candidates parameters.
+                frame_encoder = warmup(
+                    frame_encoder_manager=frame_encoder_manager,
+                    list_candidates=list_candidates,
+                    frame=frame,
+                    device=device,
+                )
+
+                frame_encoder.to_device(device)
+
                 with profile(
                     activities=[ProfilerActivity.CPU], record_shapes=False
                 ) as prof:
-                    with record_function("warmup"):
-                        # Use warm-up to find the best initialization among the list
-                        # of candidates parameters.
-                        frame_encoder = warmup(
-                            frame_encoder_manager=frame_encoder_manager,
-                            list_candidates=list_candidates,
-                            frame=frame,
-                            device=device,
-                        )
-
                     with record_function("encoding"):
-                        frame_encoder.to_device(device)
-
                         for idx_phase, training_phase in enumerate(
                             frame_encoder_manager.preset.all_phases
                         ):
