@@ -50,18 +50,6 @@ class FrameEncoderManager:
     iterations_counter: int = field(default=0, init=False)
     # ==================== Not set by the init function ===================== #
 
-    def __post_init__(self):
-        self.preset = self.preset_config
-
-        flag_quantize_model = False
-        for training_phase in self.preset.all_phases:
-            if training_phase.quantize_model:
-                flag_quantize_model = True
-        assert flag_quantize_model, (
-            f"The selected preset ({self.preset_config.preset_name}) does not include "
-            f" a training phase with neural network quantization.\n{self.preset.pretty_string()}"
-        )
-
     def record_beaten(self, candidate_loss: float) -> bool:
         """Return True if the candidate loss is better (i.e. lower) than the best loss.
 
