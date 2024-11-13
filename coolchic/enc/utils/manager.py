@@ -8,7 +8,7 @@
 
 from dataclasses import dataclass, field, fields
 
-from enc.training.presets import AVAILABLE_PRESETS, Preset
+from enc.training.presets import Preset
 from utils.types import PresetConfig
 
 
@@ -51,15 +51,7 @@ class FrameEncoderManager:
     # ==================== Not set by the init function ===================== #
 
     def __post_init__(self):
-        assert self.preset_config.preset_name in AVAILABLE_PRESETS, (
-            f"Preset named {self.preset_config.preset_name} does not exist."
-            f" List of available preset:\n{list(AVAILABLE_PRESETS.keys())}."
-        )
-
         self.preset = self.preset_config
-        # self.preset = AVAILABLE_PRESETS.get(self.preset_name)(
-        #     start_lr=self.start_lr, n_itr_per_phase=self.n_itr
-        # )
 
         flag_quantize_model = False
         for training_phase in self.preset.all_phases:
