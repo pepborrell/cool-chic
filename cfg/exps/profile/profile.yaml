@@ -13,10 +13,10 @@ enc_cfg:
     # We leave a normal warmup, but w less candidates. We can change this later.
     warmup:
       phases:
-        - candidates: 2
+        - candidates: 1
           training_phase:
             lr: 1e-2
-            max_itr: 400
+            max_itr: 10
             freq_valid: 400
             patience: 100000
             quantize_model: False
@@ -26,10 +26,10 @@ enc_cfg:
             quantizer_noise_type: "kumaraswamy"
             quantizer_type: "softround"
             optimized_module: ["all"]
-        - candidates: 2
+        - candidates: 1
           training_phase:
             lr: 1e-2
-            max_itr: 400
+            max_itr: 10
             freq_valid: 400
             patience: 100000
             quantize_model: False

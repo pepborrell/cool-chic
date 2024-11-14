@@ -370,7 +370,8 @@ class VideoEncoder:
                 print("-" * 20)
                 print("Gathering all profiler statistics.")
                 print("-" * 20)
-                print(prof.key_averages().table(sort_by="cpu_time_total", row_limit=10))
+                print(prof.key_averages().table(sort_by="cpu_time_total", row_limit=30))
+                prof.export_chrome_trace("trace.json")
 
             self.coding_structure.set_encoded_flag(
                 coding_order=frame.coding_order, flag_value=True

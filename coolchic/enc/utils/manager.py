@@ -48,7 +48,10 @@ class FrameEncoderManager:
     # Total training time and iterations counter including warm-up and multi loops
     total_training_time_sec: float = field(default=0.0, init=False)
     iterations_counter: int = field(default=0, init=False)
+
     # ==================== Not set by the init function ===================== #
+    def __post_init__(self):
+        self.preset = self.preset_config
 
     def record_beaten(self, candidate_loss: float) -> bool:
         """Return True if the candidate loss is better (i.e. lower) than the best loss.
