@@ -1,3 +1,4 @@
+# File downloaded from https://raw.githubusercontent.com/Anserw/Bjontegaard_metric/refs/heads/master/bjontegaard_metric.py on 2024-11-15.
 import numpy as np
 import scipy.interpolate
 
