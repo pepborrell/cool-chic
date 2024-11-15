@@ -19,6 +19,7 @@ dependencies = [
     "pydantic",
     "python-build",
     "ruff>=0.7.3",
+    "scipy>=1.14.1",
 ]
 
 [build-system]
