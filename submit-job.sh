@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --mail-type=FAIL,END # mail configuration: NONE, BEGIN, END, FAIL, REQUEUE, ALL
-#SBATCH --output=/itet-stor/jborrell/net_scratch/jobs/${1}-%j.out # where to store the output (%j is the JOBID), subdirectory "jobs" must exist
-#SBATCH --error=/itet-stor/jborrell/net_scratch/jobs/${1}-%j.err # where to store error messages
+#SBATCH --output=/itet-stor/jborrell/net_scratch/jobs/%j.out # where to store the output (%j is the JOBID), subdirectory "jobs" must exist
+#SBATCH --error=/itet-stor/jborrell/net_scratch/jobs/%j.err # where to store error messages
 #SBATCH --mem-per-gpu=12G
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=4
@@ -15,8 +15,8 @@
 
 ETH_USERNAME=jborrell
 PROJECT_NAME=cool-chic
-# DIRECTORY=/itet-stor/${ETH_USERNAME}/net_scratch/${PROJECT_NAME}
-DIRECTORY=/itet-stor/${ETH_USERNAME}/home/${PROJECT_NAME}
+DIRECTORY=/itet-stor/${ETH_USERNAME}/net_scratch/${PROJECT_NAME}
+# DIRECTORY=/itet-stor/${ETH_USERNAME}/home/${PROJECT_NAME}
 CONDA_ENVIRONMENT=base
 mkdir -p ${DIRECTORY}/jobs
 #TODO: change your ETH USERNAME and other stuff from above according + in the #SBATCH output and error the path needs to be double checked!
@@ -52,7 +52,7 @@ echo "Conda activated"
 cd ${DIRECTORY}
 
 # Execute your code
-uv run python cool-chic/encode.py --config=$1
+uv run python coolchic/encode.py --config=$1
 
 # Send more noteworthy information to the output log
 echo "Finished at: $(date)"
