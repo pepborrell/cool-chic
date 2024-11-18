@@ -1,8 +1,10 @@
 from pathlib import Path
 from typing import Any, Literal
+from typing_extensions import Annotated
 
 import yaml
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
+from pydantic.functional_validators import BeforeValidator
 
 from enc.training.presets import TrainerPhase, Warmup, WarmupPhase
 from utils.paths import COOLCHIC_REPO_ROOT
@@ -72,7 +74,7 @@ class EncoderConfig(BaseModel):
     intra_period: int = 0
     p_period: int = 0
     start_lr: float = 1e-2
-    n_itr: int = int(1e4)
+    n_itr: int | None = None
     n_train_loops: int = 1
     # The recipe parameters are mutually exclusive.
     recipe: PresetConfig | None = None
@@ -94,8 +96,23 @@ class EncoderConfig(BaseModel):
             with open(PRESET_PATHS[self.std_recipe_name], "r") as stream:
                 self.recipe = PresetConfig(**yaml.safe_load(stream))
 
+        # At this point, recipe exists:
+        assert self.recipe is not None, (
+            "Training recipe was found to be None, which was unexpected. "
+            "Check the code for possible errors."
+        )
+
+        # If n_itr is provided, the iterations in the first loop of the recipe have to be n_itr + 600.
+        # This is a convention we take over from the original cool-chic repo.
+        if self.n_itr:
+            self.recipe.all_phases[0].max_itr = self.n_itr + 600
+
 
 class DecoderConfig(BaseModel):
+    config_name: str | None = Field(
+        default=None,
+        description="When we have more than one decoder config, we can give them distinct names.",
+    )
     layers_synthesis: str = Field(
         default="40-1-linear-relu,X-1-linear-none,X-3-residual-relu,X-3-residual-none",
         description=(
@@ -144,6 +161,10 @@ class DecoderConfig(BaseModel):
     )
 
 
+def single_element_to_list(elem: Any) -> list[Any]:
+    return [elem]
+
+
 class Config(BaseModel):
     input: Path
     output: Path = Path("")
@@ -151,6 +172,19 @@ class Config(BaseModel):
     lmbda: float = 1e-3
     job_duration_min: int = -1
     enc_cfg: EncoderConfig
-    dec_cfg: DecoderConfig
+    dec_cfgs: Annotated[list[DecoderConfig], BeforeValidator(single_element_to_list)]
+    dec_cfg: DecoderConfig = Field(
+        default=DecoderConfig(),
+        description="This field should never be set at init. "
+        "It is used all over the place later on, but we assign values to it only via code.",
+    )
     disable_wandb: bool = False
     load_models: bool = True
+
+    @model_validator(mode="before")
+    def check_no_dec_cfg(cls, values):
+        if "dec_cfg" in values:
+            raise ValueError(
+                "dec_cfg cannot be initialized. Provide a list of decoder configs to dec_cfgs instead."
+            )
+        return values
