@@ -2,7 +2,7 @@ input: data/kodak/kodim01.png
 output: results/exps/kodak/kodim01.cool
 workdir: null
 disable_wandb: False
-load_models: False
+load_models: True
 
 enc_cfg:
   n_itr: 100000 

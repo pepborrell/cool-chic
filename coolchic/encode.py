@@ -9,7 +9,6 @@
 
 import argparse
 import os
-import sys
 from pathlib import Path
 
 import torch
@@ -65,7 +64,7 @@ if __name__ == "__main__":
     # One high-level config for each decoder config.
     configs = []
     for dec_cfg in og_config.dec_cfgs:
-        config = og_config.copy(deep=True)
+        config = og_config.model_copy(deep=True)
         config.dec_cfg = dec_cfg
 
         workdir = (
@@ -166,9 +165,11 @@ if __name__ == "__main__":
         if config.output != "" and exit_code == TrainingExitCode.END:
             from enc.bitstream.encode import encode_video
 
+            config.output.parent.mkdir(parents=True, exist_ok=True)
+
             video_encoder = load_video_encoder(video_encoder_savepath)
             encode_video(video_encoder, config.output, hls_sig_blksize=16)
 
         wandb.finish()
 
-    sys.exit(exit_code.value)
+        # sys.exit(exit_code.value)
