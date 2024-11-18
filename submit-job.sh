@@ -2,7 +2,6 @@
 #SBATCH --mail-type=FAIL,END # mail configuration: NONE, BEGIN, END, FAIL, REQUEUE, ALL
 #SBATCH --output=/itet-stor/jborrell/net_scratch/jobs/${1}-%j.out # where to store the output (%j is the JOBID), subdirectory "jobs" must exist
 #SBATCH --error=/itet-stor/jborrell/net_scratch/jobs/${1}-%j.err # where to store error messages
-#SBATCH --mem-per-cpu=24G
 #SBATCH --mem-per-gpu=12G
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=4
