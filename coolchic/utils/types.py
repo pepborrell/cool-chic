@@ -162,7 +162,9 @@ class DecoderConfig(BaseModel):
 
 
 def single_element_to_list(elem: Any) -> list[Any]:
-    return [elem]
+    if not isinstance(elem, list):
+        return [elem]
+    return elem
 
 
 class Config(BaseModel):
