@@ -170,6 +170,11 @@ if __name__ == "__main__":
             video_encoder = load_video_encoder(video_encoder_savepath)
             encode_video(video_encoder, config.output, hls_sig_blksize=16)
 
+            # For the sake of completeness, we add the encoded video to the workdir too.
+            import shutil
+
+            shutil.copy(config.output, workdir / config.output.name)
+
         wandb.finish()
 
         # sys.exit(exit_code.value)
