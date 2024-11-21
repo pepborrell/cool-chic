@@ -2,11 +2,13 @@
 Compares the BD rate of two runs, specified by the path to its results.
 """
 
+from collections import defaultdict
+from typing import Any
 from pathlib import Path
 
 from pydantic import BaseModel
 
-from coolchic.utils.bjontegaard_metric import BD_RATE
+from ..utils.bjontegaard_metric import BD_RATE
 
 
 class EncodingMetrics(BaseModel):
@@ -15,6 +17,7 @@ class EncodingMetrics(BaseModel):
     latent_bpp: float
     psnr_db: float
     total_rate_bpp: float
+    lmbda: float
     feature_rate_bpp_00: float
     feature_rate_bpp_01: float
     feature_rate_bpp_02: float
@@ -25,46 +28,75 @@ class EncodingMetrics(BaseModel):
     arm_rate_bpp: float
     upsampling_rate_bpp: float
     synthesis_rate_bpp: float
-    # UNWANTED METRICS
-    # arm_weight_q_step
-    # arm_bias_q_step
-    # upsampling_weight_q_step
-    # upsampling_bias_q_step
-    # synthesis_weight_q_step
-    # synthesis_bias_q_step
-    # arm_weight_exp_cnt
-    # arm_bias_exp_cnt
-    # upsampling_weight_exp_cnt
-    # upsampling_bias_exp_cnt
-    # synthesis_weight_exp_cnt
-    # synthesis_bias_exp_cnt
-    # lmbda
-    # time_sec
-    # itr
-    # mac_decoded_pixel
-    # img_size
-    # n_pixels
-    # display_order
-    # coding_order
-    # seq_name
+
+
+def split_row(row: str) -> list[Any]:
+    split_char = " "
+    if "\t" in row:
+        split_char = "\t"
+    return [elem.strip() for elem in row.split(split_char) if elem != ""]
 
 
 def parse_result_metrics(results_dir: Path) -> EncodingMetrics:
     # Path to results looks like: results/exps/2024-11-15/kodim01/
     best_results_file = results_dir / "frame_000results_best.tsv"
     with open(best_results_file, "r") as f:
-        raw_metrics = f.read()
-    metric_names, metric_values = raw_metrics.split("\n")
+        raw_metrics = f.read().strip()
+    metric_names, metric_values = [split_row(row) for row in raw_metrics.split("\n")]
+    assert len(metric_names) == len(metric_values)
     metrics = EncodingMetrics(
         **{
-            n: float(v)
-            for n, v in zip(metric_names.split("\t"), metric_values.split("\t"))
+            n: float(v) if v.isnumeric() else v
+            for n, v in zip(metric_names, metric_values)
         }
     )
     return metrics
 
 
+class SummaryEncodingMetrics(BaseModel):
+    lmbda: float
+    rate_bpp: float
+    psnr_db: float
+
+
+def parse_result_summary(summary_file: Path) -> dict[str, list[SummaryEncodingMetrics]]:
+    with open(summary_file, "r") as f:
+        metric_names = split_row(f.readline().strip())
+        raw_metrics = f.readlines()
+    results = defaultdict(list)
+    for line in raw_metrics:
+        line_metrics = {n: v for n, v in zip(metric_names, split_row(line))}
+        results[line_metrics["seq_name"]].append(SummaryEncodingMetrics(**line_metrics))
+    return results
+
+
 def bd_rate_results(results_dir1: Path, results_dir2: Path) -> float:
+    # TODO: get results for several lambdas.
     metrics1 = parse_result_metrics(results_dir1)
     metrics2 = parse_result_metrics(results_dir2)
-    return BD_RATE(metrics1.nn_bpp, metrics1.psnr_db, metrics2.nn_bpp, metrics2.psnr_db)
+    return BD_RATE(
+        metrics1.total_rate_bpp,
+        metrics1.psnr_db,
+        metrics2.total_rate_bpp,
+        metrics2.psnr_db,
+    )
+
+
+def bd_rate_with_ref(results_dir: Path, ref_dir: Path, img_name: str) -> float:
+    # TODO: get results with several lambdas.
+    metrics = parse_result_metrics(results_dir)
+    refs = parse_result_summary(ref_dir)
+    lmbda = metrics.lmbda
+
+    ref = refs[img_name]
+    ref_rates = [this_ref.rate_bpp for this_ref in ref]
+    ref_psnrs = [this_ref.psnr_db for this_ref in ref]
+    return BD_RATE(metrics.total_rate_bpp, metrics.psnr_db, ref_rates, ref_psnrs)
+
+
+if __name__ == "__main__":
+    for num in range(1, 25):
+        img_name = f"kodim{num:02}"
+        p = Path(f"results/exps/copied/{img_name}/hop/")
+        ref = Path("results/image/kodak/results.tsv")
+        print(f"{img_name=}, {bd_rate_with_ref(p, ref, img_name)=}")

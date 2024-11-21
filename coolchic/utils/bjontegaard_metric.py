@@ -45,7 +45,13 @@ def BD_PSNR(R1, PSNR1, R2, PSNR2, piecewise=0):
     return avg_diff
 
 
-def BD_RATE(R1, PSNR1, R2, PSNR2, piecewise=0):
+def BD_RATE(
+    R1: list[float],
+    PSNR1: list[float],
+    R2: list[float],
+    PSNR2: list[float],
+    piecewise: int = 0,
+) -> float:
     lR1 = np.log(R1)
     lR2 = np.log(R2)
 
@@ -62,8 +68,8 @@ def BD_RATE(R1, PSNR1, R2, PSNR2, piecewise=0):
         p_int1 = np.polyint(p1)
         p_int2 = np.polyint(p2)
 
-        int1 = np.polyval(p_int1, max_int) - np.polyval(p_int1, min_int)
-        int2 = np.polyval(p_int2, max_int) - np.polyval(p_int2, min_int)
+        int1 = np.polyval(p_int1, max_int).item() - np.polyval(p_int1, min_int).item()
+        int2 = np.polyval(p_int2, max_int).item() - np.polyval(p_int2, min_int).item()
     else:
         lin = np.linspace(min_int, max_int, num=100, retstep=True)
         interval = lin[1]
@@ -75,8 +81,8 @@ def BD_RATE(R1, PSNR1, R2, PSNR2, piecewise=0):
             np.sort(PSNR2), lR2[np.argsort(PSNR2)], samples
         )
         # Calculate the integral using the trapezoid method on the samples.
-        int1 = np.trapezoid(v1, dx=interval)
-        int2 = np.trapezoid(v2, dx=interval)
+        int1 = np.trapezoid(v1, dx=float(interval))
+        int2 = np.trapezoid(v2, dx=float(interval))
 
     # find avg diff
     avg_exp_diff = (int2 - int1) / (max_int - min_int)
