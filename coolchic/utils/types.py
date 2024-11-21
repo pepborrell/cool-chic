@@ -1,12 +1,12 @@
+import itertools
+import random
+from datetime import datetime
 from pathlib import Path
-from typing import Any, Literal
-from typing_extensions import Annotated
+from typing import Annotated, Any, Literal
 
 import yaml
-from pydantic import BaseModel, Field, model_validator
-from pydantic.functional_validators import BeforeValidator
-
 from enc.training.presets import TrainerPhase, Warmup, WarmupPhase
+from pydantic import BaseModel, BeforeValidator, Field
 from utils.paths import COOLCHIC_REPO_ROOT
 
 PRESET_NAMES = Literal["c3x", "debug"]
@@ -167,26 +167,56 @@ def single_element_to_list(elem: Any) -> list[Any]:
     return elem
 
 
-class Config(BaseModel):
+def get_run_uid(index: int | None = None):
+    if not index:
+        # if an index number is not provided, we generate a random number to avoid collisions.
+        index = random.randint(100, 999)
+    return f"{datetime.now().strftime('%H%M%S')}_{index:03}"  # Timestamp + number
+
+
+class RunConfig(BaseModel):
     input: Path
-    output: Path = Path("")
+    output: Path | None = None
     workdir: Path | None = None
     lmbda: float = 1e-3
     job_duration_min: int = -1
     enc_cfg: EncoderConfig
-    dec_cfgs: Annotated[list[DecoderConfig], BeforeValidator(single_element_to_list)]
-    dec_cfg: DecoderConfig = Field(
-        default=DecoderConfig(),
-        description="This field should never be set at init. "
-        "It is used all over the place later on, but we assign values to it only via code.",
-    )
+    dec_cfg: DecoderConfig
     disable_wandb: bool = False
     load_models: bool = True
+    unique_id: str = get_run_uid()
 
-    @model_validator(mode="before")
-    def check_no_dec_cfg(cls, values):
-        if "dec_cfg" in values:
-            raise ValueError(
-                "dec_cfg cannot be initialized. Provide a list of decoder configs to dec_cfgs instead."
-            )
-        return values
+
+class UserConfig(BaseModel):
+    input: Annotated[Path | list[Path], BeforeValidator(single_element_to_list)]
+    output: Path | None = None
+    workdir: Path | None = None
+    lmbda: Annotated[float | list[float], BeforeValidator(single_element_to_list)] = [
+        1e-3
+    ]
+    job_duration_min: int = -1
+    enc_cfg: EncoderConfig
+    dec_cfg: Annotated[
+        DecoderConfig | list[DecoderConfig], BeforeValidator(single_element_to_list)
+    ]
+    disable_wandb: bool = False
+    load_models: bool = True
+    mult_attributes: list[str] = ["input", "lmbda", "dec_cfg"]
+
+    def get_run_configs(self) -> list[RunConfig]:
+        configs = []
+        for input, lmbda, dec_cfg in itertools.product(
+            *[self.__getattribute__(attr) for attr in self.mult_attributes]
+        ):  # All combinations of elements in the lists.
+            cur_config = self.model_copy(deep=True)
+            cur_config.input = input
+            cur_config.lmbda = lmbda
+            cur_config.dec_cfg = dec_cfg
+            if cur_config.enc_cfg.std_recipe_name:
+                # We do this because when RunConfig is built, it will look at
+                # whether there is a recipe name and fetch the according preset.
+                cur_config.enc_cfg.recipe = None
+            cur_config = RunConfig(**cur_config.model_dump())
+            cur_config.unique_id = get_run_uid(len(configs))
+            configs.append(cur_config)
+        return configs

@@ -9,7 +9,7 @@ enc_cfg:
   n_train_loops: 1
   std_recipe_name: debug
 
-dec_cfgs:
+dec_cfg:
   arm: 8,2
   layers_synthesis: 16-1-linear-relu,3-1-linear-none,3-3-residual-relu,3-3-residual-none
   n_ft_per_res: 1,1,1,1,1,1,1

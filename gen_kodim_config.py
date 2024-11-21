@@ -1,49 +1,36 @@
-def cfg_str(num: str) -> str:
-    return f"""input: data/kodak/kodim{num}.png
-output: results/exps/kodak/kodim{num}.cool
-workdir: null
-disable_wandb: False
-load_models: False
-
-enc_cfg:
-  n_itr: 100000
-  start_lr: 1e-2 # This should be removed, as it is hardcoded in every phase.
-  n_train_loops: 2
-  std_recipe_name: c3x
-
-dec_cfgs:
-  - config_name: hop
-    arm: 16,2
-    layers_synthesis: 48-1-linear-relu,X-1-linear-none,X-3-residual-relu,X-3-residual-none
-    n_ft_per_res: 1,1,1,1,1,1,1
-    ups_k_size: 8
-    ups_preconcat_k_size: 7
-  - config_name: mop
-    arm: 16,2
-    layers_synthesis: 16-1-linear-relu,X-1-linear-none,X-3-residual-relu,X-3-residual-none
-    n_ft_per_res: 1,1,1,1,1,1,1
-    ups_k_size: 8
-    ups_preconcat_k_size: 7
-  - config_name: lop
-    arm: 8,2
-    layers_synthesis: 16-1-linear-relu,X-1-linear-none,X-3-residual-relu,X-3-residual-none
-    n_ft_per_res: 1,1,1,1,1,1,1
-    ups_k_size: 8
-    ups_preconcat_k_size: 7
-  - config_name: vlop
-    arm: 8,1
-    layers_synthesis: 8-1-linear-relu,X-1-linear-none,X-3-residual-none
-    n_ft_per_res: 1,1,1,1,1,1,1
-    ups_k_size: 8
-    ups_preconcat_k_size: 7"""
+from pathlib import Path
 
 
-def generate_cfg(num: str):
-    with open(f"cfg/exps/2024-11-15/kodim{num}.yaml", "w") as f:
-        f.write(cfg_str(num))
+def cfg_str(img_num: list[int], lambda_value: float, cfg_dir: Path) -> str:
+    input_files_lines = "\n".join(
+        [f"  - data/kodak/kodim{num:02}.png" for num in img_num]
+    )
+    template_path = cfg_dir / "kodim_template.yamltemplate"
+    template = template_path.read_text()
+    template = template.replace("{input_files_list}", input_files_lines)
+    template = template.replace("{lambda_value}", str(lambda_value))
+    return template
+
+
+def save_cfg(config: str, dir: Path, name: str) -> None:
+    name = name.replace(".yaml", "")
+    filename = dir / f"{name}.yaml"
+    with open(filename, "w") as f:
+        f.write(config)
 
 
 if __name__ == "__main__":
-    for i in range(1, 25):
-        num_str = str(i).zfill(2)
-        generate_cfg(num_str)
+    exps_dir = Path("cfg/exps/2024-11-21")
+    # 1 value of lambda and 8 images per config
+    # so that 5 lmbda x 3 img = 15 configs that can be ran by
+    # 8 sbatch jobs that run 2 configs in parallel.
+    cnt = 0
+    for lmbda in [0.0001, 0.0004, 0.001, 0.004, 0.02]:
+        for img_start, img_end in [(1, 8), (9, 16), (17, 24)]:
+            config = cfg_str(
+                img_num=list(range(img_start, img_end + 1)),
+                lambda_value=lmbda,
+                cfg_dir=exps_dir,
+            )
+            save_cfg(config, dir=exps_dir, name=f"kodim_config_{cnt:02}")
+            cnt += 1

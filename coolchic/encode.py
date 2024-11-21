@@ -29,7 +29,7 @@ from enc.utils.parsecli import (
     get_manager_from_args,
 )
 from utils.paths import COOLCHIC_REPO_ROOT
-from utils.types import Config
+from utils.types import UserConfig
 
 """
 Use this file to train i.e. encode a GOP i.e. something which starts with one
@@ -59,14 +59,11 @@ if __name__ == "__main__":
 
     config_path = Path(args.config)
     with open(config_path, "r") as stream:
-        og_config = Config(**yaml.safe_load(stream))
+        user_config = UserConfig(**yaml.safe_load(stream))
 
-    # One high-level config for each decoder config.
-    configs = []
-    for dec_cfg in og_config.dec_cfgs:
-        config = og_config.model_copy(deep=True)
-        config.dec_cfg = dec_cfg
-
+    # One user config generates one or more runs, depending on the parameters specified.
+    all_run_configs = user_config.get_run_configs()
+    for config in all_run_configs:
         workdir = (
             config.workdir
             if config.workdir is not None
@@ -74,9 +71,8 @@ if __name__ == "__main__":
             else COOLCHIC_REPO_ROOT
             / "results"
             / config_path.relative_to("cfg").with_suffix("")
+            / config.unique_id  # unique id to distinguish different runs launched by the same config.
         )
-        if dec_cfg.config_name:
-            workdir = workdir / dec_cfg.config_name
         workdir.mkdir(parents=True, exist_ok=True)
         assert workdir.is_dir()
 
@@ -162,7 +158,11 @@ if __name__ == "__main__":
         video_encoder.save(video_encoder_savepath)
 
         # Bitstream
-        if config.output != "" and exit_code == TrainingExitCode.END:
+        if (
+            config.output is not None
+            and config.output != ""
+            and exit_code == TrainingExitCode.END
+        ):
             from enc.bitstream.encode import encode_video
 
             config.output.parent.mkdir(parents=True, exist_ok=True)
