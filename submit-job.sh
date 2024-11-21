@@ -52,7 +52,12 @@ echo "Conda activated"
 cd ${DIRECTORY}
 
 # Execute your code
-uv run python coolchic/encode.py --config=$1
+srun --exclusive uv run python coolchic/encode.py --config=$1 2>&1 | sed 's/^/[Task 1] /' &
+# If a second config is provided, run training for the second script
+if [[ $# -ge 2 ]]; then
+    srun --exclusive uv run python coolchic/encode.py --config=$2 2>&1 | sed 's/^/[Task 2] /' &
+fi
+wait
 
 # Send more noteworthy information to the output log
 echo "Finished at: $(date)"
