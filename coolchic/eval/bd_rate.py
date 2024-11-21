@@ -86,7 +86,6 @@ def bd_rate_with_ref(results_dir: Path, ref_dir: Path, img_name: str) -> float:
     # TODO: get results with several lambdas.
     metrics = parse_result_metrics(results_dir)
     refs = parse_result_summary(ref_dir)
-    lmbda = metrics.lmbda
 
     ref = refs[img_name]
     ref_rates = [this_ref.rate_bpp for this_ref in ref]
