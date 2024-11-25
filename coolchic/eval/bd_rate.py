@@ -2,10 +2,13 @@
 Compares the BD rate of two runs, specified by the path to its results.
 """
 
+import matplotlib.pyplot as plt
+import pandas as pd
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
+import seaborn as sns
 import yaml
 from pydantic import BaseModel
 
@@ -117,6 +120,22 @@ def bd_rate_summaries(
     )
 
 
+def gen_rd_plots(
+    summaries: list[SummaryEncodingMetrics],
+    other_sums: list[SummaryEncodingMetrics] | None = None,
+) -> None:
+    df = pd.DataFrame([s.model_dump() for s in summaries])
+    df["run"] = "reference"
+    if other_sums:
+        other_df = pd.DataFrame([s.model_dump() for s in other_sums])
+        other_df["run"] = "other"
+        other_df.seq_name = other_df.seq_name.apply(lambda s: s + "_other")
+        df = pd.concat([df, other_df])
+    print(df)
+    sns.lineplot(df, x="rate_bpp", y="psnr_db", hue="seq_name", marker="o")
+    plt.show()
+
+
 if __name__ == "__main__":
     runs_path = Path("results/exps/copied/")
     run_summaries = full_run_summary(runs_path)
@@ -126,3 +145,9 @@ if __name__ == "__main__":
     for seq_name in og_summary:
         bd_rate = bd_rate_summaries(og_summary[seq_name], run_summaries[seq_name])
         print(f"{seq_name}: {bd_rate=:.4f}")
+
+    # gen_rd_plots([sum for sums in og_summary.values() for sum in sums])
+    gen_rd_plots(
+        [sum for sums in og_summary.values() for sum in sums],
+        [sum for sums in run_summaries.values() for sum in sums],
+    )
