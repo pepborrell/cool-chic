@@ -1,10 +1,12 @@
+import itertools
+import random
+from datetime import datetime
 from pathlib import Path
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 import yaml
-from pydantic import BaseModel, Field
-
 from enc.training.presets import TrainerPhase, Warmup, WarmupPhase
+from pydantic import BaseModel, BeforeValidator, Field
 from utils.paths import COOLCHIC_REPO_ROOT
 
 PRESET_NAMES = Literal["c3x", "debug"]
@@ -72,7 +74,7 @@ class EncoderConfig(BaseModel):
     intra_period: int = 0
     p_period: int = 0
     start_lr: float = 1e-2
-    n_itr: int = int(1e4)
+    n_itr: int | None = None
     n_train_loops: int = 1
     # The recipe parameters are mutually exclusive.
     recipe: PresetConfig | None = None
@@ -94,8 +96,23 @@ class EncoderConfig(BaseModel):
             with open(PRESET_PATHS[self.std_recipe_name], "r") as stream:
                 self.recipe = PresetConfig(**yaml.safe_load(stream))
 
+        # At this point, recipe exists:
+        assert self.recipe is not None, (
+            "Training recipe was found to be None, which was unexpected. "
+            "Check the code for possible errors."
+        )
+
+        # If n_itr is provided, the iterations in the first loop of the recipe have to be n_itr + 600.
+        # This is a convention we take over from the original cool-chic repo.
+        if self.n_itr:
+            self.recipe.all_phases[0].max_itr = self.n_itr + 600
+
 
 class DecoderConfig(BaseModel):
+    config_name: str | None = Field(
+        default=None,
+        description="When we have more than one decoder config, we can give them distinct names.",
+    )
     layers_synthesis: str = Field(
         default="40-1-linear-relu,X-1-linear-none,X-3-residual-relu,X-3-residual-none",
         description=(
@@ -144,9 +161,22 @@ class DecoderConfig(BaseModel):
     )
 
 
-class Config(BaseModel):
+def single_element_to_list(elem: Any) -> list[Any]:
+    if not isinstance(elem, list):
+        return [elem]
+    return elem
+
+
+def get_run_uid(index: int | None = None):
+    if not index:
+        # if an index number is not provided, we generate a random number to avoid collisions.
+        index = random.randint(100, 999)
+    return f"{datetime.now().strftime('%H%M%S')}_{index:03}"  # Timestamp + number
+
+
+class RunConfig(BaseModel):
     input: Path
-    output: Path = Path("")
+    output: Path | None = None
     workdir: Path | None = None
     lmbda: float = 1e-3
     job_duration_min: int = -1
@@ -154,3 +184,39 @@ class Config(BaseModel):
     dec_cfg: DecoderConfig
     disable_wandb: bool = False
     load_models: bool = True
+    unique_id: str = get_run_uid()
+
+
+class UserConfig(BaseModel):
+    input: Annotated[Path | list[Path], BeforeValidator(single_element_to_list)]
+    output: Path | None = None
+    workdir: Path | None = None
+    lmbda: Annotated[float | list[float], BeforeValidator(single_element_to_list)] = [
+        1e-3
+    ]
+    job_duration_min: int = -1
+    enc_cfg: EncoderConfig
+    dec_cfg: Annotated[
+        DecoderConfig | list[DecoderConfig], BeforeValidator(single_element_to_list)
+    ]
+    disable_wandb: bool = False
+    load_models: bool = True
+    mult_attributes: list[str] = ["input", "lmbda", "dec_cfg"]
+
+    def get_run_configs(self) -> list[RunConfig]:
+        configs = []
+        for input, lmbda, dec_cfg in itertools.product(
+            *[self.__getattribute__(attr) for attr in self.mult_attributes]
+        ):  # All combinations of elements in the lists.
+            cur_config = self.model_copy(deep=True)
+            cur_config.input = input
+            cur_config.lmbda = lmbda
+            cur_config.dec_cfg = dec_cfg
+            if cur_config.enc_cfg.std_recipe_name:
+                # We do this because when RunConfig is built, it will look at
+                # whether there is a recipe name and fetch the according preset.
+                cur_config.enc_cfg.recipe = None
+            cur_config = RunConfig(**cur_config.model_dump())
+            cur_config.unique_id = get_run_uid(len(configs))
+            configs.append(cur_config)
+        return configs

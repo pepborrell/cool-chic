@@ -10,7 +10,7 @@
 from pathlib import Path
 from typing import Any, Dict, List
 
-from utils.types import Config
+from utils.types import RunConfig
 
 
 # ----- Arguments related to Cool-chic parameters
@@ -74,7 +74,7 @@ def _parse_n_ft_per_res(n_ft_per_res: str) -> List[int]:
     return n_ft_per_res
 
 
-def get_coolchic_param_from_args(config: Config) -> Dict[str, Any]:
+def get_coolchic_param_from_args(config: RunConfig) -> Dict[str, Any]:
     layers_synthesis = _parse_synthesis_layers(config.dec_cfg.layers_synthesis)
     n_ft_per_res = _parse_n_ft_per_res(config.dec_cfg.n_ft_per_res)
 
@@ -115,7 +115,7 @@ def _is_image(file_path: Path | str) -> bool:
     return False
 
 
-def get_coding_structure_from_args(config: Config) -> Dict[str, Any]:
+def get_coding_structure_from_args(config: RunConfig) -> Dict[str, Any]:
     """Perform some check on the argparse object used to collect the command
     line parameters. Return a dictionary ready to be plugged into the
     ``CodingStructure`` constructor.
@@ -155,7 +155,7 @@ def get_coding_structure_from_args(config: Config) -> Dict[str, Any]:
 
 
 # ----- Arguments related to the frame encoder manager i.e. training preset etc.
-def get_manager_from_args(config: Config) -> Dict[str, Any]:
+def get_manager_from_args(config: RunConfig) -> Dict[str, Any]:
     """Perform some check on the argparse object used to collect the command
     line parameters. Return a dictionary ready to be plugged into the
     ``FrameEncoderManager`` constructor.

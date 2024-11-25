@@ -5,7 +5,6 @@ disable_wandb: True
 load_models: False
 
 enc_cfg:
-  n_itr: 10000
   start_lr: 1e-2 # This should be removed, as it is hardcoded in every phase.
   n_train_loops: 1
   std_recipe_name: debug
