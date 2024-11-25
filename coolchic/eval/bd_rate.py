@@ -130,6 +130,7 @@ def gen_rd_plots(
         other_df = pd.DataFrame([s.model_dump() for s in other_sums])
         other_df["run"] = "other"
         other_df.seq_name = other_df.seq_name.apply(lambda s: s + "_other")
+        df.seq_name = df.seq_name.apply(lambda s: s + "_ref")
         df = pd.concat([df, other_df])
     print(df)
     sns.lineplot(df, x="rate_bpp", y="psnr_db", hue="seq_name", marker="o")
@@ -147,7 +148,8 @@ if __name__ == "__main__":
         print(f"{seq_name}: {bd_rate=:.4f}")
 
     # gen_rd_plots([sum for sums in og_summary.values() for sum in sums])
+    some_images = [f"kodim{num:02}" for num in range(1, 9)]
     gen_rd_plots(
-        [sum for sums in og_summary.values() for sum in sums],
-        [sum for sums in run_summaries.values() for sum in sums],
+        [sum for seq_name in some_images for sum in og_summary[seq_name]],
+        [sum for seq_name in some_images for sum in run_summaries[seq_name]],
     )
