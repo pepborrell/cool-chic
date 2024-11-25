@@ -3,9 +3,10 @@ Compares the BD rate of two runs, specified by the path to its results.
 """
 
 from collections import defaultdict
-from typing import Any
 from pathlib import Path
+from typing import Any
 
+import yaml
 from pydantic import BaseModel
 
 from ..utils.bjontegaard_metric import BD_RATE
@@ -53,7 +54,19 @@ def parse_result_metrics(results_dir: Path) -> EncodingMetrics:
     return metrics
 
 
+def get_run_config(results_dir: Path) -> dict[str, Any]:
+    config_file = results_dir / "param.txt"
+    with open(config_file, "r") as f:
+        config = yaml.unsafe_load(f)
+    parameter_names = ["lmbda", "input"]
+    params = {p: config[p] for p in parameter_names}
+    assert isinstance(params["input"], Path)  # for linter to understand
+    params["seq_name"] = params["input"].stem
+    return params
+
+
 class SummaryEncodingMetrics(BaseModel):
+    seq_name: str
     lmbda: float
     rate_bpp: float
     psnr_db: float
@@ -70,32 +83,46 @@ def parse_result_summary(summary_file: Path) -> dict[str, list[SummaryEncodingMe
     return results
 
 
-def bd_rate_results(results_dir1: Path, results_dir2: Path) -> float:
-    # TODO: get results for several lambdas.
-    metrics1 = parse_result_metrics(results_dir1)
-    metrics2 = parse_result_metrics(results_dir2)
+def gen_run_summary(run_dir: Path) -> SummaryEncodingMetrics:
+    metrics = parse_result_metrics(run_dir)
+    params = get_run_config(run_dir)
+    all_data = metrics.model_dump() | params
+    all_data["rate_bpp"] = all_data["total_rate_bpp"]
+    return SummaryEncodingMetrics(**all_data)
+
+
+def full_run_summary(run_suite_dir: Path) -> dict[str, list[SummaryEncodingMetrics]]:
+    summaries = defaultdict(list)
+    for kodim_config in run_suite_dir.iterdir():
+        all_runs = [subdir for subdir in kodim_config.iterdir() if subdir.is_dir()]
+        for dir in all_runs:
+            summary = gen_run_summary(dir)
+            summaries[summary.seq_name].append(summary)
+    return summaries
+
+
+def bd_rate_summaries(
+    ref_sum: list[SummaryEncodingMetrics], other_sum: list[SummaryEncodingMetrics]
+) -> float:
+    sorted_ref = sorted(ref_sum, key=lambda s: s.lmbda)
+    sorted_other = sorted(other_sum, key=lambda s: s.lmbda)
+
+    def extract_rate_distortion(
+        summaries: list[SummaryEncodingMetrics],
+    ) -> tuple[list[float], list[float]]:
+        return [s.rate_bpp for s in summaries], [s.psnr_db for s in summaries]
+
     return BD_RATE(
-        metrics1.total_rate_bpp,
-        metrics1.psnr_db,
-        metrics2.total_rate_bpp,
-        metrics2.psnr_db,
+        *extract_rate_distortion(sorted_ref), *extract_rate_distortion(sorted_other)
     )
 
 
-def bd_rate_with_ref(results_dir: Path, ref_dir: Path, img_name: str) -> float:
-    # TODO: get results with several lambdas.
-    metrics = parse_result_metrics(results_dir)
-    refs = parse_result_summary(ref_dir)
-
-    ref = refs[img_name]
-    ref_rates = [this_ref.rate_bpp for this_ref in ref]
-    ref_psnrs = [this_ref.psnr_db for this_ref in ref]
-    return BD_RATE(metrics.total_rate_bpp, metrics.psnr_db, ref_rates, ref_psnrs)
-
-
 if __name__ == "__main__":
-    for num in range(1, 25):
-        img_name = f"kodim{num:02}"
-        p = Path(f"results/exps/copied/{img_name}/hop/")
-        ref = Path("results/image/kodak/results.tsv")
-        print(f"{img_name=}, {bd_rate_with_ref(p, ref, img_name)=}")
+    runs_path = Path("results/exps/copied/")
+    run_summaries = full_run_summary(runs_path)
+    og_summary_dir = Path("results/image/kodak/results.tsv")
+    og_summary = parse_result_summary(og_summary_dir)
+
+    for seq_name in og_summary:
+        bd_rate = bd_rate_summaries(og_summary[seq_name], run_summaries[seq_name])
+        print(f"{seq_name}: {bd_rate=:.4f}")
