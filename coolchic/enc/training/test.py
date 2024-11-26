@@ -252,14 +252,16 @@ class FrameEncoderLogs(LossFunctionOutput):
             elif k.name == "quantization_param_nn":
                 for subnetwork_name, subnetwork_detailed_q_step in val.items():
                     for tmp_k, tmp_val in subnetwork_detailed_q_step.items():
-                        col_name += f'{subnetwork_name + "_" + tmp_k + "_q_step":<{COL_WIDTH}}{INTER_COLUMN_SPACE}'
-                        values += f"{self._format_value(tmp_val, attribute_name=k.name):<{COL_WIDTH}}{INTER_COLUMN_SPACE}"
+                        if tmp_val is not None:
+                            col_name += f'{subnetwork_name + "_" + tmp_k + "_q_step":<{COL_WIDTH}}{INTER_COLUMN_SPACE}'
+                            values += f"{self._format_value(tmp_val, attribute_name=k.name):<{COL_WIDTH}}{INTER_COLUMN_SPACE}"
 
             elif k.name == "expgol_count_nn":
                 for subnetwork_name, subnetwork_detailed_expgol_cnt in val.items():
                     for tmp_k, tmp_val in subnetwork_detailed_expgol_cnt.items():
-                        col_name += f'{subnetwork_name + "_" + tmp_k + "_exp_cnt":<{COL_WIDTH}}{INTER_COLUMN_SPACE}'
-                        values += f"{self._format_value(tmp_val, attribute_name=k.name):<{COL_WIDTH}}{INTER_COLUMN_SPACE}"
+                        if tmp_val is not None:
+                            col_name += f'{subnetwork_name + "_" + tmp_k + "_exp_cnt":<{COL_WIDTH}}{INTER_COLUMN_SPACE}'
+                            values += f"{self._format_value(tmp_val, attribute_name=k.name):<{COL_WIDTH}}{INTER_COLUMN_SPACE}"
 
             else:
                 col_name += f"{self._format_column_name(k.name):<{COL_WIDTH}}{INTER_COLUMN_SPACE}"

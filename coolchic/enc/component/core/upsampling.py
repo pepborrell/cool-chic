@@ -7,6 +7,7 @@
 # Authors: see CONTRIBUTORS.md
 
 
+import functools
 from typing import List, OrderedDict
 
 import torch
@@ -516,3 +517,28 @@ class Upsampling(nn.Module):
             self.conv_transpose2d[i].initialize_parameters()
         for i in range(len(self.conv2ds)):
             self.conv2ds[i].initialize_parameters()
+
+
+class BilinearUpsampling(nn.Module):
+    def __init__(
+        self, input_res: tuple[int, int], interpolation_method: str = "bilinear"
+    ):
+        super().__init__()
+        self.input_res = input_res
+        self.interpolation_method = interpolation_method
+        self.upsampling_fn = functools.partial(
+            F.interpolate, size=self.input_res, mode=self.interpolation_method
+        )
+
+    def forward(self, decoder_side_latent: List[Tensor]) -> Tensor:
+        # Shape at input has to be (B, C, optional[D], optional[H], W)
+        # Latents are :math:`(B, C_i, \\frac{H}{2^i}, \\frac{W}{2^i})`
+        interp_l = [self.upsampling_fn(latent) for latent in decoder_side_latent]
+        interp_l = torch.cat(interp_l, dim=1)
+        return interp_l
+
+    def get_param(self) -> OrderedDict[str, Tensor]:
+        return OrderedDict()
+
+    def set_param(self, param: OrderedDict[str, Tensor]):
+        pass

@@ -124,6 +124,8 @@ def quantize_model(
     module_to_quantize = {
         module_name: getattr(frame_encoder.coolchic_encoder, module_name)
         for module_name in frame_encoder.coolchic_encoder.modules_to_send
+        # NOTE: upsampling is not trainable anymore, so don't send.
+        if module_name != "upsampling"
     }
 
     for module_name, cur_module in sorted(module_to_quantize.items()):

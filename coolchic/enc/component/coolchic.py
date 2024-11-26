@@ -12,7 +12,7 @@ from dataclasses import dataclass, field, fields
 from typing import Any, Dict, List, Optional, OrderedDict, Tuple, TypedDict
 
 import torch
-from enc.visu.console import pretty_string_nn, pretty_string_ups
+from enc.visu.console import pretty_string_nn
 from fvcore.nn import FlopCountAnalysis, flop_count_table
 from torch import Tensor, nn
 
@@ -28,7 +28,7 @@ from enc.component.core.quantizer import (
     quantize,
 )
 from enc.component.core.synthesis import Synthesis
-from enc.component.core.upsampling import Upsampling
+from enc.component.core.upsampling import BilinearUpsampling
 from enc.utils.misc import (
     MAX_ARM_MASK_SIZE,
     POSSIBLE_DEVICE,
@@ -194,14 +194,17 @@ class CoolChicEncoder(nn.Module):
         # ================== Synthesis related stuff ================= #
 
         # ===================== Upsampling stuff ===================== #
-        self.upsampling = Upsampling(
-            ups_k_size=self.param.ups_k_size,
-            ups_preconcat_k_size=self.param.ups_preconcat_k_size,
-            # Instantiate one different upsampling and pre-concatenation
-            # filters for each of the upsampling step. Could also be set to one
-            # to share the same filter across all latents.
-            n_ups_kernel=self.param.latent_n_grids - 1,
-            n_ups_preconcat_kernel=self.param.latent_n_grids - 1,
+        # self.upsampling = Upsampling(
+        #     ups_k_size=self.param.ups_k_size,
+        #     ups_preconcat_k_size=self.param.ups_preconcat_k_size,
+        #     # Instantiate one different upsampling and pre-concatenation
+        #     # filters for each of the upsampling step. Could also be set to one
+        #     # to share the same filter across all latents.
+        #     n_ups_kernel=self.param.latent_n_grids - 1,
+        #     n_ups_preconcat_kernel=self.param.latent_n_grids - 1,
+        # )
+        self.upsampling = BilinearUpsampling(
+            input_res=self.param.img_size, interpolation_method="bilinear"
         )
         # ===================== Upsampling stuff ===================== #
 
@@ -748,7 +751,8 @@ class CoolChicEncoder(nn.Module):
             "Note: all upsampling layers are separable and symmetric "
             "(transposed) convolutions.\n\n"
         )
-        s += pretty_string_ups(self.upsampling, "")
+        # TODO: figure out what to do with upsampling pretty printing.
+        # s += pretty_string_ups(self.upsampling, "")
 
         complexity = self.flops_per_module["arm"] / n_pixels
         share_complexity = 100 * complexity / total_mac_per_pix
