@@ -41,9 +41,12 @@ def split_row(row: str) -> list[Any]:
     return [elem.strip() for elem in row.split(split_char) if elem != ""]
 
 
-def parse_result_metrics(results_dir: Path) -> EncodingMetrics:
+def parse_result_metrics(results_dir: Path) -> EncodingMetrics | None:
     # Path to results looks like: results/exps/2024-11-15/kodim01/
     best_results_file = results_dir / "frame_000results_best.tsv"
+    if not best_results_file.exists():
+        print(f"Warning: file {best_results_file} was not found.")
+        return
     with open(best_results_file, "r") as f:
         raw_metrics = f.read().strip()
     metric_names, metric_values = [split_row(row) for row in raw_metrics.split("\n")]
@@ -86,8 +89,10 @@ def parse_result_summary(summary_file: Path) -> dict[str, list[SummaryEncodingMe
     return results
 
 
-def gen_run_summary(run_dir: Path) -> SummaryEncodingMetrics:
+def gen_run_summary(run_dir: Path) -> SummaryEncodingMetrics | None:
     metrics = parse_result_metrics(run_dir)
+    if metrics is None:
+        return
     params = get_run_config(run_dir)
     all_data = metrics.model_dump() | params
     all_data["rate_bpp"] = all_data["total_rate_bpp"]
@@ -100,7 +105,8 @@ def full_run_summary(run_suite_dir: Path) -> dict[str, list[SummaryEncodingMetri
         all_runs = [subdir for subdir in kodim_config.iterdir() if subdir.is_dir()]
         for dir in all_runs:
             summary = gen_run_summary(dir)
-            summaries[summary.seq_name].append(summary)
+            if summary is not None:
+                summaries[summary.seq_name].append(summary)
     return summaries
 
 
@@ -132,20 +138,29 @@ def gen_rd_plots(
         other_df.seq_name = other_df.seq_name.apply(lambda s: s + "_other")
         df.seq_name = df.seq_name.apply(lambda s: s + "_ref")
         df = pd.concat([df, other_df])
-    print(df)
     sns.lineplot(df, x="rate_bpp", y="psnr_db", hue="seq_name", marker="o")
     plt.show()
 
 
+def print_md_table(results: dict[str, float]) -> None:
+    output = "| seq_name | bd rate |\n"
+    output += "| :------- | ------: |\n"
+    for seq, value in results.items():
+        output += f"| {seq} | {value:.2f} |\n"
+    print(output)
+
+
 if __name__ == "__main__":
-    runs_path = Path("results/exps/copied/")
+    runs_path = Path("results/exps/copied/2024-11-26/")
     run_summaries = full_run_summary(runs_path)
     og_summary_dir = Path("results/image/kodak/results.tsv")
     og_summary = parse_result_summary(og_summary_dir)
 
+    results = {}
     for seq_name in og_summary:
         bd_rate = bd_rate_summaries(og_summary[seq_name], run_summaries[seq_name])
-        print(f"{seq_name}: {bd_rate=:.4f}")
+        results[seq_name] = bd_rate
+    print_md_table(results)
 
     # gen_rd_plots([sum for sums in og_summary.values() for sum in sums])
     some_images = [f"kodim{num:02}" for num in range(1, 9)]
