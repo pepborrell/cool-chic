@@ -243,7 +243,8 @@ class VideoEncoder:
                 frame_encoder.to_device(device)
 
                 with profile(
-                    activities=[ProfilerActivity.CPU], record_shapes=False
+                    activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
+                    record_shapes=False,
                 ) as prof:
                     with record_function("encoding"):
                         for idx_phase, training_phase in enumerate(

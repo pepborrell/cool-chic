@@ -1,5 +1,5 @@
 input: small.png
-output: small.out
+output: ""
 workdir: null
 disable_wandb: True
 load_models: False
