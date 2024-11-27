@@ -28,6 +28,9 @@ requires = ["setuptools>=42", "pybind11>=2.6.1"]
 build-backend = "setuptools.build_meta"
 
 [tool.uv]
+# Cache needs to be on the same filesystem as the project
+# + it takes too much space when in home.
+cache-dir = "./.uv_cache"
 
 [tool.pyright]
 include = ["coolchic/"]
