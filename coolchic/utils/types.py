@@ -185,6 +185,7 @@ class RunConfig(BaseModel):
     disable_wandb: bool = False
     load_models: bool = True
     unique_id: str = get_run_uid()
+    user_tag: str | None
 
 
 class UserConfig(BaseModel):
@@ -202,6 +203,7 @@ class UserConfig(BaseModel):
     disable_wandb: bool = False
     load_models: bool = True
     mult_attributes: list[str] = ["input", "lmbda", "dec_cfg"]
+    user_tag: str | None = None
 
     def get_run_configs(self) -> list[RunConfig]:
         configs = []

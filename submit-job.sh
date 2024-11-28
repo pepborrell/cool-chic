@@ -4,6 +4,7 @@
 #SBATCH --error=/itet-stor/jborrell/net_scratch/jobs/%j.err # where to store error messages
 #SBATCH --mem-per-gpu=12G
 #SBATCH --nodes=1
+#SBATCH --ntasks=2
 #SBATCH --cpus-per-task=4
 #SBATCH --gres=gpu:1
 # deactivate #SBATCH --exclude=tikgpu10,tikgpu[06-09]
@@ -18,7 +19,6 @@ PROJECT_NAME=cool-chic
 DIRECTORY=/itet-stor/${ETH_USERNAME}/net_scratch/${PROJECT_NAME}
 # DIRECTORY=/itet-stor/${ETH_USERNAME}/home/${PROJECT_NAME}
 CONDA_ENVIRONMENT=base
-mkdir -p ${DIRECTORY}/jobs
 #TODO: change your ETH USERNAME and other stuff from above according + in the #SBATCH output and error the path needs to be double checked!
 
 # Exit on errors
