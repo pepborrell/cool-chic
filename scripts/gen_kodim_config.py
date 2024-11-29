@@ -16,7 +16,7 @@ def save_cfg(config: str, dir: Path, name: str, template: bool = False) -> None:
     name = name.replace(".yaml", "")
     filename = dir / f"{name}.yaml"
     if template:
-        filename.with_suffix(".yamltemplate")
+        filename = filename.with_suffix(".yamltemplate")
     with open(filename, "w") as f:
         f.write(config)
 

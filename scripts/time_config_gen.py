@@ -74,7 +74,7 @@ if __name__ == "__main__":
         dir_name = get_dir_name(chosen_comb)
         new_dir = exps_dir / dir_name
         new_dir.mkdir(exist_ok=True)
-        save_cfg(text, new_dir, "config_template")
+        save_cfg(text, new_dir, "config_template", template=True)
 
     # Estimate runtime of the whole suite.
     time_lower_bound = estimate_time(params_to_search, n_gpus=24)
