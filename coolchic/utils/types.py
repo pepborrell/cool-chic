@@ -102,10 +102,10 @@ class EncoderConfig(BaseModel):
             "Check the code for possible errors."
         )
 
-        # If n_itr is provided, the iterations in the first loop of the recipe have to be n_itr + 600.
-        # This is a convention we take over from the original cool-chic repo.
+        # There is a convention in the original cool-chic repo where iterations in the first loop of the recipe have to be n_itr + 600.
+        # Here we avoid that, using the number found in the params.
         if self.n_itr:
-            self.recipe.all_phases[0].max_itr = self.n_itr + 600
+            self.recipe.all_phases[0].max_itr = self.n_itr
 
 
 class DecoderConfig(BaseModel):

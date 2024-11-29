@@ -1,0 +1,21 @@
+input:
+{input_files_list}
+output: null
+workdir: null
+disable_wandb: False
+load_models: False
+lmbda: {lambda_value}
+user_tag: true-bilinear
+
+enc_cfg:
+  n_itr: {n_itr}
+  n_train_loops: {n_train_loops}
+  std_recipe_name: c3x
+
+dec_cfg:
+  - config_name: hop
+    arm: 16,2
+    layers_synthesis: 48-1-linear-relu,X-1-linear-none,X-3-residual-relu,X-3-residual-none
+    n_ft_per_res: 1,1,1,1,1,1,1
+    ups_k_size: 8
+    ups_preconcat_k_size: 7
