@@ -7,6 +7,7 @@ import pandas as pd
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
+import numpy as np
 
 import seaborn as sns
 import yaml
@@ -76,6 +77,9 @@ class SummaryEncodingMetrics(BaseModel):
     lmbda: float
     rate_bpp: float
     psnr_db: float
+    # Fields not in the cool-chic summaries but we use them in our analyses.
+    n_itr: int | None = None
+    n_train_loops: int | None = None
 
 
 def parse_result_summary(summary_file: Path) -> dict[str, list[SummaryEncodingMetrics]]:
@@ -95,18 +99,26 @@ def gen_run_summary(run_dir: Path) -> SummaryEncodingMetrics | None:
         return
     params = get_run_config(run_dir)
     all_data = metrics.model_dump() | params
+    # Bubbling metrics up because we want them.
+    all_data["n_itr"] = all_data["enc_cfg"]["n_itr"]
+    all_data["n_train_loops"] = all_data["enc_cfg"]["n_train_loops"]
+    # Renaming for consistency.
     all_data["rate_bpp"] = all_data["total_rate_bpp"]
     return SummaryEncodingMetrics(**all_data)
 
 
 def full_run_summary(run_suite_dir: Path) -> dict[str, list[SummaryEncodingMetrics]]:
     summaries = defaultdict(list)
-    for kodim_config in run_suite_dir.iterdir():
-        all_runs = [subdir for subdir in kodim_config.iterdir() if subdir.is_dir()]
-        for dir in all_runs:
-            summary = gen_run_summary(dir)
-            if summary is not None:
-                summaries[summary.seq_name].append(summary)
+    # We get all files we will need to review.
+    # We do this because we allow to give an arbitrary path and we analyse all runs under it.
+    all_run_results = [
+        file for file in run_suite_dir.rglob("*results_best.tsv") if file.is_file()
+    ]
+    for run in all_run_results:
+        dir = run.parent
+        summary = gen_run_summary(dir)
+        if summary is not None:
+            summaries[summary.seq_name].append(summary)
     return summaries
 
 
@@ -124,6 +136,20 @@ def bd_rate_summaries(
     return BD_RATE(
         *extract_rate_distortion(sorted_ref), *extract_rate_distortion(sorted_other)
     )
+
+
+def avg_bd_rate_from_paths(runs_path: Path, anchor_path: Path):
+    # checking that paths are as expected.
+    assert runs_path.is_dir()
+    assert anchor_path.exists() and anchor_path.is_file()
+
+    run_summaries = full_run_summary(runs_path)
+    og_summary = parse_result_summary(anchor_path)
+    results = {}
+    for seq_name in og_summary:
+        bd_rate = bd_rate_summaries(og_summary[seq_name], run_summaries[seq_name])
+        results[seq_name] = bd_rate
+    return np.mean(*results.values())
 
 
 def gen_rd_plots(
