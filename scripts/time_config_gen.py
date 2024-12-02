@@ -4,10 +4,15 @@ from gen_kodim_config import save_cfg
 import itertools
 from pathlib import Path
 
-params_to_search = {
+params_1 = {
     "n_itr": [1000, 2500, 5000, 7500, 10000, 12000],
     "n_train_loops": [1, 2, 3, 5],
 }
+params_2 = {
+    "n_itr": [15_000, 20_000, 30_000],
+    "n_train_loops": [1],
+}
+params_to_search = params_2
 
 
 def estimate_time(params: dict[str, list[int]], n_gpus: int = 8) -> float:
@@ -77,7 +82,7 @@ if __name__ == "__main__":
         save_cfg(text, new_dir, "config_template", template=True)
 
     # Estimate runtime of the whole suite.
-    time_lower_bound = estimate_time(params_to_search, n_gpus=24)
+    time_lower_bound = estimate_time(params_to_search, n_gpus=8)
     print(
         f"Estimated lower bound for the runtime (Wall): {time_lower_bound} minutes, or {time_lower_bound/60:.2f} hours."
     )
