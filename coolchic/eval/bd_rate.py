@@ -2,14 +2,10 @@
 Compares the BD rate of two runs, specified by the path to its results.
 """
 
-import matplotlib.pyplot as plt
-import pandas as pd
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
-import numpy as np
 
-import seaborn as sns
 import yaml
 from pydantic import BaseModel
 
@@ -65,10 +61,13 @@ def get_run_config(results_dir: Path) -> dict[str, Any]:
     config_file = results_dir / "param.txt"
     with open(config_file, "r") as f:
         config = yaml.unsafe_load(f)
-    parameter_names = ["lmbda", "input"]
+    parameter_names = ["lmbda", "input", "enc_cfg"]
     params = {p: config[p] for p in parameter_names}
     assert isinstance(params["input"], Path)  # for linter to understand
     params["seq_name"] = params["input"].stem
+    # Bubbling up encoding parameters so we can use them later.
+    params["n_itr"] = params["enc_cfg"]["n_itr"]
+    params["n_train_loops"] = params["enc_cfg"]["n_train_loops"]
     return params
 
 
@@ -99,9 +98,6 @@ def gen_run_summary(run_dir: Path) -> SummaryEncodingMetrics | None:
         return
     params = get_run_config(run_dir)
     all_data = metrics.model_dump() | params
-    # Bubbling metrics up because we want them.
-    all_data["n_itr"] = all_data["enc_cfg"]["n_itr"]
-    all_data["n_train_loops"] = all_data["enc_cfg"]["n_train_loops"]
     # Renaming for consistency.
     all_data["rate_bpp"] = all_data["total_rate_bpp"]
     return SummaryEncodingMetrics(**all_data)
@@ -138,59 +134,15 @@ def bd_rate_summaries(
     )
 
 
-def avg_bd_rate_from_paths(runs_path: Path, anchor_path: Path):
+def bd_rates_from_paths(runs_path: Path, anchor_path: Path):
     # checking that paths are as expected.
     assert runs_path.is_dir()
     assert anchor_path.exists() and anchor_path.is_file()
 
     run_summaries = full_run_summary(runs_path)
     og_summary = parse_result_summary(anchor_path)
-    results = {}
+    results = []
     for seq_name in og_summary:
         bd_rate = bd_rate_summaries(og_summary[seq_name], run_summaries[seq_name])
-        results[seq_name] = bd_rate
-    return np.mean(*results.values())
-
-
-def gen_rd_plots(
-    summaries: list[SummaryEncodingMetrics],
-    other_sums: list[SummaryEncodingMetrics] | None = None,
-) -> None:
-    df = pd.DataFrame([s.model_dump() for s in summaries])
-    df["run"] = "reference"
-    if other_sums:
-        other_df = pd.DataFrame([s.model_dump() for s in other_sums])
-        other_df["run"] = "other"
-        other_df.seq_name = other_df.seq_name.apply(lambda s: s + "_other")
-        df.seq_name = df.seq_name.apply(lambda s: s + "_ref")
-        df = pd.concat([df, other_df])
-    sns.lineplot(df, x="rate_bpp", y="psnr_db", hue="seq_name", marker="o")
-    plt.show()
-
-
-def print_md_table(results: dict[str, float]) -> None:
-    output = "| seq_name | bd rate |\n"
-    output += "| :------- | ------: |\n"
-    for seq, value in results.items():
-        output += f"| {seq} | {value:.2f} |\n"
-    print(output)
-
-
-if __name__ == "__main__":
-    runs_path = Path("results/exps/copied/2024-11-26/")
-    run_summaries = full_run_summary(runs_path)
-    og_summary_dir = Path("results/image/kodak/results.tsv")
-    og_summary = parse_result_summary(og_summary_dir)
-
-    results = {}
-    for seq_name in og_summary:
-        bd_rate = bd_rate_summaries(og_summary[seq_name], run_summaries[seq_name])
-        results[seq_name] = bd_rate
-    print_md_table(results)
-
-    # gen_rd_plots([sum for sums in og_summary.values() for sum in sums])
-    some_images = [f"kodim{num:02}" for num in range(1, 9)]
-    gen_rd_plots(
-        [sum for seq_name in some_images for sum in og_summary[seq_name]],
-        [sum for seq_name in some_images for sum in run_summaries[seq_name]],
-    )
+        results.append(bd_rate)
+    return results
