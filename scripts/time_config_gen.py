@@ -9,7 +9,7 @@ params_1 = {
     "n_train_loops": [1, 2, 3, 5],
 }
 params_2 = {
-    "n_itr": [15_000, 20_000, 30_000],
+    "n_itr": [15_000, 20_000, 30_000, 40_000, 50_000, 75_000, 100_000],
     "n_train_loops": [1],
 }
 params_to_search = params_2
