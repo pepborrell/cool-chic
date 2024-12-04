@@ -33,19 +33,21 @@ def print_md_table(results: dict[str, float]) -> None:
     print(output)
 
 
-def plot_bd_rate_n_itr(df: pd.DataFrame):
+def plot_bd_rate_n_itr(df: pd.DataFrame, anchor_name: str | None = None):
     """df expected to have these columns:
     * avg_bd_rate
     * n_itr
     * n_train_loops
     """
     fig, ax = plt.subplots()
-    sns.lineplot(df, x="n_itr", y="avg_bd_rate", hue="n_train_loops", ax=ax, marker="o")
+    sns.lineplot(
+        df, x="n_itr", y="avg_bd_rate", hue="n_train_loops", ax=ax, marker="o"
+    ).set_title("BD-rate vs number of iterations per loop" + f" anchor={anchor_name}")
     sns.despine(ax=ax)
     return fig
 
 
-def plot_bd_rate_total_itr(df: pd.DataFrame):
+def plot_bd_rate_total_itr(df: pd.DataFrame, anchor_name: str | None = None):
     """df expected to have these columns:
     * avg_bd_rate
     * n_itr
@@ -55,6 +57,6 @@ def plot_bd_rate_total_itr(df: pd.DataFrame):
     fig, ax = plt.subplots()
     sns.lineplot(
         df, x="total_n_itr", y="avg_bd_rate", hue="n_train_loops", ax=ax, marker="o"
-    )
+    ).set_title("BD-rate vs number of real iterations" + f" anchor={anchor_name}")
     sns.despine(ax=ax)
     return fig
