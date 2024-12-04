@@ -43,6 +43,8 @@ def plot_bd_rate_n_itr(df: pd.DataFrame, anchor_name: str | None = None):
     sns.lineplot(
         df, x="n_itr", y="avg_bd_rate", hue="n_train_loops", ax=ax, marker="o"
     ).set_title("BD-rate vs number of iterations per loop" + f" anchor={anchor_name}")
+    if (df.avg_bd_rate >= 0).all():
+        ax.set_ylim(0, None)
     sns.despine(ax=ax)
     return fig
 
@@ -58,5 +60,7 @@ def plot_bd_rate_total_itr(df: pd.DataFrame, anchor_name: str | None = None):
     sns.lineplot(
         df, x="total_n_itr", y="avg_bd_rate", hue="n_train_loops", ax=ax, marker="o"
     ).set_title("BD-rate vs number of real iterations" + f" anchor={anchor_name}")
+    if (df.avg_bd_rate >= 0).all():
+        ax.set_ylim(0, None)
     sns.despine(ax=ax)
     return fig
