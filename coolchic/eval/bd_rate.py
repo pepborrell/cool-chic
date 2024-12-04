@@ -6,6 +6,7 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import yaml
 from pydantic import BaseModel
 
@@ -121,6 +122,7 @@ def full_run_summary(run_suite_dir: Path) -> dict[str, list[SummaryEncodingMetri
 def bd_rate_summaries(
     ref_sum: list[SummaryEncodingMetrics], other_sum: list[SummaryEncodingMetrics]
 ) -> float:
+    # THE REFERENCE IS THE ANCHOR!
     sorted_ref = sorted(ref_sum, key=lambda s: s.lmbda)
     sorted_other = sorted(other_sum, key=lambda s: s.lmbda)
 
@@ -134,7 +136,22 @@ def bd_rate_summaries(
     )
 
 
-def bd_rates_from_paths(runs_path: Path, anchor_path: Path):
+def avg_bd_rate_summary_paths(summary_path: Path, anchor_path: Path) -> float:
+    # checking that paths are as expected.
+    assert summary_path.exists() and summary_path.is_file()
+    assert anchor_path.exists() and anchor_path.is_file()
+
+    summary = parse_result_summary(summary_path)
+    a_summary = parse_result_summary(anchor_path)
+    results = []
+    for seq_name in summary:
+        # REMEMBER: the anchor goes first.
+        bd_rate = bd_rate_summaries(a_summary[seq_name], summary[seq_name])
+        results.append(bd_rate)
+    return np.mean(results)
+
+
+def bd_rates_from_paths(runs_path: Path, anchor_path: Path) -> list[float]:
     # checking that paths are as expected.
     assert runs_path.is_dir()
     assert anchor_path.exists() and anchor_path.is_file()

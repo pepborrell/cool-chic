@@ -33,7 +33,9 @@ def print_md_table(results: dict[str, float]) -> None:
     print(output)
 
 
-def plot_bd_rate_n_itr(df: pd.DataFrame, anchor_name: str | None = None):
+def plot_bd_rate_n_itr(
+    df: pd.DataFrame, anchor_name: str | None = None, bd_vs_cc: float | None = None
+):
     """df expected to have these columns:
     * avg_bd_rate
     * n_itr
@@ -45,11 +47,15 @@ def plot_bd_rate_n_itr(df: pd.DataFrame, anchor_name: str | None = None):
     ).set_title("BD-rate vs number of iterations per loop" + f" anchor={anchor_name}")
     if (df.avg_bd_rate >= 0).all():
         ax.set_ylim(0, None)
+    if bd_vs_cc:
+        ax.axhline(y=bd_vs_cc, color="red", linestyle="--", linewidth=2)
     sns.despine(ax=ax)
     return fig
 
 
-def plot_bd_rate_total_itr(df: pd.DataFrame, anchor_name: str | None = None):
+def plot_bd_rate_total_itr(
+    df: pd.DataFrame, anchor_name: str | None = None, bd_vs_cc: float | None = None
+):
     """df expected to have these columns:
     * avg_bd_rate
     * n_itr
@@ -62,5 +68,7 @@ def plot_bd_rate_total_itr(df: pd.DataFrame, anchor_name: str | None = None):
     ).set_title("BD-rate vs number of real iterations" + f" anchor={anchor_name}")
     if (df.avg_bd_rate >= 0).all():
         ax.set_ylim(0, None)
+    if bd_vs_cc:
+        ax.axhline(y=bd_vs_cc, color="red", linestyle="--", linewidth=2)
     sns.despine(ax=ax)
     return fig
