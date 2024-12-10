@@ -1,7 +1,13 @@
-from pathlib import Path
-import tempfile
+"""ATTENTION:
+Run this script from the root, next to encode.py and decode.py.
+Otherwise the imports don't work.
+"""
 
-from ..coolchic.encode import encode_video, load_video_encoder
+import tempfile
+from pathlib import Path
+
+from enc.bitstream.encode import encode_video
+from enc.component.video import load_video_encoder
 
 
 def real_bitstream_rate_bpp(
