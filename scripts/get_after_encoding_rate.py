@@ -1,7 +1,7 @@
 from pathlib import Path
 import tempfile
 
-from coolchic.encode import encode_video, load_video_encoder
+from ..coolchic.encode import encode_video, load_video_encoder
 
 
 def real_bitstream_rate_bpp(
