@@ -1,0 +1,30 @@
+input: data/kodak/kodim01.png
+output: null
+workdir: null
+disable_wandb: False
+load_models: False
+
+enc_cfg:
+  start_lr: 1e-2
+  n_train_loops: 1
+  recipe:
+    warmup:
+      empty: True # This is a placeholder for the warmup phase.
+    all_phases:
+      # Re-tune the latent
+      - lr: 1.0e-2
+        max_itr: 10000
+        patience: 1000
+        quantizer_type: ste
+        quantizer_noise_type: none
+        optimized_module: ["latent"]  # ! Only fine tune the latent
+        freq_valid: 100
+        softround_temperature: [ 1e-4, 1e-4 ]
+        noise_parameter: [ 1.0, 1.0 ]  # not used since quantizer type is "ste"
+
+dec_cfg:
+  arm: 8,2
+  layers_synthesis: 16-1-linear-relu,3-1-linear-none,3-3-residual-relu,3-3-residual-none
+  n_ft_per_res: 1,1,1,1,1,1,1
+  upsampling_kernel_size: 4
+  static_upsampling_kernel: False
