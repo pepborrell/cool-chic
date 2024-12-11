@@ -1,15 +1,34 @@
 import argparse
+import copy
 import os
 from pathlib import Path
 
-import torch
 import yaml
-from enc.component.video import load_video_encoder
-from enc.utils.misc import get_best_device
+from enc.component.coolchic import CoolChicEncoderParameter
+from enc.component.video import VideoEncoder, load_video_encoder
+from enc.io.io import load_frame_data_from_file
+from enc.training.test import test
+from enc.training.train import train
+from enc.utils.codingstructure import CodingStructure
+from enc.utils.manager import FrameEncoderManager
+from enc.utils.parsecli import (
+    get_coding_structure_from_args,
+    get_coolchic_param_from_args,
+    get_manager_from_args,
+)
 from utils.paths import COOLCHIC_REPO_ROOT
 from utils.types import RunConfig, UserConfig
 
 import wandb
+
+
+def extract_image_encoder(video_encoder: VideoEncoder):
+    frame = video_encoder.coding_structure.get_frame_from_coding_order(0)
+    assert frame is not None
+    frame_encoder, frame_encoder_manager = video_encoder.all_frame_encoders[
+        str(frame.coding_order)
+    ]
+    return frame_encoder, frame_encoder_manager
 
 
 def train_only_latents(path_encoder: Path, config: RunConfig, workdir: Path):
@@ -19,40 +38,75 @@ def train_only_latents(path_encoder: Path, config: RunConfig, workdir: Path):
     # * retrain the model
 
     # loading model
-    video_encoder = load_video_encoder(path_encoder)
+    print(f"Loading model from {path_encoder}")
+    old_vid_encoder = load_video_encoder(path_encoder)
+    old_frame_encoder, _ = extract_image_encoder(old_vid_encoder)
+    print("Model loaded.")
 
-    # replace with random latents
-    # we first get the frame
-    frame = video_encoder.coding_structure.get_frame_from_coding_order(0)
-    assert frame is not None
-    # this needs to be False for the optimization to happen.
-    frame.already_encoded = False
-    frame_encoder, _ = video_encoder.all_frame_encoders[str(frame.coding_order)]
-    encoder = frame_encoder.coolchic_encoder
-    # reinitialize the latents (to 0 values).
-    encoder.initialize_latent_grids()
+    # this directory is expected.
+    # (workdir / "frame_000").mkdir(parents=True, exist_ok=True)
 
-    # retrain the model.
-    # Automatic device detection
-    device = get_best_device()
-    print(f'{"Device":<20}: {device}')
-
-    if device == "cuda:0":
-        torch.backends.cudnn.benchmark = True
-
-    os.environ["WANDB_MODE"] = "online"
+    if config.disable_wandb:
+        # To disable wandb completely.
+        os.environ["WANDB_MODE"] = "disabled"
+    else:
+        os.environ["WANDB_MODE"] = "online"
     # Start wandb logging.
     wandb.init(project="coolchic-runs", config=config.model_dump())
 
-    _ = video_encoder.encode(
-        path_original_sequence=str(config.input.absolute()),
-        device=device,
-        workdir=workdir,
-        job_duration_min=-1,
+    print("Starting training.")
+    # Since the video encoder is trying to do everything for me and it's annoying,
+    # i'll operate with images as if i was the video master.
+    # First: initialise.
+    coding_structure = CodingStructure(**get_coding_structure_from_args(config))
+    frame_encoder_manager = FrameEncoderManager(**get_manager_from_args(config))
+    coolchic_encoder_parameter = CoolChicEncoderParameter(
+        **get_coolchic_param_from_args(config)
+    )
+    video_encoder = VideoEncoder(
+        coding_structure=coding_structure,
+        shared_coolchic_parameter=coolchic_encoder_parameter,
+        shared_frame_encoder_manager=frame_encoder_manager,
+    )
+    frame = coding_structure.get_frame_from_coding_order(0)
+    assert frame is not None
+
+    # Loading the frame data is very important, apparently.
+    frame.data = load_frame_data_from_file(
+        str(config.input.absolute()), frame.display_order
+    )
+    frame.refs_data = video_encoder.get_ref_data(frame)
+
+    # training phase is in config
+    training_phase = frame_encoder_manager.preset.all_phases[0]
+    # Reset the latent grids to all zeros.
+    old_frame_encoder.coolchic_encoder.initialize_latent_grids()
+    # Launch training.
+    new_frame_encoder = train(
+        frame_encoder=copy.deepcopy(old_frame_encoder),
+        frame=frame,
+        frame_encoder_manager=frame_encoder_manager,
+        start_lr=training_phase.lr,
+        cosine_scheduling_lr=training_phase.schedule_lr,
+        max_iterations=training_phase.max_itr,
+        frequency_validation=training_phase.freq_valid,
+        patience=training_phase.patience,
+        optimized_module=training_phase.optimized_module,
+        quantizer_type=training_phase.quantizer_type,
+        quantizer_noise_type=training_phase.quantizer_noise_type,
+        softround_temperature=training_phase.softround_temperature,
+        noise_parameter=training_phase.noise_parameter,
     )
 
-    video_encoder_savepath = workdir / "video_encoder.pt"
-    video_encoder.save(video_encoder_savepath)
+    # Save results.
+    results = test(
+        new_frame_encoder,
+        frame,
+        frame_encoder_manager,
+    )
+    frame_workdir = workdir / "frame_000"
+    with open(f"{frame_workdir}results_best.tsv", "w") as f_out:
+        f_out.write(results.pretty_string(show_col_name=True, mode="all") + "\n")
 
 
 if __name__ == "__main__":

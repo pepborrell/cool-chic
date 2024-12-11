@@ -1,7 +1,7 @@
 input: data/kodak/kodim01.png
 output: null
 workdir: null
-disable_wandb: False
+disable_wandb: True
 load_models: False
 user_tag: only-latent-ste
 
@@ -26,8 +26,9 @@ enc_cfg:
         quantize_model: True # because we need it and why not? This only runs at the end of the phase.
 
 dec_cfg:
-  arm: 8,2
-  layers_synthesis: 16-1-linear-relu,3-1-linear-none,3-3-residual-relu,3-3-residual-none
-  n_ft_per_res: 1,1,1,1,1,1,1
-  upsampling_kernel_size: 4
-  static_upsampling_kernel: False
+  - config_name: hop
+    arm: 16,2
+    layers_synthesis: 48-1-linear-relu,X-1-linear-none,X-3-residual-relu,X-3-residual-none
+    n_ft_per_res: 1,1,1,1,1,1,1
+    ups_k_size: 8
+    ups_preconcat_k_size: 7
