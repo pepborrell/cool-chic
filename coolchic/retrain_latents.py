@@ -1,4 +1,5 @@
 import argparse
+from enc.utils.misc import get_best_device
 import copy
 import os
 from pathlib import Path
@@ -76,6 +77,11 @@ def train_only_latents(path_encoder: Path, config: RunConfig, workdir: Path):
         str(config.input.absolute()), frame.display_order
     )
     frame.refs_data = video_encoder.get_ref_data(frame)
+
+    # Automatic device detection
+    device = get_best_device()
+    frame.to_device(device)
+    old_frame_encoder.to_device(device)
 
     # training phase is in config
     training_phase = frame_encoder_manager.preset.all_phases[0]
