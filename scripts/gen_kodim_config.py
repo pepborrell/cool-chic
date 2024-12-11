@@ -12,9 +12,11 @@ def cfg_str(img_num: list[int], lambda_value: float, template_file: Path) -> str
     return template
 
 
-def save_cfg(config: str, dir: Path, name: str) -> None:
+def save_cfg(config: str, dir: Path, name: str, template: bool = False) -> None:
     name = name.replace(".yaml", "")
     filename = dir / f"{name}.yaml"
+    if template:
+        filename = filename.with_suffix(".yamltemplate")
     with open(filename, "w") as f:
         f.write(config)
 

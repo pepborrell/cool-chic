@@ -2,13 +2,11 @@
 Compares the BD rate of two runs, specified by the path to its results.
 """
 
-import matplotlib.pyplot as plt
-import pandas as pd
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
-import seaborn as sns
+import numpy as np
 import yaml
 from pydantic import BaseModel
 
@@ -64,10 +62,13 @@ def get_run_config(results_dir: Path) -> dict[str, Any]:
     config_file = results_dir / "param.txt"
     with open(config_file, "r") as f:
         config = yaml.unsafe_load(f)
-    parameter_names = ["lmbda", "input"]
+    parameter_names = ["lmbda", "input", "enc_cfg"]
     params = {p: config[p] for p in parameter_names}
     assert isinstance(params["input"], Path)  # for linter to understand
     params["seq_name"] = params["input"].stem
+    # Bubbling up encoding parameters so we can use them later.
+    params["n_itr"] = params["enc_cfg"]["n_itr"]
+    params["n_train_loops"] = params["enc_cfg"]["n_train_loops"]
     return params
 
 
@@ -76,6 +77,9 @@ class SummaryEncodingMetrics(BaseModel):
     lmbda: float
     rate_bpp: float
     psnr_db: float
+    # Fields not in the cool-chic summaries but we use them in our analyses.
+    n_itr: int | None = None
+    n_train_loops: int | None = None
 
 
 def parse_result_summary(summary_file: Path) -> dict[str, list[SummaryEncodingMetrics]]:
@@ -95,24 +99,39 @@ def gen_run_summary(run_dir: Path) -> SummaryEncodingMetrics | None:
         return
     params = get_run_config(run_dir)
     all_data = metrics.model_dump() | params
+    # Renaming for consistency.
     all_data["rate_bpp"] = all_data["total_rate_bpp"]
     return SummaryEncodingMetrics(**all_data)
 
 
-def full_run_summary(run_suite_dir: Path) -> dict[str, list[SummaryEncodingMetrics]]:
+def read_real_rate(dir_path: Path) -> float:
+    with open(dir_path / "real_rate_bpp.txt", "r") as f:
+        return float(f.read().strip())
+
+
+def full_run_summary(
+    run_suite_dir: Path, real_rate: bool = False
+) -> dict[str, list[SummaryEncodingMetrics]]:
     summaries = defaultdict(list)
-    for kodim_config in run_suite_dir.iterdir():
-        all_runs = [subdir for subdir in kodim_config.iterdir() if subdir.is_dir()]
-        for dir in all_runs:
-            summary = gen_run_summary(dir)
-            if summary is not None:
-                summaries[summary.seq_name].append(summary)
+    # We get all files we will need to review.
+    # We do this because we allow to give an arbitrary path and we analyse all runs under it.
+    all_run_results = [
+        file for file in run_suite_dir.rglob("*results_best.tsv") if file.is_file()
+    ]
+    for run in all_run_results:
+        dir = run.parent
+        summary = gen_run_summary(dir)
+        if summary is not None:
+            if real_rate:
+                summary.rate_bpp = read_real_rate(dir)
+            summaries[summary.seq_name].append(summary)
     return summaries
 
 
 def bd_rate_summaries(
     ref_sum: list[SummaryEncodingMetrics], other_sum: list[SummaryEncodingMetrics]
 ) -> float:
+    # THE REFERENCE IS THE ANCHOR!
     sorted_ref = sorted(ref_sum, key=lambda s: s.lmbda)
     sorted_other = sorted(other_sum, key=lambda s: s.lmbda)
 
@@ -126,45 +145,32 @@ def bd_rate_summaries(
     )
 
 
-def gen_rd_plots(
-    summaries: list[SummaryEncodingMetrics],
-    other_sums: list[SummaryEncodingMetrics] | None = None,
-) -> None:
-    df = pd.DataFrame([s.model_dump() for s in summaries])
-    df["run"] = "reference"
-    if other_sums:
-        other_df = pd.DataFrame([s.model_dump() for s in other_sums])
-        other_df["run"] = "other"
-        other_df.seq_name = other_df.seq_name.apply(lambda s: s + "_other")
-        df.seq_name = df.seq_name.apply(lambda s: s + "_ref")
-        df = pd.concat([df, other_df])
-    sns.lineplot(df, x="rate_bpp", y="psnr_db", hue="seq_name", marker="o")
-    plt.show()
+def avg_bd_rate_summary_paths(summary_path: Path, anchor_path: Path) -> float:
+    # checking that paths are as expected.
+    assert summary_path.exists() and summary_path.is_file()
+    assert anchor_path.exists() and anchor_path.is_file()
+
+    summary = parse_result_summary(summary_path)
+    a_summary = parse_result_summary(anchor_path)
+    results = []
+    for seq_name in summary:
+        # REMEMBER: the anchor goes first.
+        bd_rate = bd_rate_summaries(a_summary[seq_name], summary[seq_name])
+        results.append(bd_rate)
+    return np.mean(results)
 
 
-def print_md_table(results: dict[str, float]) -> None:
-    output = "| seq_name | bd rate |\n"
-    output += "| :------- | ------: |\n"
-    for seq, value in results.items():
-        output += f"| {seq} | {value:.2f} |\n"
-    print(output)
+def bd_rates_from_paths(
+    runs_path: Path, anchor_path: Path, real_rate: bool = False
+) -> list[float]:
+    # checking that paths are as expected.
+    assert runs_path.is_dir()
+    assert anchor_path.exists() and anchor_path.is_file()
 
-
-if __name__ == "__main__":
-    runs_path = Path("results/exps/copied/2024-11-26/")
-    run_summaries = full_run_summary(runs_path)
-    og_summary_dir = Path("results/image/kodak/results.tsv")
-    og_summary = parse_result_summary(og_summary_dir)
-
-    results = {}
+    run_summaries = full_run_summary(runs_path, real_rate)
+    og_summary = parse_result_summary(anchor_path)
+    results = []
     for seq_name in og_summary:
         bd_rate = bd_rate_summaries(og_summary[seq_name], run_summaries[seq_name])
-        results[seq_name] = bd_rate
-    print_md_table(results)
-
-    # gen_rd_plots([sum for sums in og_summary.values() for sum in sums])
-    some_images = [f"kodim{num:02}" for num in range(1, 9)]
-    gen_rd_plots(
-        [sum for seq_name in some_images for sum in og_summary[seq_name]],
-        [sum for seq_name in some_images for sum in run_summaries[seq_name]],
-    )
+        results.append(bd_rate)
+    return results
