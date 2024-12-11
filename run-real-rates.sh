@@ -1,13 +1,14 @@
 #!/bin/bash
-#SBATCH --mail-type=FAIL,END # mail configuration: NONE, BEGIN, END, FAIL, REQUEUE, ALL
+#SBATCH --mail-type=FAIL # mail configuration: NONE, BEGIN, END, FAIL, REQUEUE, ALL
 #SBATCH --output=/itet-stor/jborrell/net_scratch/jobs/%j.out # where to store the output (%j is the JOBID), subdirectory "jobs" must exist
 #SBATCH --error=/itet-stor/jborrell/net_scratch/jobs/%j.err # where to store error messages
 #SBATCH --mem-per-gpu=12G
 #SBATCH --nodes=1
-#SBATCH --ntasks=2
 #SBATCH --cpus-per-task=4
 #SBATCH --gres=gpu:1
-# deactivate #SBATCH --exclude=tikgpu10,tikgpu[06-09]
+# only run on tikgpu03: this way we only use 8 gpus.
+#SBATCH --exclude=tikgpu10,tikgpu02,tikgpu[04-09],artongpu[01-05],hardin01,lbbgpu01
+# deactivate #SBATCH --exclude=tikgpu10,tikgpu[06-09],artongpu01,hardin01,lbbgpu01
 # deactivate #CommentSBATCH --nodelist=tikgpu01 # Specify that it should run on this particular node
 # deactivate #CommentSBATCH --account=tik-internal
 # deactivate #CommentSBATCH --constraint='titan_rtx|tesla_v100|titan_xp|a100_80gb'
@@ -52,12 +53,7 @@ echo "Conda activated"
 cd ${DIRECTORY}
 
 # Execute your code
-srun --exclusive uv run python coolchic/encode.py --config=$1 2>&1 | sed 's/^/[Task 1] /' &
-# If a second config is provided, run training for the second script
-if [[ $# -ge 2 ]]; then
-    srun --exclusive uv run python coolchic/encode.py --config=$2 2>&1 | sed 's/^/[Task 2] /' &
-fi
-wait
+uv run python coolchic/get_after_encoding_rate.py
 
 # Send more noteworthy information to the output log
 echo "Finished at: $(date)"
