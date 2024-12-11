@@ -4,13 +4,12 @@ from pathlib import Path
 
 import torch
 import yaml
+from enc.component.video import load_video_encoder
 from enc.utils.misc import get_best_device
 from utils.paths import COOLCHIC_REPO_ROOT
-from utils.types import UserConfig
+from utils.types import RunConfig, UserConfig
 
 import wandb
-from coolchic.enc.component.video import load_video_encoder
-from coolchic.utils.types import RunConfig
 
 
 def train_only_latents(path_encoder: Path, config: RunConfig, workdir: Path):
