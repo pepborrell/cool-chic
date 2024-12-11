@@ -7,7 +7,7 @@
 #SBATCH --cpus-per-task=4
 #SBATCH --gres=gpu:1
 # only run on tikgpu03: this way we only use 8 gpus.
-#SBATCH --exclude=tikgpu10,tikgpu02,tikgpu[04-09],artongpu[01-05],hardin01,lbbgpu01
+#SBATCH --exclude=tikgpu10,tikgpu02,tikgpu[04-09],artongpu[01-07],hardin01,lbbgpu01
 
 ETH_USERNAME=jborrell
 PROJECT_NAME=cool-chic
@@ -48,7 +48,7 @@ cd ${DIRECTORY}
 
 # Execute your code
 # The source workdir contains a model trained with full parameters and kodim01.
-uv run python coolchic/retrain_latents.py --config=cfg/exps/only_latents/vanilla.yaml --source_workdir=results/exps/2024-11-26/kodim_config_06/202901_983/
+uv run python coolchic/retrain_latents.py --config=cfg/exps/only_latents/vanilla.yaml --source_workdir=results/exps/n_it-grid/n_itr-12000_n_train_loops-5/kodim_config_06/152848_646/
 
 # Send more noteworthy information to the output log
 echo "Finished at: $(date)"
