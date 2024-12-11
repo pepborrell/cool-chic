@@ -1,7 +1,7 @@
 input: data/kodak/kodim01.png
 output: null
 workdir: null
-disable_wandb: True
+disable_wandb: False
 load_models: False
 user_tag: only-latent-ste
 
