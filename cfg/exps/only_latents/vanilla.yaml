@@ -3,11 +3,13 @@ output: null
 workdir: null
 disable_wandb: False
 load_models: False
+user_tag: only-latent-ste
 
 enc_cfg:
   start_lr: 1e-2
   n_train_loops: 1
   recipe:
+    preset_name: none
     warmup:
       empty: True # This is a placeholder for the warmup phase.
     all_phases:
@@ -21,6 +23,7 @@ enc_cfg:
         freq_valid: 100
         softround_temperature: [ 1e-4, 1e-4 ]
         noise_parameter: [ 1.0, 1.0 ]  # not used since quantizer type is "ste"
+        quantize_model: True # because we need it and why not? This only runs at the end of the phase.
 
 dec_cfg:
   arm: 8,2

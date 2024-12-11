@@ -57,8 +57,8 @@ def train_only_latents(path_encoder: Path, config: RunConfig, workdir: Path):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("config", type=Path)
-    parser.add_argument("source_workdir", type=Path)
+    parser.add_argument("--config", type=Path)
+    parser.add_argument("--source_workdir", type=Path)
     args = parser.parse_args()
 
     assert args.config.exists(), f"Config file {args.config} does not exist."
@@ -85,6 +85,5 @@ if __name__ == "__main__":
     )
     dest_workdir.mkdir(parents=True, exist_ok=True)
 
-    source_workdir = Path("results/exps/...")
-    path_video_encoder = source_workdir / "video_encoder.pt"
+    path_video_encoder = args.source_workdir / "video_encoder.pt"
     train_only_latents(path_video_encoder, config, dest_workdir)
