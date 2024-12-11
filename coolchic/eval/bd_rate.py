@@ -104,7 +104,14 @@ def gen_run_summary(run_dir: Path) -> SummaryEncodingMetrics | None:
     return SummaryEncodingMetrics(**all_data)
 
 
-def full_run_summary(run_suite_dir: Path) -> dict[str, list[SummaryEncodingMetrics]]:
+def read_real_rate(dir_path: Path) -> float:
+    with open(dir_path / "real_rate_bpp.txt", "r") as f:
+        return float(f.read().strip())
+
+
+def full_run_summary(
+    run_suite_dir: Path, real_rate: bool = False
+) -> dict[str, list[SummaryEncodingMetrics]]:
     summaries = defaultdict(list)
     # We get all files we will need to review.
     # We do this because we allow to give an arbitrary path and we analyse all runs under it.
@@ -115,6 +122,8 @@ def full_run_summary(run_suite_dir: Path) -> dict[str, list[SummaryEncodingMetri
         dir = run.parent
         summary = gen_run_summary(dir)
         if summary is not None:
+            if real_rate:
+                summary.rate_bpp = read_real_rate(dir)
             summaries[summary.seq_name].append(summary)
     return summaries
 
@@ -151,12 +160,14 @@ def avg_bd_rate_summary_paths(summary_path: Path, anchor_path: Path) -> float:
     return np.mean(results)
 
 
-def bd_rates_from_paths(runs_path: Path, anchor_path: Path) -> list[float]:
+def bd_rates_from_paths(
+    runs_path: Path, anchor_path: Path, real_rate: bool = False
+) -> list[float]:
     # checking that paths are as expected.
     assert runs_path.is_dir()
     assert anchor_path.exists() and anchor_path.is_file()
 
-    run_summaries = full_run_summary(runs_path)
+    run_summaries = full_run_summary(runs_path, real_rate)
     og_summary = parse_result_summary(anchor_path)
     results = []
     for seq_name in og_summary:

@@ -21,6 +21,7 @@ all_anchors = {
     "hm": hm_summary_dir,
     "jpeg": jpeg_summary_dir,
 }
+real_rate = True
 all_data = []
 for run_path in tqdm(list(all_runs.iterdir())):
     run_summaries = full_run_summary(run_path)
@@ -40,7 +41,9 @@ for run_path in tqdm(list(all_runs.iterdir())):
                 "n_train_loops": n_train_loops,
                 "anchor": anchor,
             }
-            for bd_rate in bd_rates_from_paths(run_path, all_anchors[anchor])
+            for bd_rate in bd_rates_from_paths(
+                run_path, all_anchors[anchor], real_rate=real_rate
+            )
         )
 
 bd_vs_best_cc = {
@@ -56,7 +59,7 @@ for anchor in all_anchors:
     a_df = df.loc[df.anchor == anchor]
     f1 = plot_bd_rate_n_itr(a_df, anchor_name=anchor, bd_vs_cc=bd_vs_best_cc[anchor])
     f2 = plot_bd_rate_total_itr(
-        a_df, anchor_name=anchor, bd_vs_cc=bd_vs_best_cc[anchor]
+        a_df, anchor_name=anchor, bd_vs_cc=bd_vs_best_cc[anchor], real_rate=real_rate
     )
     plots.extend([f1, f2])
 plt.show()

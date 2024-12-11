@@ -54,7 +54,10 @@ def plot_bd_rate_n_itr(
 
 
 def plot_bd_rate_total_itr(
-    df: pd.DataFrame, anchor_name: str | None = None, bd_vs_cc: float | None = None
+    df: pd.DataFrame,
+    anchor_name: str | None = None,
+    bd_vs_cc: float | None = None,
+    real_rate: bool = False,
 ):
     """df expected to have these columns:
     * avg_bd_rate
@@ -65,7 +68,11 @@ def plot_bd_rate_total_itr(
     fig, ax = plt.subplots()
     sns.lineplot(
         df, x="total_n_itr", y="avg_bd_rate", hue="n_train_loops", ax=ax, marker="o"
-    ).set_title("BD-rate vs number of real iterations" + f" anchor={anchor_name}")
+    ).set_title(
+        "BD-rate vs number of real iterations"
+        + f" anchor={anchor_name}"
+        + f" real_rate={real_rate}"
+    )
     if (df.avg_bd_rate >= 0).all():
         ax.set_ylim(0, None)
     if bd_vs_cc:
