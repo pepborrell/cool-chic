@@ -62,6 +62,11 @@ if __name__ == "__main__":
     parser.add_argument("source_workdir", type=Path)
     args = parser.parse_args()
 
+    assert args.config.exists(), f"Config file {args.config} does not exist."
+    assert (
+        args.source_workdir.exists()
+    ), f"Source workdir {args.source_workdir} does not exist."
+
     with open(args.config, "r") as stream:
         user_config = UserConfig(**yaml.safe_load(stream))
 
