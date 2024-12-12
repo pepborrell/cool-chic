@@ -47,8 +47,14 @@ echo "Conda activated"
 cd ${DIRECTORY}
 
 # Execute your code
+# Check that one arg was provided.
+if [ "$#" -ne 1 ]; then
+  echo "Illegal number of parameters"
+  echo "Usage: $0 <config_file>"
+  exit 1
+fi
 # The source workdir contains a model trained with full parameters and kodim01.
-uv run python coolchic/retrain_latents.py --config=cfg/exps/only_latents/vanilla.yaml --source_workdir=results/exps/n_it-grid/n_itr-12000_n_train_loops-5/kodim_config_06/152848_646/
+uv run python coolchic/retrain_latents.py --config=$1 --source_workdir=results/exps/n_it-grid/n_itr-12000_n_train_loops-5/kodim_config_06/152848_646/
 
 # Send more noteworthy information to the output log
 echo "Finished at: $(date)"
