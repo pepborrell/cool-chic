@@ -14,7 +14,7 @@ enc_cfg:
       empty: True # This is a placeholder for the warmup phase.
     all_phases:
       - lr: 1e-2
-        max_itr: 1000000
+        max_itr: 100000
         patience: 5000
         optimized_module: ["latent"]
         schedule_lr: True
