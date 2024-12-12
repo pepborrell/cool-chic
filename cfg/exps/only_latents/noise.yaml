@@ -18,10 +18,10 @@ enc_cfg:
         patience: 5000
         optimized_module: ["latent"]
         schedule_lr: True
-        quantizer_type: "softround"
-        quantizer_noise_type: "gaussian"
-        softround_temperature: (0.3, 0.1)
-        noise_parameter: (0.25, 0.1)
+        quantizer_type: softround
+        quantizer_noise_type: gaussian
+        softround_temperature: [ 0.3, 0.1 ]
+        noise_parameter: [ 0.25, 0.1 ]
 
 dec_cfg:
   - config_name: hop
