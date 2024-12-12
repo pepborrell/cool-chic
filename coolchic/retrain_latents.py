@@ -83,30 +83,30 @@ def train_only_latents(path_encoder: Path, config: RunConfig, workdir: Path):
     frame.to_device(device)
     old_frame_encoder.to_device(device)
 
-    # training phase is in config
-    training_phase = frame_encoder_manager.preset.all_phases[0]
     # Reset the latent grids to all zeros.
     old_frame_encoder.coolchic_encoder.initialize_latent_grids()
-    # Launch training.
-    new_frame_encoder = train(
-        frame_encoder=copy.deepcopy(old_frame_encoder),
-        frame=frame,
-        frame_encoder_manager=frame_encoder_manager,
-        start_lr=training_phase.lr,
-        cosine_scheduling_lr=training_phase.schedule_lr,
-        max_iterations=training_phase.max_itr,
-        frequency_validation=training_phase.freq_valid,
-        patience=training_phase.patience,
-        optimized_module=training_phase.optimized_module,
-        quantizer_type=training_phase.quantizer_type,
-        quantizer_noise_type=training_phase.quantizer_noise_type,
-        softround_temperature=training_phase.softround_temperature,
-        noise_parameter=training_phase.noise_parameter,
-    )
+    frame_enc = copy.deepcopy(old_frame_encoder)
+    for training_phase in frame_encoder_manager.preset.all_phases:
+        # Launch training.
+        frame_enc = train(
+            frame_encoder=frame_enc,
+            frame=frame,
+            frame_encoder_manager=frame_encoder_manager,
+            start_lr=training_phase.lr,
+            cosine_scheduling_lr=training_phase.schedule_lr,
+            max_iterations=training_phase.max_itr,
+            frequency_validation=training_phase.freq_valid,
+            patience=training_phase.patience,
+            optimized_module=training_phase.optimized_module,
+            quantizer_type=training_phase.quantizer_type,
+            quantizer_noise_type=training_phase.quantizer_noise_type,
+            softround_temperature=training_phase.softround_temperature,
+            noise_parameter=training_phase.noise_parameter,
+        )
 
     # Save results.
     results = test(
-        new_frame_encoder,
+        frame_enc,
         frame,
         frame_encoder_manager,
     )
