@@ -26,7 +26,7 @@ enc_cfg:
         max_itr: 20000
         patience: 5000
         optimized_module: ["latent"]
-        schedule_lr: False
+        schedule_lr: True
         quantizer_type: softround
         quantizer_noise_type: gaussian
         softround_temperature: [ 0.1, 0.1 ]
