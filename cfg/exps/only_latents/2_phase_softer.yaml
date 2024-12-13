@@ -22,14 +22,14 @@ enc_cfg:
         quantizer_noise_type: gaussian
         softround_temperature: [ 0.3, 0.1 ]
         noise_parameter: [ 0.25, 0.1 ]
-      - lr: 1e-3
+      - lr: 5e-4
         max_itr: 20000
         patience: 5000
         optimized_module: ["latent"]
         schedule_lr: True
         quantizer_type: softround
         quantizer_noise_type: gaussian
-        softround_temperature: [ 0.2, 0.05 ]
+        softround_temperature: [ 0.1, 0.05 ]
         noise_parameter: [ 0.15, 0.05 ]
         quantize_model: True # This only runs at the end of the phase. If it's not here the codebase complains.
 
