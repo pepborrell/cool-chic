@@ -93,6 +93,7 @@ def train_only_latents(path_encoder: Path, config: RunConfig, workdir: Path):
             frame=frame,
             frame_encoder_manager=frame_encoder_manager,
             start_lr=training_phase.lr,
+            end_lr=training_phase.end_lr if training_phase.end_lr is not None else 1e-5,
             cosine_scheduling_lr=training_phase.schedule_lr,
             max_iterations=training_phase.max_itr,
             frequency_validation=training_phase.freq_valid,

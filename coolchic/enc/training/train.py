@@ -58,6 +58,7 @@ def train(
     frame: Frame,
     frame_encoder_manager: FrameEncoderManager,
     start_lr: float = 1e-2,
+    end_lr: float = 0.00001,
     cosine_scheduling_lr: bool = True,
     max_iterations: int = 10000,
     frequency_validation: int = 100,
@@ -186,7 +187,7 @@ def train(
         learning_rate_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
             optimizer,
             T_max=max_iterations / frequency_validation,
-            eta_min=0.00001,
+            eta_min=end_lr,
             last_epoch=-1,
         )
     else:
