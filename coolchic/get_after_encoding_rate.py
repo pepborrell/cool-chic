@@ -8,6 +8,7 @@ from pathlib import Path
 
 from enc.bitstream.encode import encode_video
 from enc.component.video import load_video_encoder
+from tqdm import tqdm
 
 
 def real_bitstream_rate_bpp(
@@ -32,11 +33,12 @@ def save_bitstream(path_video_encoder: Path, output_path: Path) -> None:
     encode_video(video_encoder, output_path, hls_sig_blksize=16)
 
 
-experiments_root = Path("results/exps/copied/n_it-grid/")
+experiments_root = Path("results/exps/n_it-grid/")
 encoder_paths = [
-    file for file in experiments_root.rglob("video_encoder.pt") if file.is_file()
+    file for file in experiments_root.rglob("*video_encoder.pt") if file.is_file()
 ]
-for encoder in encoder_paths:
+print(f"{len(encoder_paths)=}")
+for encoder in tqdm(encoder_paths):
     with tempfile.NamedTemporaryFile() as tmp_file:
         save_bitstream(encoder, Path(tmp_file.name))
         rate = real_bitstream_rate_bpp(Path(tmp_file.name), encoder)

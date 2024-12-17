@@ -494,14 +494,25 @@ class CoolChicEncoder(nn.Module):
         """
         self.load_state_dict(param)
 
-    def initialize_latent_grids(self) -> None:
+    def initialize_latent_grids(
+        self, zeros: bool = True, random_seed: int | None = None
+    ) -> None:
         """Initialize the latent grids. The different tensors composing
         the latent grids must have already been created e.g. through
         ``torch.empty()``.
         """
+        if not zeros:
+            assert random_seed is not None, (
+                "Trying to initialize the latent grids with random values but "
+                "random_seed is None."
+            )
+            generator = torch.Generator().manual_seed(random_seed)
         for latent_index, latent_value in enumerate(self.latent_grids):
             self.latent_grids[latent_index] = nn.Parameter(
-                torch.zeros_like(latent_value), requires_grad=True
+                torch.zeros_like(latent_value)
+                if zeros
+                else 1e-2 * torch.randn(latent_value.shape, generator=generator),  # pyright: ignore
+                requires_grad=True,
             )
 
     def reinitialize_parameters(self):

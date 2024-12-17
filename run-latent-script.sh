@@ -1,18 +1,13 @@
 #!/bin/bash
-#SBATCH --mail-type=FAIL,END # mail configuration: NONE, BEGIN, END, FAIL, REQUEUE, ALL
+#SBATCH --mail-type=FAIL # mail configuration: NONE, BEGIN, END, FAIL, REQUEUE, ALL
 #SBATCH --output=/itet-stor/jborrell/net_scratch/jobs/%j.out # where to store the output (%j is the JOBID), subdirectory "jobs" must exist
 #SBATCH --error=/itet-stor/jborrell/net_scratch/jobs/%j.err # where to store error messages
 #SBATCH --mem-per-gpu=12G
 #SBATCH --nodes=1
-#SBATCH --ntasks=2
 #SBATCH --cpus-per-task=4
 #SBATCH --gres=gpu:1
-# deactivate #SBATCH --exclude=tikgpu10,tikgpu[06-09]
-# deactivate #CommentSBATCH --nodelist=tikgpu01 # Specify that it should run on this particular node
-# deactivate #CommentSBATCH --account=tik-internal
-# deactivate #CommentSBATCH --constraint='titan_rtx|tesla_v100|titan_xp|a100_80gb'
-
-
+# only run on tikgpu03: this way we only use 8 gpus.
+#SBATCH --exclude=tikgpu10,tikgpu02,tikgpu[04-09],artongpu[01-07],hardin01,lbbgpu01
 
 ETH_USERNAME=jborrell
 PROJECT_NAME=cool-chic
@@ -52,12 +47,14 @@ echo "Conda activated"
 cd ${DIRECTORY}
 
 # Execute your code
-srun --exclusive uv run python coolchic/encode.py --config=$1 2>&1 | sed 's/^/[Task 1] /' &
-# If a second config is provided, run training for the second script
-if [[ $# -ge 2 ]]; then
-    srun --exclusive uv run python coolchic/encode.py --config=$2 2>&1 | sed 's/^/[Task 2] /' &
+# Check that one arg was provided.
+if [ "$#" -ne 1 ]; then
+  echo "Illegal number of parameters"
+  echo "Usage: $0 <config_file>"
+  exit 1
 fi
-wait
+# The source workdir contains a model trained with full parameters and kodim01.
+uv run python coolchic/retrain_latents.py --config=$1 --source_workdir=results/exps/n_it-grid/n_itr-12000_n_train_loops-5/kodim_config_06/152848_646/
 
 # Send more noteworthy information to the output log
 echo "Finished at: $(date)"

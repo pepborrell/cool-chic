@@ -14,5 +14,5 @@ fi
 for (( i=0; i<=14; i++ )); do
 	job_number=$(printf "%02d" $i)  # Format the number as two digits
 	echo "Launching job $job_number"
-	sbatch --job-name=kodim${job_number} submit-job.sh ${config_path}kodim_config_${job_number}.yaml
+	sbatch --job-name=kodim${job_number} submit-coolchic-encoding.sh ${config_path}kodim_config_${job_number}.yaml
 done

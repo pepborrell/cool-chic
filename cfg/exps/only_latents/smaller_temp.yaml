@@ -1,0 +1,33 @@
+input: data/kodak/kodim01.png
+output: null
+workdir: null
+disable_wandb: False
+load_models: False
+user_tag: only-latent-noise
+
+enc_cfg:
+  start_lr: 1e-2
+  n_train_loops: 1
+  recipe:
+    preset_name: none
+    warmup:
+      empty: True # This is a placeholder for the warmup phase.
+    all_phases:
+      - lr: 1e-2
+        max_itr: 20000
+        patience: 5000
+        optimized_module: ["latent"]
+        schedule_lr: True
+        quantizer_type: softround
+        quantizer_noise_type: gaussian
+        softround_temperature: [ 0.15, 0.01 ]
+        noise_parameter: [ 0.25, 0.1 ]
+        quantize_model: True # This only runs at the end of the phase. If it's not here the codebase complains.
+
+dec_cfg:
+  - config_name: hop
+    arm: 16,2
+    layers_synthesis: 48-1-linear-relu,X-1-linear-none,X-3-residual-relu,X-3-residual-none
+    n_ft_per_res: 1,1,1,1,1,1,1
+    ups_k_size: 8
+    ups_preconcat_k_size: 7
