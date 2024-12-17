@@ -78,11 +78,6 @@ def train_only_latents(path_encoder: Path, config: RunConfig, workdir: Path):
     )
     frame.refs_data = video_encoder.get_ref_data(frame)
 
-    # Automatic device detection
-    device = get_best_device()
-    frame.to_device(device)
-    old_frame_encoder.to_device(device)
-
     # Reset the latent grids to all zeros.
     if config.user_tag == "random-latents-noise":
         old_frame_encoder.coolchic_encoder.initialize_latent_grids(
@@ -90,6 +85,12 @@ def train_only_latents(path_encoder: Path, config: RunConfig, workdir: Path):
         )
     else:
         old_frame_encoder.coolchic_encoder.initialize_latent_grids()
+
+    # Automatic device detection
+    device = get_best_device()
+    frame.to_device(device)
+    old_frame_encoder.to_device(device)
+
     frame_enc = copy.deepcopy(old_frame_encoder)
     for training_phase in frame_encoder_manager.preset.all_phases:
         # Launch training.
