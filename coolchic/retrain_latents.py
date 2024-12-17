@@ -84,7 +84,12 @@ def train_only_latents(path_encoder: Path, config: RunConfig, workdir: Path):
     old_frame_encoder.to_device(device)
 
     # Reset the latent grids to all zeros.
-    old_frame_encoder.coolchic_encoder.initialize_latent_grids()
+    if config.user_tag == "random-latents-noise":
+        old_frame_encoder.coolchic_encoder.initialize_latent_grids(
+            zeros=False, random_seed=1234
+        )
+    else:
+        old_frame_encoder.coolchic_encoder.initialize_latent_grids()
     frame_enc = copy.deepcopy(old_frame_encoder)
     for training_phase in frame_encoder_manager.preset.all_phases:
         # Launch training.
