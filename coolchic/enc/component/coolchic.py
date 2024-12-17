@@ -511,7 +511,7 @@ class CoolChicEncoder(nn.Module):
             self.latent_grids[latent_index] = nn.Parameter(
                 torch.zeros_like(latent_value)
                 if zeros
-                else torch.randn(latent_value.shape, generator=generator),  # pyright: ignore
+                else 1e-2 * torch.randn(latent_value.shape, generator=generator),  # pyright: ignore
                 requires_grad=True,
             )
 
