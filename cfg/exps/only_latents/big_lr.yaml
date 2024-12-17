@@ -15,24 +15,24 @@ enc_cfg:
     all_phases:
       # Start with a big learning rate for few iterations.
       - lr: 1e-2
-        max_itr: 1000
-        patience: 5000
-        optimized_module: ["latent"]
-        schedule_lr: True
-        end_lr: 0.009939
-        quantizer_type: softround
-        quantizer_noise_type: gaussian
-        softround_temperature: [ 0.3, 0.3 ]
-        noise_parameter: [ 0.25, 0.25 ]
-      - lr: 0.009939
         max_itr: 20000
         patience: 5000
         optimized_module: ["latent"]
         schedule_lr: True
+        end_lr: 1e-3
         quantizer_type: softround
         quantizer_noise_type: gaussian
-        softround_temperature: [ 0.3, 0.1 ]
-        noise_parameter: [ 0.2, 0.1 ]
+        softround_temperature: [ 0.3, 0.2 ]
+        noise_parameter: [ 0.25, 0.15 ]
+      - lr: 1e-3
+        max_itr: 10000
+        patience: 5000
+        optimized_module: ["latent"]
+        schedule_lr: True
+        quantizer_type: softround
+        quantizer_noise_type: gaussian
+        softround_temperature: [ 0.2, 0.1 ]
+        noise_parameter: [ 0.15, 0.05 ]
         quantize_model: True # This only runs at the end of the phase. If it's not here the codebase complains.
 
 dec_cfg:
