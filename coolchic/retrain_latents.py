@@ -1,4 +1,5 @@
 import argparse
+from coolchic.utils.get_best_models import get_best_model
 from enc.utils.misc import get_best_device
 import copy
 import os
@@ -125,13 +126,9 @@ def train_only_latents(path_encoder: Path, config: RunConfig, workdir: Path):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=Path)
-    parser.add_argument("--source_workdir", type=Path)
     args = parser.parse_args()
 
     assert args.config.exists(), f"Config file {args.config} does not exist."
-    assert (
-        args.source_workdir.exists()
-    ), f"Source workdir {args.source_workdir} does not exist."
 
     with open(args.config, "r") as stream:
         user_config = UserConfig(**yaml.safe_load(stream))
@@ -152,5 +149,11 @@ if __name__ == "__main__":
     )
     dest_workdir.mkdir(parents=True, exist_ok=True)
 
-    path_video_encoder = args.source_workdir / "video_encoder.pt"
+    input_img = config.input.stem
+    lambda_value = config.lmbda
+    # Gets best model according to the input image and lambda value.
+    source_workdir = get_best_model()[(input_img, lambda_value)]
+    assert source_workdir.exists(), f"Source workdir {source_workdir} does not exist."
+
+    path_video_encoder = source_workdir / "video_encoder.pt"
     train_only_latents(path_video_encoder, config, dest_workdir)
