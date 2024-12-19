@@ -12,13 +12,16 @@ params_2 = {
     "n_itr": [15_000, 20_000, 30_000, 40_000, 50_000, 75_000, 100_000],
     "n_train_loops": [1],
 }
-params_to_search = params_2
+params_latents = {
+    "n_itr": [1_000, 5_000, 10_000, 30_000, 50_000],
+}
+params_to_search = params_latents
 
 
 def estimate_time(params: dict[str, list[int]], n_gpus: int = 8) -> float:
     all_combs = itertools.product(*params.values())
 
-    def time_for_one_run(n_it: int, n_loops: int):
+    def time_for_one_run(n_it: int, n_loops: int = 1):
         time_one_run = (n_it / 10000) * 10 * n_loops
         # We need to run every param combination for all lambdas and images.
         time_all = time_one_run * 120
