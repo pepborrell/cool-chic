@@ -136,24 +136,25 @@ if __name__ == "__main__":
     # One user config generates one or more runs, depending on the parameters specified.
     all_run_configs = user_config.get_run_configs()
     assert len(all_run_configs) == 1, "Only one run is supported."
-    config = all_run_configs[0]
+    for config in all_run_configs:
+        dest_workdir = (
+            config.workdir
+            if config.workdir is not None
+            # If no workdir is specified, results will be saved in results/{path_to_config_relative_to_cfg}/
+            else COOLCHIC_REPO_ROOT
+            / "results"
+            / args.config.relative_to("cfg").with_suffix("")
+            / config.unique_id  # unique id to distinguish different runs launched by the same config.
+        )
+        dest_workdir.mkdir(parents=True, exist_ok=True)
 
-    dest_workdir = (
-        config.workdir
-        if config.workdir is not None
-        # If no workdir is specified, results will be saved in results/{path_to_config_relative_to_cfg}/
-        else COOLCHIC_REPO_ROOT
-        / "results"
-        / args.config.relative_to("cfg").with_suffix("")
-        / config.unique_id  # unique id to distinguish different runs launched by the same config.
-    )
-    dest_workdir.mkdir(parents=True, exist_ok=True)
+        input_img = config.input.stem
+        lambda_value = config.lmbda
+        # Gets best model according to the input image and lambda value.
+        source_workdir = get_best_model()[(input_img, lambda_value)]
+        assert (
+            source_workdir.exists()
+        ), f"Source workdir {source_workdir} does not exist."
 
-    input_img = config.input.stem
-    lambda_value = config.lmbda
-    # Gets best model according to the input image and lambda value.
-    source_workdir = get_best_model()[(input_img, lambda_value)]
-    assert source_workdir.exists(), f"Source workdir {source_workdir} does not exist."
-
-    path_video_encoder = source_workdir / "video_encoder.pt"
-    train_only_latents(path_video_encoder, config, dest_workdir)
+        path_video_encoder = source_workdir / "video_encoder.pt"
+        train_only_latents(path_video_encoder, config, dest_workdir)
