@@ -54,7 +54,7 @@ if [ "$#" -ne 1 ]; then
   exit 1
 fi
 # The source workdir contains a model trained with full parameters and kodim01.
-uv run python coolchic/retrain_latents.py --config=$1 --source_workdir=results/exps/n_it-grid/n_itr-12000_n_train_loops-5/kodim_config_06/152848_646/
+uv run python coolchic/retrain_latents.py --config=$1
 
 # Send more noteworthy information to the output log
 echo "Finished at: $(date)"
