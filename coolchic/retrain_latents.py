@@ -1,6 +1,4 @@
 import argparse
-from coolchic.utils.get_best_models import get_best_model
-from enc.utils.misc import get_best_device
 import copy
 import os
 from pathlib import Path
@@ -13,11 +11,13 @@ from enc.training.test import test
 from enc.training.train import train
 from enc.utils.codingstructure import CodingStructure
 from enc.utils.manager import FrameEncoderManager
+from enc.utils.misc import get_best_device
 from enc.utils.parsecli import (
     get_coding_structure_from_args,
     get_coolchic_param_from_args,
     get_manager_from_args,
 )
+from utils.get_best_models import get_best_model
 from utils.paths import COOLCHIC_REPO_ROOT
 from utils.types import RunConfig, UserConfig
 
