@@ -135,7 +135,6 @@ if __name__ == "__main__":
 
     # One user config generates one or more runs, depending on the parameters specified.
     all_run_configs = user_config.get_run_configs()
-    assert len(all_run_configs) == 1, "Only one run is supported."
     for config in all_run_configs:
         dest_workdir = (
             config.workdir
