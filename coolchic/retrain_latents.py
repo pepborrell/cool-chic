@@ -45,8 +45,9 @@ def train_only_latents(path_encoder: Path, config: RunConfig, workdir: Path):
     old_frame_encoder, _ = extract_image_encoder(old_vid_encoder)
     print("Model loaded.")
 
-    # this directory is expected.
-    # (workdir / "frame_000").mkdir(parents=True, exist_ok=True)
+    # Dump raw parameters into a text file to keep track of.
+    with open(workdir / "param.txt", "w") as f_out:
+        f_out.write(yaml.dump(config.model_dump()))
 
     if config.disable_wandb:
         # To disable wandb completely.
