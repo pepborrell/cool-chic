@@ -121,6 +121,7 @@ def train_only_latents(path_encoder: Path, config: RunConfig, workdir: Path):
     frame_workdir = workdir / "frame_000"
     with open(f"{frame_workdir}results_best.tsv", "w") as f_out:
         f_out.write(results.pretty_string(show_col_name=True, mode="all") + "\n")
+    wandb.finish()
 
 
 if __name__ == "__main__":
