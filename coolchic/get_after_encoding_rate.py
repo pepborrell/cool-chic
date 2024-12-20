@@ -3,6 +3,7 @@ Run this script from the root, next to encode.py and decode.py.
 Otherwise the imports don't work.
 """
 
+import argparse
 import tempfile
 from pathlib import Path
 
@@ -33,14 +34,24 @@ def save_bitstream(path_video_encoder: Path, output_path: Path) -> None:
     encode_video(video_encoder, output_path, hls_sig_blksize=16)
 
 
-experiments_root = Path("results/exps/n_it-grid/")
-encoder_paths = [
-    file for file in experiments_root.rglob("*video_encoder.pt") if file.is_file()
-]
-print(f"{len(encoder_paths)=}")
-for encoder in tqdm(encoder_paths):
-    with tempfile.NamedTemporaryFile() as tmp_file:
-        save_bitstream(encoder, Path(tmp_file.name))
-        rate = real_bitstream_rate_bpp(Path(tmp_file.name), encoder)
-        with open(encoder.parent / "real_rate_bpp.txt", "w") as f:
-            f.write(str(rate))
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--experiments-root",
+        type=Path,
+        default=Path("results/exps/only_latents"),
+    )
+    args = parser.parse_args()
+
+    encoder_paths = [
+        file
+        for file in args.experiments_root.rglob("*video_encoder.pt")
+        if file.is_file()
+    ]
+    print(f"{len(encoder_paths)=}")
+    for encoder in tqdm(encoder_paths):
+        with tempfile.NamedTemporaryFile() as tmp_file:
+            save_bitstream(encoder, Path(tmp_file.name))
+            rate = real_bitstream_rate_bpp(Path(tmp_file.name), encoder)
+            with open(encoder.parent / "real_rate_bpp.txt", "w") as f:
+                f.write(str(rate))
