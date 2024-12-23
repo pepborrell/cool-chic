@@ -101,6 +101,8 @@ def gen_run_summary(run_dir: Path) -> SummaryEncodingMetrics | None:
     all_data = metrics.model_dump() | params
     # Renaming for consistency.
     all_data["rate_bpp"] = all_data["total_rate_bpp"]
+    if all_data["n_itr"] is None:
+        all_data["n_itr"] = all_data["enc_cfg"]["recipe"]["all_phases"][0]["max_itr"]
     return SummaryEncodingMetrics(**all_data)
 
 

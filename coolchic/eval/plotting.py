@@ -79,3 +79,23 @@ def plot_bd_rate_total_itr(
         ax.axhline(y=bd_vs_cc, color="red", linestyle="--", linewidth=2)
     sns.despine(ax=ax)
     return fig
+
+
+def gen_rd_iterations(anchors: pd.DataFrame, summaries: pd.DataFrame):
+    anchors.n_itr = "anchor"
+
+    fig, ax = plt.subplots()
+    sns.lineplot(
+        data=anchors,
+        x="rate_bpp",
+        y="psnr_db",
+        marker="o",
+        hue="n_itr",
+        ax=ax,
+    )
+    sns.scatterplot(
+        data=summaries, x="rate_bpp", y="psnr_db", hue="n_itr", ax=ax, marker="o"
+    )
+    sns.despine()
+    plt.title(f"Rate-Distortion curve. Image={summaries.seq_name.iloc[0]}")
+    return fig, ax
