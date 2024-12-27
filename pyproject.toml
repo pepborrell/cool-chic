@@ -4,10 +4,10 @@ version="3.4.0"
 authors =[{"name"= "Theo Ladune", "email"= "theo.ladune@orange.com"}]
 # url="https://github.com/Orange-OpenSource/Cool-Chic"
 description="Cool-Chic: lightweight neural video codec."
-requires-python = ">=3.12"
+requires-python = ">=3.12,<3.13"
 dependencies = [
-    "torch",
-    "torchvision",
+    "torch>=2.5.1",
+    "torchvision>=0.20.1",
     "matplotlib",
     "einops",
     "fvcore",
@@ -31,6 +31,26 @@ build-backend = "setuptools.build_meta"
 # Cache needs to be on the same filesystem as the project
 # + it takes too much space when in home.
 cache-dir = "./.uv_cache"
+
+[tool.uv.sources]
+torch = [
+  { index = "pytorch-cpu", marker = "platform_system == 'Darwin'" },
+  { index = "pytorch-cu124", marker = "platform_system == 'Linux'" },
+]
+torchvision = [
+  { index = "pytorch-cpu", marker = "platform_system == 'Darwin'" },
+  { index = "pytorch-cu124", marker = "platform_system == 'Linux'" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu124"
+url = "https://download.pytorch.org/whl/cu124"
+explicit = true
 
 [tool.pyright]
 include = ["coolchic/"]
