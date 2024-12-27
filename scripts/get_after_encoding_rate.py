@@ -1,15 +1,11 @@
-"""ATTENTION:
-Run this script from the root, next to encode.py and decode.py.
-Otherwise the imports don't work.
-"""
-
 import argparse
 import tempfile
 from pathlib import Path
 
-from enc.bitstream.encode import encode_video
-from enc.component.video import load_video_encoder
 from tqdm import tqdm
+
+from coolchic.enc.bitstream.encode import encode_video
+from coolchic.enc.component.video import load_video_encoder
 
 
 def real_bitstream_rate_bpp(
