@@ -325,7 +325,7 @@ class FrameEncoderLogs(LossFunctionOutput):
         return True
 
     def _format_value(
-        self, value: Union[str, int, float, Tensor], attribute_name: str = ""
+        self, value: Union[str, int, float, Tensor, None], attribute_name: str = ""
     ) -> str:
         if attribute_name == "loss":
             value *= 1000
@@ -341,6 +341,8 @@ class FrameEncoderLogs(LossFunctionOutput):
             return f"{value:.6f}"
         elif isinstance(value, Tensor):
             return f"{value.item():.6f}"
+        elif value is None:
+            return "None"
 
     def _format_column_name(self, col_name: str) -> str:
         # Syntax: {'long_name': 'short_name'}
