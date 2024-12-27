@@ -5,27 +5,27 @@ from pathlib import Path
 
 import torch
 import yaml
-from enc.component.coolchic import CoolChicEncoderParameter
-from enc.component.video import (
+
+import wandb
+from coolchic.enc.component.coolchic import CoolChicEncoderParameter
+from coolchic.enc.component.video import (
     FrameEncoder,
     FrameEncoderManager,
     VideoEncoder,
     load_video_encoder,
 )
-from enc.io.io import load_frame_data_from_file
-from enc.training.test import test
-from enc.training.train import train
-from enc.utils.codingstructure import CodingStructure, Frame
-from enc.utils.misc import get_best_device
-from enc.utils.parsecli import (
+from coolchic.enc.io.io import load_frame_data_from_file
+from coolchic.enc.training.test import test
+from coolchic.enc.training.train import train
+from coolchic.enc.utils.codingstructure import CodingStructure, Frame
+from coolchic.enc.utils.misc import get_best_device
+from coolchic.enc.utils.parsecli import (
     get_coding_structure_from_args,
     get_coolchic_param_from_args,
     get_manager_from_args,
 )
-from utils.paths import COOLCHIC_REPO_ROOT
-from utils.types import RunConfig, UserConfig
-
-import wandb
+from coolchic.utils.paths import COOLCHIC_REPO_ROOT
+from coolchic.utils.types import RunConfig, UserConfig
 
 """
 This file has been simplified to only train one image and remove most complexity introduced by the VideoEncoder class.
