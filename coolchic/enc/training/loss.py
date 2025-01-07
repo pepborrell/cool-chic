@@ -22,7 +22,7 @@ class LossFunctionOutput:
 
     # ----- This is the important output
     # Optional to allow easy inheritance by FrameEncoderLogs
-    loss: Optional[float] = None  # The RD cost to optimize
+    loss: Optional[float] | Tensor = None  # The RD cost to optimize
 
     # Any other data required to compute some logs, stored inside a dictionary
     mse: Optional[float] = None  # Mean squared error                     [ / ]
