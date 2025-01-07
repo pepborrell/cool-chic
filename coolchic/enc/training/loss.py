@@ -98,8 +98,8 @@ def loss_function(
 
     .. math::
 
-        \\mathcal{L} = ||\\mathbf{x} - \hat{\\mathbf{x}}||^2 + \\lambda
-        (\\mathrm{R}(\hat{\\mathbf{x}}) + \\mathrm{R}_{NN}), \\text{ with }
+        \\mathcal{L} = ||\\mathbf{x} - \\hat{\\mathbf{x}}||^2 + \\lambda
+        (\\mathrm{R}(\\hat{\\mathbf{x}}) + \\mathrm{R}_{NN}), \\text{ with }
         \\begin{cases}
             \\mathbf{x} & \\text{the original image}\\\\ \\hat{\\mathbf{x}} &
             \\text{the coded image}\\\\ \\mathrm{R}(\\hat{\\mathbf{x}}) &
