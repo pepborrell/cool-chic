@@ -1,0 +1,113 @@
+import os
+import random
+import re
+import sys
+from concurrent import futures
+from pathlib import Path
+
+import boto3
+import botocore
+import tqdm
+
+# Downloaded from https://github.com/openimages/dataset/blob/main/downloader.py
+BUCKET_NAME = "open-images-dataset"
+REGEX = r"(test|train|validation|challenge2018)/([a-fA-F0-9]*)"
+
+
+def check_and_homogenize_one_image(image: str) -> tuple[str, str]:
+    split, image_id = re.match(REGEX, image).groups()
+    return split, image_id
+
+
+def check_and_homogenize_image_list(image_list: list[str]) -> list[tuple[str, str]]:
+    homog_list = []
+    for line_number, image in enumerate(image_list):
+        try:
+            homog_list.append(check_and_homogenize_one_image(image))
+        except (ValueError, AttributeError):
+            raise ValueError(
+                f"ERROR in line {line_number} of the image list. The following image "
+                f'string is not recognized: "{image}".'
+            )
+    return homog_list
+
+
+def download_one_image(bucket, split, image_id, download_folder):
+    try:
+        bucket.download_file(
+            f"{split}/{image_id}.jpg", os.path.join(download_folder, f"{image_id}.jpg")
+        )
+    except botocore.exceptions.ClientError as exception:
+        sys.exit(f"ERROR when downloading image `{split}/{image_id}`: {str(exception)}")
+
+
+def download_all_images(
+    download_folder: Path, input_image_list: list[str], num_processes: int = 1
+):
+    """Downloads all images specified in the input file."""
+    bucket = boto3.resource(
+        "s3", config=botocore.config.Config(signature_version=botocore.UNSIGNED)
+    ).Bucket(BUCKET_NAME)
+
+    if not download_folder.exists():
+        download_folder.mkdir(parents=True)
+
+    try:
+        image_list = list(check_and_homogenize_image_list(input_image_list))
+    except ValueError as exception:
+        sys.exit(f"ERROR: {str(exception)}")
+
+    progress_bar = tqdm.tqdm(
+        total=len(image_list), desc="Downloading images", leave=True
+    )
+    with futures.ThreadPoolExecutor(max_workers=num_processes) as executor:
+        all_futures = [
+            executor.submit(
+                download_one_image, bucket, split, image_id, download_folder
+            )
+            for (split, image_id) in image_list
+        ]
+        for future in futures.as_completed(all_futures):
+            future.result()
+            progress_bar.update(1)
+    progress_bar.close()
+
+
+def select_images(image_csv: Path, n_images: int = 100) -> list[str]:
+    # We select a subset of N images from the first 100N images in the list.
+    random.seed(42)
+    cand_pool_size = 100 * n_images
+    indices = set(random.sample(range(1, cand_pool_size), n_images))
+    selected_lines = []
+    with open(image_csv, "r") as file:
+        for i, line in enumerate(file):
+            if i > cand_pool_size:
+                break
+            if i in indices:
+                selected_lines.append(line)
+    assert len(selected_lines) == n_images
+
+    def format_image_str(line):
+        # Lines have several fields. The interesting ones are the id (first field), and the subset (second).
+        split = line.split(",")[1]
+        img_id = line.split(",")[0]
+        return f"{split}/{img_id}"
+
+    return [format_image_str(line) for line in selected_lines]
+
+
+def get_images():
+    """Downloads a subset of images from the Open Images dataset."""
+    from coolchic.utils.paths import DATA_DIR
+
+    # Download from https://storage.googleapis.com/openimages/2018_04/train/train-images-boxable-with-rotation.csv
+    img_list = select_images(
+        DATA_DIR / "metalearning" / "train-images-boxable-with-rotation.csv",
+        n_images=100,
+    )
+    download_path = DATA_DIR / "metalearning" / "images"
+    download_path.mkdir(parents=True, exist_ok=True)
+    download_all_images(
+        download_folder=download_path, input_image_list=img_list, num_processes=4
+    )
+    return (download_path / f"{img_name.split('/')[1]}.jpg" for img_name in img_list)
