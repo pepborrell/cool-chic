@@ -183,12 +183,12 @@ class FrameEncoder(nn.Module):
 
         additional_data = {}
         if flag_additional_outputs:
-            additional_data.update(coolchic_encoder_output.get("additional_data"))
+            additional_data.update(coolchic_encoder_output.additional_data)
             additional_data.update(inter_coding_output.additional_data)
 
         results = FrameEncoderOutput(
             decoded_image=decoded_image,
-            rate=coolchic_encoder_output.get("rate"),
+            rate=coolchic_encoder_output.rate,
             additional_data=additional_data,
         )
 
