@@ -64,7 +64,7 @@ def train_only_latents(path_encoder: Path, config: RunConfig, workdir: Path):
     coding_structure = CodingStructure(**get_coding_structure_from_args(config))
     frame_encoder_manager = FrameEncoderManager(**get_manager_from_args(config))
     coolchic_encoder_parameter = CoolChicEncoderParameter(
-        **get_coolchic_param_from_args(config)
+        **get_coolchic_param_from_args(config.dec_cfg)
     )
     video_encoder = VideoEncoder(
         coding_structure=coding_structure,

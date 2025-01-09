@@ -10,7 +10,7 @@
 from pathlib import Path
 from typing import Any, Dict, List
 
-from utils.types import RunConfig
+from utils.types import DecoderConfig, RunConfig
 
 
 # ----- Arguments related to Cool-chic parameters
@@ -74,19 +74,19 @@ def _parse_n_ft_per_res(n_ft_per_res: str) -> List[int]:
     return n_ft_per_res
 
 
-def get_coolchic_param_from_args(config: RunConfig) -> Dict[str, Any]:
-    layers_synthesis = _parse_synthesis_layers(config.dec_cfg.layers_synthesis)
-    n_ft_per_res = _parse_n_ft_per_res(config.dec_cfg.n_ft_per_res)
+def get_coolchic_param_from_args(config: DecoderConfig) -> Dict[str, Any]:
+    layers_synthesis = _parse_synthesis_layers(config.layers_synthesis)
+    n_ft_per_res = _parse_n_ft_per_res(config.n_ft_per_res)
 
     coolchic_param = {
         "layers_synthesis": layers_synthesis,
         "n_ft_per_res": n_ft_per_res,
-        "ups_k_size": config.dec_cfg.ups_k_size,
-        "ups_preconcat_k_size": config.dec_cfg.ups_preconcat_k_size,
+        "ups_k_size": config.ups_k_size,
+        "ups_preconcat_k_size": config.ups_preconcat_k_size,
     }
 
     # Add ARM parameters
-    coolchic_param.update(_parse_arm_archi(config.dec_cfg.arm))
+    coolchic_param.update(_parse_arm_archi(config.arm))
 
     return coolchic_param
 
