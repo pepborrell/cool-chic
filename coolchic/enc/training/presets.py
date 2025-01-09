@@ -201,7 +201,7 @@ class WarmupPhase(BaseModel):
         return s
 
 
-class Warmup:
+class Warmup(BaseModel):
     """A :doc:`warm-up <../training/warmup>` is composed of different phases
     where the worse candidates are successively eliminated.
 
