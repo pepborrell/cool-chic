@@ -121,7 +121,7 @@ class InterCodingModule(nn.Module):
         Returns:
             InterCodingModuleInput: Data expected by the InterCodingModule
         """
-        raw_coolchic_output = coolchic_output.get("raw_out")
+        raw_coolchic_output = coolchic_output.raw_out
         residue = raw_coolchic_output[:, :3, :, :]
 
         # b, _, h, w = residue.size()

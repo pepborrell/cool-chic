@@ -9,13 +9,9 @@
 import math
 import typing
 from dataclasses import dataclass, field, fields
-from typing import Any, Dict, List, Optional, OrderedDict, Tuple, TypedDict
+from typing import Any, Dict, List, Optional, OrderedDict, Tuple
 
 import torch
-from enc.visu.console import pretty_string_nn, pretty_string_ups
-from fvcore.nn import FlopCountAnalysis, flop_count_table
-from torch import Tensor, nn
-
 from enc.component.core.arm import (
     Arm,
     _get_neighbor,
@@ -36,6 +32,10 @@ from enc.utils.misc import (
     DescriptorNN,
     measure_expgolomb_rate,
 )
+from enc.visu.console import pretty_string_nn, pretty_string_ups
+from fvcore.nn import FlopCountAnalysis, flop_count_table
+from pydantic import BaseModel
+from torch import Tensor, nn
 
 """A cool-chic encoder is composed of:
     - A set of 2d hierarchical latent grids
@@ -124,8 +124,8 @@ class CoolChicEncoderParameter:
         return s
 
 
-class CoolChicEncoderOutput(TypedDict):
-    """``TypedDict`` representing the output of CoolChicEncoder forward.
+class CoolChicEncoderOutput(BaseModel):
+    """Pydantic model representing the output of CoolChicEncoder forward.
 
     Args:
         raw_out (Tensor): Output of the synthesis :math:`([B, C, H, W])`.
@@ -138,6 +138,9 @@ class CoolChicEncoderOutput(TypedDict):
     raw_out: Tensor
     rate: Tensor
     additional_data: Dict[str, Any]
+
+    class Config:
+        arbitrary_types_allowed = True
 
 
 class CoolChicEncoder(nn.Module):
@@ -454,11 +457,11 @@ class CoolChicEncoder(nn.Module):
                     additional_data["detailed_sent_latent"][-1] - mu_i
                 )
 
-        res: CoolChicEncoderOutput = {
-            "raw_out": synthesis_output,
-            "rate": flat_rate,
-            "additional_data": additional_data,
-        }
+        res = CoolChicEncoderOutput(
+            raw_out=synthesis_output,
+            rate=flat_rate,
+            additional_data=additional_data,
+        )
 
         return res
 
