@@ -290,7 +290,7 @@ class CoolChicEncoder(nn.Module):
         noise_parameter: Optional[float] = 1.0,
         AC_MAX_VAL: int = -1,
         flag_additional_outputs: bool = False,
-    ) -> CoolChicEncoderOutput:
+    ) -> dict:
         """Perform CoolChicEncoder forward pass, to be used during the training.
         The main step are as follows:
 
@@ -463,7 +463,7 @@ class CoolChicEncoder(nn.Module):
             additional_data=additional_data,
         )
 
-        return res
+        return res.model_dump()
 
     # ------- Getter / Setter and Initializer
     def get_param(self) -> OrderedDict[str, Tensor]:

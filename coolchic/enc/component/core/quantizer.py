@@ -169,7 +169,7 @@ def quantize(
 
     match quantizer_noise_type:
         case "none":
-            raise ValueError("Noise type 'none' is not supported yet")
+            pass
         case "gaussian":
             noise = torch.randn_like(x, requires_grad=False) * noise_parameter
         case "kumaraswamy":

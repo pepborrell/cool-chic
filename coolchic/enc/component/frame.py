@@ -17,6 +17,7 @@ from typing import Any, Dict, List, Optional, OrderedDict, Union
 import torch
 from enc.component.coolchic import (
     CoolChicEncoder,
+    CoolChicEncoderOutput,
     CoolChicEncoderParameter,
 )
 from enc.component.core.quantizer import (
@@ -148,7 +149,7 @@ class FrameEncoder(nn.Module):
             Output of the FrameEncoder for the forward pass.
         """
         # CoolChic forward pass
-        coolchic_encoder_output = self.coolchic_encoder.forward(
+        forward_result = self.coolchic_encoder.forward(
             quantizer_noise_type=quantizer_noise_type,
             quantizer_type=quantizer_type,
             soft_round_temperature=soft_round_temperature,
@@ -156,6 +157,7 @@ class FrameEncoder(nn.Module):
             AC_MAX_VAL=AC_MAX_VAL,
             flag_additional_outputs=flag_additional_outputs,
         )
+        coolchic_encoder_output = CoolChicEncoderOutput(**forward_result)
 
         # # Combine CoolChic output and reference frames through the inter coding modules
         # inter_coding_output = self.inter_coding_module.forward(
