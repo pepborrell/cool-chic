@@ -140,13 +140,15 @@ def get_ac_max_val_latent(frame_encoder: FrameEncoder) -> int:
     # Setting flag_additional_outputs=True allows to recover the quantized latent.
     # Don't specify AC_MAX_VAL now: we let the latents evolve freely to capture
     # their dynamic.
-    encoder_result = frame_encoder.coolchic_encoder.forward(
+    raw_out, rate, additional_data = frame_encoder.coolchic_encoder.forward(
         quantizer_noise_type="none",
         quantizer_type="hardround",
         AC_MAX_VAL=-1,
         flag_additional_outputs=True,
     )
-    encoder_output = CoolChicEncoderOutput(**encoder_result)
+    encoder_output = CoolChicEncoderOutput(
+        raw_out=raw_out, rate=rate, additional_data=additional_data
+    )
 
     latent = torch.cat(
         [

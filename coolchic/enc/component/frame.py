@@ -149,7 +149,7 @@ class FrameEncoder(nn.Module):
             Output of the FrameEncoder for the forward pass.
         """
         # CoolChic forward pass
-        forward_result = self.coolchic_encoder.forward(
+        raw_out, rate, add_data = self.coolchic_encoder.forward(
             quantizer_noise_type=quantizer_noise_type,
             quantizer_type=quantizer_type,
             soft_round_temperature=soft_round_temperature,
@@ -157,7 +157,9 @@ class FrameEncoder(nn.Module):
             AC_MAX_VAL=AC_MAX_VAL,
             flag_additional_outputs=flag_additional_outputs,
         )
-        coolchic_encoder_output = CoolChicEncoderOutput(**forward_result)
+        coolchic_encoder_output = CoolChicEncoderOutput(
+            raw_out=raw_out, rate=rate, additional_data=add_data
+        )
 
         # # Combine CoolChic output and reference frames through the inter coding modules
         # inter_coding_output = self.inter_coding_module.forward(
