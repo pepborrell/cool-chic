@@ -34,7 +34,6 @@ from enc.utils.misc import (
 )
 from enc.visu.console import pretty_string_nn, pretty_string_ups
 from fvcore.nn import FlopCountAnalysis, flop_count_table
-from pydantic import BaseModel
 from torch import Tensor, nn
 
 """A cool-chic encoder is composed of:
@@ -124,8 +123,9 @@ class CoolChicEncoderParameter:
         return s
 
 
-class CoolChicEncoderOutput(BaseModel):
-    """Pydantic model representing the output of CoolChicEncoder forward.
+@dataclass
+class CoolChicEncoderOutput:
+    """Dataclass representing the output of CoolChicEncoder forward.
 
     Args:
         raw_out (Tensor): Output of the synthesis :math:`([B, C, H, W])`.
@@ -137,10 +137,7 @@ class CoolChicEncoderOutput(BaseModel):
 
     raw_out: Tensor
     rate: Tensor
-    additional_data: Dict[str, Any]
-
-    class Config:
-        arbitrary_types_allowed = True
+    additional_data: dict[str, Any]
 
 
 class CoolChicEncoder(nn.Module):
@@ -290,7 +287,7 @@ class CoolChicEncoder(nn.Module):
         noise_parameter: Optional[float] = 1.0,
         AC_MAX_VAL: int = -1,
         flag_additional_outputs: bool = False,
-    ) -> CoolChicEncoderOutput:
+    ) -> tuple[Tensor, Tensor, dict[str, Any]]:
         """Perform CoolChicEncoder forward pass, to be used during the training.
         The main step are as follows:
 
@@ -457,13 +454,7 @@ class CoolChicEncoder(nn.Module):
                     additional_data["detailed_sent_latent"][-1] - mu_i
                 )
 
-        res = CoolChicEncoderOutput(
-            raw_out=synthesis_output,
-            rate=flat_rate,
-            additional_data=additional_data,
-        )
-
-        return res
+        return synthesis_output, flat_rate, additional_data
 
     # ------- Getter / Setter and Initializer
     def get_param(self) -> OrderedDict[str, Tensor]:

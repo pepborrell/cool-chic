@@ -12,12 +12,11 @@ import time
 from pathlib import Path
 
 import torch
-
 from CCLIB.ccencapi import cc_code_latent_layer_bac, cc_code_wb_bac
 from dec.nn import decode_network
+from enc.bitstream.armint import ArmInt
 from enc.bitstream.header import write_frame_header, write_gop_header
 from enc.bitstream.utils import get_sub_bitstream_path
-from enc.bitstream.armint import ArmInt
 from enc.component.core.synthesis import Synthesis
 from enc.component.core.upsampling import Upsampling
 from enc.component.frame import FrameEncoder
@@ -30,6 +29,8 @@ from enc.utils.misc import (
     DescriptorCoolChic,
     DescriptorNN,
 )
+
+from coolchic.enc.component.coolchic import CoolChicEncoderOutput
 
 
 def get_ac_max_val_nn(frame_encoder: FrameEncoder) -> int:
@@ -139,16 +140,20 @@ def get_ac_max_val_latent(frame_encoder: FrameEncoder) -> int:
     # Setting flag_additional_outputs=True allows to recover the quantized latent.
     # Don't specify AC_MAX_VAL now: we let the latents evolve freely to capture
     # their dynamic.
-    encoder_output = frame_encoder.coolchic_encoder.forward(
+    raw_out, rate, additional_data = frame_encoder.coolchic_encoder.forward(
         quantizer_noise_type="none",
         quantizer_type="hardround",
         AC_MAX_VAL=-1,
         flag_additional_outputs=True,
     )
+    encoder_output = CoolChicEncoderOutput(
+        raw_out=raw_out, rate=rate, additional_data=additional_data
+    )
+
     latent = torch.cat(
         [
             y_i.flatten()
-            for y_i in encoder_output.get("additional_data").get("detailed_sent_latent")
+            for y_i in encoder_output.additional_data.get("detailed_sent_latent")
         ],
         dim=0,
     )

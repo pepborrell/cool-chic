@@ -11,25 +11,24 @@ import argparse
 import os
 from pathlib import Path
 
-import torch
 import yaml
-from enc.utils.misc import TrainingExitCode, get_best_device
+from utils.paths import COOLCHIC_REPO_ROOT
+from utils.types import UserConfig
 
 import wandb
-from enc.component.coolchic import CoolChicEncoderParameter
-from enc.component.video import (
+from coolchic.enc.component.coolchic import CoolChicEncoderParameter
+from coolchic.enc.component.video import (
     FrameEncoderManager,
     VideoEncoder,
     load_video_encoder,
 )
-from enc.utils.codingstructure import CodingStructure
-from enc.utils.parsecli import (
+from coolchic.enc.utils.codingstructure import CodingStructure
+from coolchic.enc.utils.misc import TrainingExitCode, get_best_device
+from coolchic.enc.utils.parsecli import (
     get_coding_structure_from_args,
     get_coolchic_param_from_args,
     get_manager_from_args,
 )
-from utils.paths import COOLCHIC_REPO_ROOT
-from utils.types import UserConfig
 
 """
 Use this file to train i.e. encode a GOP i.e. something which starts with one
@@ -81,7 +80,7 @@ if __name__ == "__main__":
             video_encoder = load_video_encoder(path_video_encoder)
 
         else:
-            start_print = (
+            print(
                 "\n\n"
                 "*----------------------------------------------------------------------------------------------------------*\n"
                 "|                                                                                                          |\n"
@@ -101,8 +100,6 @@ if __name__ == "__main__":
                 "| version 3.4, Nov. 2024                                                                © 2023-2024 Orange |\n"
                 "*----------------------------------------------------------------------------------------------------------*\n"
             )
-
-            print(start_print)
 
             workdir.mkdir(exist_ok=True)
 
@@ -132,10 +129,6 @@ if __name__ == "__main__":
         # Automatic device detection
         device = get_best_device()
         print(f'{"Device":<20}: {device}')
-
-        # This makes the training faster
-        if device == "cuda:0":
-            torch.backends.cudnn.benchmark = True
 
         print(f"\n{video_encoder.coding_structure.pretty_string()}\n")
 
@@ -167,7 +160,6 @@ if __name__ == "__main__":
 
             config.output.parent.mkdir(parents=True, exist_ok=True)
 
-            video_encoder = load_video_encoder(video_encoder_savepath)
             encode_video(video_encoder, config.output, hls_sig_blksize=16)
 
             # For the sake of completeness, we add the encoded video to the workdir too.

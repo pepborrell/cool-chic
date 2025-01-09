@@ -16,16 +16,16 @@ import torch
 from torch.nn.utils import clip_grad_norm_
 
 import wandb
-from enc.component.core.quantizer import (
+from coolchic.enc.component.core.quantizer import (
     POSSIBLE_QUANTIZATION_NOISE_TYPE,
     POSSIBLE_QUANTIZER_TYPE,
 )
-from enc.component.frame import FrameEncoder
-from enc.training.loss import loss_function
-from enc.training.presets import MODULE_TO_OPTIMIZE
-from enc.training.test import test
-from enc.utils.codingstructure import Frame
-from enc.utils.manager import FrameEncoderManager
+from coolchic.enc.component.frame import FrameEncoder
+from coolchic.enc.training.loss import loss_function
+from coolchic.enc.training.presets import MODULE_TO_OPTIMIZE
+from coolchic.enc.training.test import test
+from coolchic.enc.utils.codingstructure import Frame
+from coolchic.enc.utils.manager import FrameEncoderManager
 
 
 # Custom scheduling function for the soft rounding temperature and the noise parameter
@@ -200,9 +200,17 @@ def train(
         0,
         max_iterations,
     )
+    device = (
+        frame.data.data.device
+        if frame.data.frame_data_type != "yuv420"
+        else frame.data.data.get("y").device
+    )
+    cur_softround_temperature = torch.tensor(cur_softround_temperature, device=device)
+
     cur_noise_parameter = _linear_schedule(
         noise_parameter[0], noise_parameter[1], 0, max_iterations
     )
+    cur_noise_parameter = torch.tensor(cur_noise_parameter, device=device)
 
     cnt_record = 0
     show_col_name = True  # Only for a pretty display of the logs
@@ -333,12 +341,17 @@ def train(
                 cnt,
                 max_iterations,
             )
+            cur_softround_temperature = torch.tensor(
+                cur_softround_temperature, device=device
+            )
+
             cur_noise_parameter = _linear_schedule(
                 noise_parameter[0],
                 noise_parameter[1],
                 cnt,
                 max_iterations,
             )
+            cur_noise_parameter = torch.tensor(cur_noise_parameter, device=device)
 
             if cosine_scheduling_lr:
                 learning_rate_scheduler.step()

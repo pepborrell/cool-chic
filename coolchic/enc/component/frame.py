@@ -1,5 +1,5 @@
 # Software Name: Cool-Chic
-# SPDX-FileCopyrightText: Copyright (c) 2023-2024 Orange
+# SPDX-FileCopyrightText: Copyright (c) 2023-2025 Orange
 # SPDX-License-Identifier: BSD 3-Clause "New"
 #
 # This software is distributed under the BSD-3-Clause license.
@@ -15,10 +15,9 @@ from io import BytesIO
 from typing import Any, Dict, List, Optional, OrderedDict, Union
 
 import torch
-from torch import Tensor, nn
-
 from enc.component.coolchic import (
     CoolChicEncoder,
+    CoolChicEncoderOutput,
     CoolChicEncoderParameter,
 )
 from enc.component.core.quantizer import (
@@ -30,6 +29,7 @@ from enc.io.format.data_type import FRAME_DATA_TYPE, POSSIBLE_BITDEPTH
 from enc.io.format.yuv import DictTensorYUV, convert_444_to_420, yuv_dict_clamp
 from enc.utils.codingstructure import FRAME_TYPE
 from enc.utils.misc import POSSIBLE_DEVICE
+from torch import Tensor, nn
 
 
 @dataclass
@@ -115,7 +115,7 @@ class FrameEncoder(nn.Module):
 
             .. math::
 
-                \\hat{\\mathbf{x}}_{saved} = \\mathtt{round}(\Delta_q \\
+                \\hat{\\mathbf{x}}_{saved} = \\mathtt{round}(\\Delta_q \\
                 \\hat{\\mathbf{x}}) / \\Delta_q, \\text{ with }
                 \\Delta_q = 2^{bitdepth} - 1
 
@@ -149,7 +149,7 @@ class FrameEncoder(nn.Module):
             Output of the FrameEncoder for the forward pass.
         """
         # CoolChic forward pass
-        coolchic_encoder_output = self.coolchic_encoder.forward(
+        raw_out, rate, add_data = self.coolchic_encoder.forward(
             quantizer_noise_type=quantizer_noise_type,
             quantizer_type=quantizer_type,
             soft_round_temperature=soft_round_temperature,
@@ -157,23 +157,23 @@ class FrameEncoder(nn.Module):
             AC_MAX_VAL=AC_MAX_VAL,
             flag_additional_outputs=flag_additional_outputs,
         )
-
-        # Combine CoolChic output and reference frames through the inter coding modules
-        inter_coding_output = self.inter_coding_module.forward(
-            coolchic_output=coolchic_encoder_output,
-            references=[] if reference_frames is None else reference_frames,
-            flag_additional_outputs=flag_additional_outputs,
+        coolchic_encoder_output = CoolChicEncoderOutput(
+            raw_out=raw_out, rate=rate, additional_data=add_data
         )
 
+        # # Combine CoolChic output and reference frames through the inter coding modules
+        # inter_coding_output = self.inter_coding_module.forward(
+        #     coolchic_output=coolchic_encoder_output,
+        #     references=[] if reference_frames is None else reference_frames,
+        #     flag_additional_outputs=flag_additional_outputs,
+        # )
+
+        decoded_image = coolchic_encoder_output.raw_out
+
         # Clamp decoded image & down sample YUV channel if needed
-        if self.training:
-            decoded_image = inter_coding_output.decoded_image
-        else:
+        if not self.training:
             max_dynamic = 2 ** (self.bitdepth) - 1
-            decoded_image = (
-                torch.round(inter_coding_output.decoded_image * max_dynamic)
-                / max_dynamic
-            )
+            decoded_image = torch.round(decoded_image * max_dynamic) / max_dynamic
 
         if self.frame_data_type == "yuv420":
             decoded_image = convert_444_to_420(decoded_image)
@@ -184,7 +184,7 @@ class FrameEncoder(nn.Module):
         additional_data = {}
         if flag_additional_outputs:
             additional_data.update(coolchic_encoder_output.additional_data)
-            additional_data.update(inter_coding_output.additional_data)
+            # additional_data.update(inter_coding_output.additional_data)
 
         results = FrameEncoderOutput(
             decoded_image=decoded_image,

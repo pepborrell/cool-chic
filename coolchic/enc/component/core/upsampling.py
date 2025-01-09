@@ -1,5 +1,5 @@
 # Software Name: Cool-Chic
-# SPDX-FileCopyrightText: Copyright (c) 2023-2024 Orange
+# SPDX-FileCopyrightText: Copyright (c) 2023-2025 Orange
 # SPDX-License-Identifier: BSD 3-Clause "New"
 #
 # This software is distributed under the BSD-3-Clause license.
@@ -91,15 +91,15 @@ class UpsamplingSeparableSymmetricConv2d(nn.Module):
     """
     A conv2D which has a separable and symmetric *odd* kernel.
 
-    Separable means that the 2D-kernel :math:`\mathbf{w}_{2D}` can be expressed
-    as the outer product of a 1D kernel :math:`\mathbf{w}_{1D}`:
+    Separable means that the 2D-kernel :math:`\\mathbf{w}_{2D}` can be expressed
+    as the outer product of a 1D kernel :math:`\\mathbf{w}_{1D}`:
 
     .. math::
 
-        \mathbf{w}_{2D} = \mathbf{w}_{1D} \otimes \mathbf{w}_{1D}.
+        \\mathbf{w}_{2D} = \\mathbf{w}_{1D} \\otimes \\mathbf{w}_{1D}.
 
-    The 1D kernel :math:`\mathbf{w}_{1D}` is also symmetric. That is, the 1D
-    kernel is something like :math:`\mathbf{w}_{1D} = \left(a\ b\ c\ b\ a\
+    The 1D kernel :math:`\\mathbf{w}_{1D}` is also symmetric. That is, the 1D
+    kernel is something like :math:`\\mathbf{w}_{1D} = \\left(a\\ b\\ c\\ b\\ a\\
     \\right).`
 
     The symmetric constraint is obtained through the module
@@ -109,7 +109,7 @@ class UpsamplingSeparableSymmetricConv2d(nn.Module):
 
     def __init__(self, kernel_size: int):
         """
-        kernel_size: Size of the kernel :math:`\mathbf{w}_{1D}` e.g. 7 to
+        kernel_size: Size of the kernel :math:`\\mathbf{w}_{1D}` e.g. 7 to
             obtain a symmetrical, separable 7x7 filter. Must be odd!
         """
         super().__init__()
@@ -126,10 +126,32 @@ class UpsamplingSeparableSymmetricConv2d(nn.Module):
         # -------- Instantiate empty parameters, set by the initialize function
         self.weight = nn.Parameter(torch.empty(self.param_size), requires_grad=True)
 
-        # Biases are not used in the forward. Let's remove the parameter then.
-        # self.bias = nn.Parameter(torch.empty(1), requires_grad=True)
+        self.bias = nn.Parameter(torch.empty(1), requires_grad=True)
         self.initialize_parameters()
         # -------- Instantiate empty parameters, set by the initialize function
+
+    def initialize_parameters(self) -> None:
+        """
+        Initialize the weights and the biases of the transposed convolution
+        layer performing the upsampling.
+
+            * Biases are always set to zero.
+
+            * Weights are set to :math:`(0,\\ 0,\\ 0,\\ \\ldots, 1)` so that when the
+              symmetric reparameterization is applied a Dirac kernel is obtained e.g.
+              :math:`(0,\\ 0,\\ 0,\\ \\ldots, 1, \\ldots, 0,\\ 0,\\ 0,)`.
+        """
+        if parametrize.is_parametrized(self, "weight"):
+            parametrize.remove_parametrizations(
+                self, "weight", leave_parametrized=False
+            )
+
+        # Zero everywhere except for the last coef
+        w = torch.zeros_like(self.weight)
+        w[-1] = 1
+        self.weight = nn.Parameter(w, requires_grad=True)
+
+        self.bias = nn.Parameter(torch.zeros_like(self.bias), requires_grad=True)
 
         # Each time we call .weight, we'll call the forward of
         # _Parameterization_Symmetric_1d to get a symmetric kernel.
@@ -140,25 +162,6 @@ class UpsamplingSeparableSymmetricConv2d(nn.Module):
             # Unsafe because we change the data dimension, from N to 2N + 1
             unsafe=True,
         )
-
-    def initialize_parameters(self) -> None:
-        """
-        Initialize the weights and the biases of the transposed convolution
-        layer performing the upsampling.
-
-            * Biases are always set to zero.
-
-            * Weights are set to :math:`(0,\ 0,\ 0,\ \ldots, 1)` so that when the
-              symmetric reparameterization is applied a Dirac kernel is obtained e.g.
-              :math:`(0,\ 0,\ 0,\ \ldots, 1, \ldots, 0,\ 0,\ 0,)`.
-        """
-        # Zero everywhere except for the last coef
-        w = torch.zeros_like(self.weight)
-        w[-1] = 1
-        self.weight = nn.Parameter(w, requires_grad=True)
-
-        # Biases are not used in the forward. Let's remove the parameter then.
-        # self.bias = nn.Parameter(torch.zeros_like(self.bias), requires_grad=True)
 
     def forward(self, x: Tensor) -> Tensor:
         """Perform a "normal" 2D convolution, except that the underlying kernel
@@ -208,15 +211,15 @@ class UpsamplingSeparableSymmetricConvTranspose2d(nn.Module):
     """
     A TransposedConv2D which has a separable and symmetric *even* kernel.
 
-    Separable means that the 2D-kernel :math:`\mathbf{w}_{2D}` can be expressed
-    as the outer product of a 1D kernel :math:`\mathbf{w}_{1D}`:
+    Separable means that the 2D-kernel :math:`\\mathbf{w}_{2D}` can be expressed
+    as the outer product of a 1D kernel :math:`\\mathbf{w}_{1D}`:
 
     .. math::
 
-        \mathbf{w}_{2D} = \mathbf{w}_{1D} \otimes \mathbf{w}_{1D}.
+        \\mathbf{w}_{2D} = \\mathbf{w}_{1D} \\otimes \\mathbf{w}_{1D}.
 
-    The 1D kernel :math:`\mathbf{w}_{1D}` is also symmetric. That is, the 1D
-    kernel is something like :math:`\mathbf{w}_{1D} = \left(a\ b\ c\ c\ b\ a\
+    The 1D kernel :math:`\\mathbf{w}_{1D}` is also symmetric. That is, the 1D
+    kernel is something like :math:`\\mathbf{w}_{1D} = \\left(a\\ b\\ c\\ c\\ b\\ a\\
     \\right).`
 
     The symmetric constraint is obtained through the module
@@ -243,20 +246,9 @@ class UpsamplingSeparableSymmetricConvTranspose2d(nn.Module):
         # -------- Instantiate empty parameters, set by the initialize function
         self.weight = nn.Parameter(torch.empty(self.param_size), requires_grad=True)
 
-        # Biases are not used in the forward. Let's remove the parameter then.
-        # self.bias = nn.Parameter(torch.empty(1), requires_grad=True)
+        self.bias = nn.Parameter(torch.empty(1), requires_grad=True)
         self.initialize_parameters()
         # -------- Instantiate empty parameters, set by the initialize function
-
-        # Each time we call .weight, we'll call the forward of
-        # _Parameterization_Symmetric_1d to get a symmetric kernel.
-        parametrize.register_parametrization(
-            self,
-            "weight",
-            _Parameterization_Symmetric_1d(target_k_size=self.target_k_size),
-            # Unsafe because we change the data dimension, from N to 2N + 1
-            unsafe=True,
-        )
 
     def initialize_parameters(self) -> None:
         """Initialize the parameters of a
@@ -267,6 +259,11 @@ class UpsamplingSeparableSymmetricConvTranspose2d(nn.Module):
             * Weights are initialize as a (possibly padded) bilinear filter when
               ``target_k_size`` is 4 or 6, otherwise a bicubic filter is used.
         """
+        if parametrize.is_parametrized(self, "weight"):
+            parametrize.remove_parametrizations(
+                self, "weight", leave_parametrized=False
+            )
+
         # For a target kernel size of 4 or 6, we use a bilinear kernel as the
         # initialization. For bigger kernels, a bicubic kernel is used. In both
         # case we just initialize the left half of the kernel since these
@@ -283,8 +280,17 @@ class UpsamplingSeparableSymmetricConvTranspose2d(nn.Module):
         w[zero_pad:] = kernel_core
         self.weight = nn.Parameter(w, requires_grad=True)
 
-        # Biases are not used in the forward. We removed the parameter.
-        # self.bias = nn.Parameter(torch.zeros_like(self.bias), requires_grad=True)
+        self.bias = nn.Parameter(torch.zeros_like(self.bias), requires_grad=True)
+
+        # Each time we call .weight, we'll call the forward of
+        # _Parameterization_Symmetric_1d to get a symmetric kernel.
+        parametrize.register_parametrization(
+            self,
+            "weight",
+            _Parameterization_Symmetric_1d(target_k_size=self.target_k_size),
+            # Unsafe because we change the data dimension, from N to 2N + 1
+            unsafe=True,
+        )
 
     def forward(self, x: Tensor) -> Tensor:
         """Perform the spatial upsampling (with scale 2) of an input with a
@@ -361,8 +367,8 @@ class Upsampling(nn.Module):
 
     .. math::
 
-        \hat{\mathbf{z}} = f_{\\upsilon}(\hat{\mathbf{y}}), \\text{ with }
-        \hat{\mathbf{z}} \\in \\mathbb{R}^{C \\times H \\times W} \\text {
+        \\hat{\\mathbf{z}} = f_{\\upsilon}(\\hat{\\mathbf{y}}), \\text{ with }
+        \\hat{\\mathbf{z}} \\in \\mathbb{R}^{C \\times H \\times W} \\text {
         and } C = \\sum_i C_i.
 
     For a toy example with 3 latent grids (``--n_ft_per_res=1,1,1``), the
@@ -517,6 +523,6 @@ class Upsampling(nn.Module):
     def reinitialize_parameters(self) -> None:
         """Re-initialize **in place** the parameters of the upsampling."""
         for i in range(len(self.conv_transpose2ds)):
-            self.conv_transpose2d[i].initialize_parameters()
+            self.conv_transpose2ds[i].initialize_parameters()
         for i in range(len(self.conv2ds)):
             self.conv2ds[i].initialize_parameters()

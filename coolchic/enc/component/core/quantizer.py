@@ -1,5 +1,5 @@
 # Software Name: Cool-Chic
-# SPDX-FileCopyrightText: Copyright (c) 2023-2024 Orange
+# SPDX-FileCopyrightText: Copyright (c) 2023-2025 Orange
 # SPDX-License-Identifier: BSD 3-Clause "New"
 #
 # This software is distributed under the BSD-3-Clause license.
@@ -7,16 +7,13 @@
 # Authors: see CONTRIBUTORS.md
 
 
-import math
-import typing
 from typing import Literal, Optional
 
 import torch
 from torch import Tensor
 
 
-@torch.jit.script
-def softround(x: Tensor, t: float) -> Tensor:
+def softround(x: Tensor, t: Tensor) -> Tensor:
     """Perform the softround function as introduced in section 4.1 of the paper
     `Universally Quantized Neural Compression, Agustsson & Theis
     <https://arxiv.org/pdf/2006.09952.pdf>`_, defined as follows:
@@ -24,7 +21,7 @@ def softround(x: Tensor, t: float) -> Tensor:
     .. math::
 
         \\mathrm{softround}(x, t) = \\lfloor x \\rfloor +
-        \\frac{\mathrm{tanh}(\\frac{\\Delta}{t})}{2\\ \\mathrm{\\mathrm{tanh}(\\frac{1}{2t})}}
+        \\frac{\\mathrm{tanh}(\\frac{\\Delta}{t})}{2\\ \\mathrm{\\mathrm{tanh}(\\frac{1}{2t})}}
         + \\frac{1}{2}, \\text{ with } \\Delta = x - \\lfloor x \\rfloor - \\frac{1}{2}.
 
     Args:
@@ -33,7 +30,7 @@ def softround(x: Tensor, t: float) -> Tensor:
             to the actual quantization i.e. ``round(x)``. As :math:`t` grows
             bigger, the function approaches identity i.e. :math:`\\lim_{t
             \\rightarrow \\infty} \\mathrm{softround}(x, t) = x`. In practice
-            :math:`t \geq 1` is already quite close to identity.
+            :math:`t \\geq 1` is already quite close to identity.
 
 
     Returns:
@@ -41,12 +38,11 @@ def softround(x: Tensor, t: float) -> Tensor:
     """
     floor_x = torch.floor(x)
     delta = x - floor_x - 0.5
-    return floor_x + 0.5 * torch.tanh(delta / t) / math.tanh(1 / (2 * t)) + 0.5
+    return floor_x + 0.5 * torch.tanh(delta / t) / torch.tanh(1 / (2 * t)) + 0.5
 
 
-@torch.jit.script
 def generate_kumaraswamy_noise(
-    uniform_noise: Tensor, kumaraswamy_param: float
+    uniform_noise: Tensor, kumaraswamy_param: Tensor
 ) -> Tensor:
     """
     Reparameterize a random variable ``uniform_noise`` following a uniform
@@ -103,8 +99,8 @@ def quantize(
     x: Tensor,
     quantizer_noise_type: POSSIBLE_QUANTIZATION_NOISE_TYPE = "kumaraswamy",
     quantizer_type: POSSIBLE_QUANTIZER_TYPE = "softround",
-    soft_round_temperature: Optional[float] = 0.3,
-    noise_parameter: Optional[float] = 1.0,
+    soft_round_temperature: Optional[Tensor] = None,
+    noise_parameter: Optional[Tensor] = None,
 ) -> Tensor:
     """Quantize an input :math:`x` to an output :math:`y` simulating the
     quantization. There is different mode possibles, described by
@@ -140,7 +136,7 @@ def quantize(
     :math:`t`. Setting :math:`t = 0` corresponds to the actual quantization i.e.
     ``round(x)``. As :math:`t` grows bigger, the function approaches identity
     i.e. :math:`\\lim_{t \\rightarrow \\infty} \\mathrm{softround}(x, t) = x`.
-    In practice :math:`t \geq 1` is already quite close to identity.,
+    In practice :math:`t \\geq 1` is already quite close to identity.,
 
     .. note::
 
@@ -170,55 +166,30 @@ def quantize(
     Returns:
         Quantized tensor
     """
-    # ----- Check user input
-    assert quantizer_noise_type in typing.get_args(POSSIBLE_QUANTIZATION_NOISE_TYPE), (
-        f"quantizer_noise_type must be in {POSSIBLE_QUANTIZATION_NOISE_TYPE}"
-        f" found {quantizer_noise_type}"
-    )
 
-    assert quantizer_type in typing.get_args(POSSIBLE_QUANTIZER_TYPE), (
-        f"quantizer_type must be in {POSSIBLE_QUANTIZER_TYPE}" f"found {quantizer_type}"
-    )
-
-    # If we use only the softround **alone**, or hardround we do not need
-    # any noise addition. Otherwise, we need a type of noise, i.e. either
-    # kumaraswamy or gaussian noise.
-    if quantizer_type in ["softround_alone", "hardround", "ste", "none"]:
-        if quantizer_noise_type != "none":
-            s = (
-                f"Using quantizer type {quantizer_type} does not require"
-                "to have any random noise.\nSwitching the "
-                f"quantizer_noise_type from {quantizer_noise_type} to none."
-            )
-            print(s)
-        quantizer_noise_type = "none"
-    else:
-        assert quantizer_noise_type != "none", (
-            "Using quantizer_noise_type = 'none' is only possible with "
-            "quantizer_type = 'softround_alone', 'ste' or 'hardround'.\nTrying"
-            f" to use {quantizer_type} which do require some kind of random"
-            "noise such as 'gaussian' or 'kumaraswamy'."
-        )
-
-    # ------- Actually quantize
     match quantizer_noise_type:
         case "none":
             pass
         case "gaussian":
             noise = torch.randn_like(x, requires_grad=False) * noise_parameter
         case "kumaraswamy":
+            assert noise_parameter is not None, "noise_parameter must be provided"
             noise = generate_kumaraswamy_noise(
                 torch.rand_like(x, requires_grad=False), noise_parameter
             )
-        case _:
-            print(f"Unknown quantizer_noise_type {quantizer_noise_type}")
 
     match quantizer_type:
         case "none":
             return x + noise
         case "softround_alone":
+            assert (
+                soft_round_temperature is not None
+            ), "soft_round_temperature must be provided"
             return softround(x, soft_round_temperature)
         case "softround":
+            assert (
+                soft_round_temperature is not None
+            ), "soft_round_temperature must be provided"
             return softround(
                 softround(x, soft_round_temperature) + noise,
                 soft_round_temperature,
@@ -227,11 +198,12 @@ def quantize(
             # From the forward point of view (i.e. entering into the torch.no_grad()), we have
             # y = softround(x) - softround(x) + round(x) = round(x). From the backward point of view
             # we have y = softround(x) meaning that dy / dx = d softround(x) / dx.
+            assert (
+                soft_round_temperature is not None
+            ), "soft_round_temperature must be provided"
             y = softround(x, soft_round_temperature)
             with torch.no_grad():
                 y = y - softround(x, soft_round_temperature) + torch.round(x)
             return y
         case "hardround":
             return torch.round(x)
-        case _:
-            print(f"Unknown quantizer_type {quantizer_type}")

@@ -1,5 +1,5 @@
 # Software Name: Cool-Chic
-# SPDX-FileCopyrightText: Copyright (c) 2023-2024 Orange
+# SPDX-FileCopyrightText: Copyright (c) 2023-2025 Orange
 # SPDX-License-Identifier: BSD 3-Clause "New"
 #
 # This software is distributed under the BSD-3-Clause license.
@@ -14,17 +14,18 @@ from pathlib import Path
 from typing import Dict, List, Tuple
 
 import torch
+import torch._dynamo.exc
 
-from enc.component.coolchic import CoolChicEncoderParameter
-from enc.component.frame import FrameEncoder, load_frame_encoder
-from enc.io.io import load_frame_data_from_file
-from enc.training.quantizemodel import quantize_model
-from enc.training.test import test
-from enc.training.train import train
-from enc.training.warmup import warmup
-from enc.utils.codingstructure import CodingStructure, Frame, FrameData
-from enc.utils.manager import FrameEncoderManager
-from enc.utils.misc import (
+from coolchic.enc.component.coolchic import CoolChicEncoderParameter
+from coolchic.enc.component.frame import FrameEncoder, load_frame_encoder
+from coolchic.enc.io.io import load_frame_data_from_file
+from coolchic.enc.training.quantizemodel import quantize_model
+from coolchic.enc.training.test import test
+from coolchic.enc.training.train import train
+from coolchic.enc.training.warmup import warmup
+from coolchic.enc.utils.codingstructure import CodingStructure, Frame, FrameData
+from coolchic.enc.utils.manager import FrameEncoderManager
+from coolchic.enc.utils.misc import (
     POSSIBLE_DEVICE,
     TrainingExitCode,
     is_job_over,
@@ -213,15 +214,16 @@ class VideoEncoder:
                     0
                 ].candidates
 
-                list_candidates = [
-                    FrameEncoder(
+                list_candidates = []
+                torch.set_float32_matmul_precision("high")
+                for _ in range(n_initial_warmup_candidate):
+                    cur_frame_encoder = FrameEncoder(
                         coolchic_encoder_param=current_coolchic_parameter,
                         frame_type=frame.frame_type,
                         frame_data_type=frame.data.frame_data_type,
                         bitdepth=frame.data.bitdepth,
-                    )
-                    for _ in range(n_initial_warmup_candidate)
-                ]
+                    ).to(device)
+                    list_candidates.append(cur_frame_encoder)
 
                 # Use the first candidate of the list to log the architecture
                 with open(f"{frame_workdir}/archi.txt", "w") as f_out:
@@ -241,6 +243,20 @@ class VideoEncoder:
                     device=device,
                 )
                 frame_encoder.to_device(device)
+
+                # Compile only after the warm-up to compile only once.
+                if frame_encoder_manager.preset.preset_name == "debug":
+                    print("Skip compilation when debugging")
+                else:
+                    frame_encoder = torch.compile(
+                        frame_encoder,
+                        dynamic=False,
+                        mode="reduce-overhead",
+                        # Some part of the frame_encoder forward (420-related stuff)
+                        # are not (yet) compatible with compilation. So we can't
+                        # capture the full graph for yuv420 frame
+                        fullgraph=frame.data.frame_data_type != "yuv420",
+                    )
 
                 for idx_phase, training_phase in enumerate(
                     frame_encoder_manager.preset.all_phases

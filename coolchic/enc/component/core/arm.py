@@ -232,7 +232,6 @@ class Arm(nn.Module):
                 layer.initialize_parameters()
 
 
-@torch.jit.script
 def _get_neighbor(x: Tensor, mask_size: int, non_zero_pixel_ctx_idx: Tensor) -> Tensor:
     """Use the unfold function to extract the neighbors of each pixel in x.
 
@@ -276,7 +275,6 @@ def _get_neighbor(x: Tensor, mask_size: int, non_zero_pixel_ctx_idx: Tensor) -> 
     return neighbor
 
 
-@torch.jit.script
 def _laplace_cdf(x: Tensor, expectation: Tensor, scale: Tensor) -> Tensor:
     """Compute the laplace cumulative evaluated in x. All parameters
     must have the same dimension.
