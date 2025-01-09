@@ -7,9 +7,13 @@ from pathlib import Path
 
 import boto3
 import botocore
+import torch
+import torchvision
 import tqdm
 
-# Downloaded from https://github.com/openimages/dataset/blob/main/downloader.py
+from coolchic.utils.paths import DATA_DIR
+
+# Based on the code in https://github.com/openimages/dataset/blob/main/downloader.py
 BUCKET_NAME = "open-images-dataset"
 REGEX = r"(test|train|validation|challenge2018)/([a-fA-F0-9]*)"
 
@@ -53,7 +57,7 @@ def download_all_images(
         download_folder.mkdir(parents=True)
 
     try:
-        image_list = list(check_and_homogenize_image_list(input_image_list))
+        image_list = check_and_homogenize_image_list(input_image_list)
     except ValueError as exception:
         sys.exit(f"ERROR: {str(exception)}")
 
@@ -73,9 +77,25 @@ def download_all_images(
     progress_bar.close()
 
 
+def image_to_tensor(image_path: str) -> torch.Tensor:
+    s3_client = boto3.client(
+        "s3", config=botocore.config.Config(signature_version=botocore.UNSIGNED)
+    )
+    response = s3_client.get_object(
+        Bucket=BUCKET_NAME,
+        Key=f"{image_path}.jpg",
+    )
+    image_data = response["Body"].read()
+    image_tensor = torchvision.io.decode_image(
+        torch.tensor(bytearray(image_data), dtype=torch.uint8),
+        mode=torchvision.io.ImageReadMode.RGB,
+    )
+    return image_tensor
+
+
 def select_images(image_csv: Path, n_images: int = 100) -> list[str]:
     # We select a subset of N images from the first 100N images in the list.
-    random.seed(42)
+    random.seed(42)  # Images will always be the same.
     cand_pool_size = 100 * n_images
     indices = set(random.sample(range(1, cand_pool_size), n_images))
     selected_lines = []
@@ -96,17 +116,23 @@ def select_images(image_csv: Path, n_images: int = 100) -> list[str]:
     return [format_image_str(line) for line in selected_lines]
 
 
-def get_images(n_images: int = 100) -> list[Path]:
-    """Downloads a subset of images from the Open Images dataset."""
-    from coolchic.utils.paths import DATA_DIR
-
+def get_image_list(n_images: int = 100) -> list[str]:
+    """Returns a list of the selected images to download from
+    the Open Images dataset.
+    """
     # Download from https://storage.googleapis.com/openimages/2018_04/train/train-images-boxable-with-rotation.csv
     img_list = select_images(
         DATA_DIR / "metalearning" / "train-images-boxable-with-rotation.csv",
         n_images=n_images,
     )
+    return img_list
+
+
+def select_download_all_images(n_images: int = 100) -> list[Path]:
+    """Downloads a subset of images from the Open Images dataset."""
     download_path = DATA_DIR / "metalearning" / "images"
     download_path.mkdir(parents=True, exist_ok=True)
+    img_list = get_image_list(n_images=n_images)
     download_all_images(
         download_folder=download_path, input_image_list=img_list, num_processes=4
     )
