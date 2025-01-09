@@ -1,5 +1,5 @@
 # Software Name: Cool-Chic
-# SPDX-FileCopyrightText: Copyright (c) 2023-2024 Orange
+# SPDX-FileCopyrightText: Copyright (c) 2023-2025 Orange
 # SPDX-License-Identifier: BSD 3-Clause "New"
 #
 # This software is distributed under the BSD-3-Clause license.
@@ -8,12 +8,11 @@
 
 """Gather the different encoding presets here."""
 
+import typing
 from dataclasses import dataclass, field
 from typing import Dict, List, Literal, Tuple
 
-from pydantic import BaseModel, Field
-
-from enc.component.core.quantizer import (
+from coolchic.enc.component.core.quantizer import (
     POSSIBLE_QUANTIZATION_NOISE_TYPE,
     POSSIBLE_QUANTIZER_TYPE,
 )
@@ -21,7 +20,8 @@ from enc.component.core.quantizer import (
 MODULE_TO_OPTIMIZE = Literal["all", "arm", "upsampling", "synthesis", "latent"]
 
 
-class TrainerPhase(BaseModel):
+@dataclass
+class TrainerPhase:
     """Dataclass representing one phase of an encoding preset.
 
     Args:
@@ -82,18 +82,50 @@ class TrainerPhase(BaseModel):
     patience: int = 10000
     quantize_model: bool = False
     schedule_lr: bool = False
-    end_lr: float | None = None
     softround_temperature: Tuple[float, float] = (0.3, 0.3)
     noise_parameter: Tuple[float, float] = (1.0, 1.0)
     quantizer_noise_type: POSSIBLE_QUANTIZATION_NOISE_TYPE = "kumaraswamy"
     quantizer_type: POSSIBLE_QUANTIZER_TYPE = "softround"
-    optimized_module: List[MODULE_TO_OPTIMIZE] = Field(default_factory=lambda: ["all"])
+    optimized_module: List[MODULE_TO_OPTIMIZE] = field(default_factory=lambda: ["all"])
 
     def __post_init__(self):
         # If all is present in the list of modules to be optimized, alongside something else,
         # it overrides everything, leaving the list of modules to be optimized to just ['all'].
         if "all" in self.optimized_module:
             self.optimized_module == ["all"]
+
+        # Some checks about quantization options mismatch. They are done here
+        # to avoid doing it each time we do a forward pass inside the quantize
+        # function. Additionally, torch.compile messes up the assertion in the
+        # quantize function anyway.
+        assert self.quantizer_noise_type in typing.get_args(
+            POSSIBLE_QUANTIZATION_NOISE_TYPE
+        ), (
+            f"quantizer_noise_type must be in {POSSIBLE_QUANTIZATION_NOISE_TYPE}"
+            f" found {self.quantizer_noise_type}"
+        )
+
+        assert self.quantizer_type in typing.get_args(POSSIBLE_QUANTIZER_TYPE), (
+            f"quantizer_type must be in {POSSIBLE_QUANTIZER_TYPE}"
+            f" found {self.quantizer_type}"
+        )
+
+        # If we use only the softround **alone**, or hardround we do not need
+        # any noise addition. Otherwise, we need a type of noise, i.e. either
+        # kumaraswamy or gaussian noise.
+        if self.quantizer_type in ["softround_alone", "hardround", "ste", "none"]:
+            assert self.quantizer_noise_type == "none", (
+                f"Using quantizer type {self.quantizer_type} does not require"
+                "to have any random noise.\n Switching the "
+                f"quantizer_noise_type from {self.quantizer_noise_type} to none."
+            )
+        else:
+            assert self.quantizer_noise_type != "none", (
+                "Using quantizer_noise_type = 'none' is only possible with "
+                "quantizer_type = 'softround_alone', 'ste' or 'hardround'.\n"
+                f"Trying to use {self.quantizer_type} quantizer which do require "
+                "some kind of random noise such as 'gaussian' or 'kumaraswamy'."
+            )
 
     def pretty_string(self) -> str:
         """Return a pretty string describing a warm-up phase"""
@@ -112,8 +144,8 @@ class TrainerPhase(BaseModel):
         s += f'{f"{noise_str}":^{14}}|'
         return s
 
-    @staticmethod
-    def _pretty_string_column_name() -> str:
+    @classmethod
+    def _pretty_string_column_name(cls) -> str:
         """Return the name of the column aligned with the pretty_string function"""
         s = f'{"Learn rate":^{14}}|'
         s += f'{"Max itr":^{9}}|'
@@ -125,8 +157,8 @@ class TrainerPhase(BaseModel):
         s += f'{"Noise":^{14}}|'
         return s
 
-    @staticmethod
-    def _vertical_line_array() -> str:
+    @classmethod
+    def _vertical_line_array(cls) -> str:
         """Return a string made of "-" and "+" matching the columns
         of the print detailed above"""
         s = "-" * 14 + "+"
@@ -140,7 +172,8 @@ class TrainerPhase(BaseModel):
         return s
 
 
-class WarmupPhase(BaseModel):
+@dataclass
+class WarmupPhase:
     """Describe one phase of the :doc:`warm-up <../training/warmup>`. At the
     beginning of each warm-up phase, we start by keeping the best ``candidates``
     systems. We then perform a short training, and we go to the next phase.
@@ -159,15 +192,16 @@ class WarmupPhase(BaseModel):
         s += f"{self.training_phase.pretty_string()}"
         return s
 
-    @staticmethod
-    def _pretty_string_column_name() -> str:
+    @classmethod
+    def _pretty_string_column_name(cls) -> str:
         """Return the name of the column aligned with the pretty_string function"""
         s = f'|{"Candidates":^{14}}|'
         s += f"{TrainerPhase._pretty_string_column_name()}"
         return s
 
 
-class Warmup(BaseModel):
+@dataclass
+class Warmup:
     """A :doc:`warm-up <../training/warmup>` is composed of different phases
     where the worse candidates are successively eliminated.
 
@@ -176,7 +210,7 @@ class Warmup(BaseModel):
             Defaults to ``[]``.
     """
 
-    phases: List[WarmupPhase] = Field(default_factory=lambda: [])
+    phases: List[WarmupPhase] = field(default_factory=lambda: [])
 
     def _get_total_warmup_iterations(self) -> int:
         """Return the total number of iterations for the whole warm-up."""
@@ -266,7 +300,7 @@ class PresetC3x(Preset):
         self.all_phases: List[TrainerPhase] = [
             TrainerPhase(
                 lr=start_lr,
-                max_itr=n_itr_per_phase + 600,
+                max_itr=n_itr_per_phase,
                 patience=5000,
                 optimized_module=["all"],
                 schedule_lr=True,
@@ -396,7 +430,50 @@ class PresetDebug(Preset):
         )
 
 
-AVAILABLE_PRESETS: Dict[str, Preset] = {
+class PresetMeasureSpeed(Preset):
+    def __init__(self, start_lr: float = 1e-2, n_itr_per_phase: int = 100000):
+        super().__init__(preset_name="c3x")
+
+        # Single stage model with the shortest warm-up ever!
+        self.all_phases: List[TrainerPhase] = [
+            TrainerPhase(
+                lr=start_lr,
+                max_itr=n_itr_per_phase,
+                patience=5000,
+                optimized_module=["all"],
+                schedule_lr=True,
+                quantizer_type="softround",
+                quantizer_noise_type="gaussian",
+                softround_temperature=(0.3, 0.1),
+                noise_parameter=(0.25, 0.1),
+                quantize_model=True,  # ! This is an important parameter
+            ),
+        ]
+
+        self.warmup = Warmup(
+            [
+                WarmupPhase(
+                    candidates=1,
+                    training_phase=TrainerPhase(
+                        lr=start_lr,
+                        max_itr=1,
+                        freq_valid=1,
+                        patience=100000,
+                        quantize_model=False,
+                        schedule_lr=False,
+                        softround_temperature=(0.3, 0.3),
+                        noise_parameter=(2.0, 2.0),
+                        quantizer_noise_type="kumaraswamy",
+                        quantizer_type="softround",
+                        optimized_module=["all"],
+                    ),
+                )
+            ]
+        )
+
+
+AVAILABLE_PRESETS: Dict[str, type[Preset]] = {
     "c3x": PresetC3x,
     "debug": PresetDebug,
+    "measure_speed": PresetMeasureSpeed,
 }
