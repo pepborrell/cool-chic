@@ -126,7 +126,8 @@ class UpsamplingSeparableSymmetricConv2d(nn.Module):
         # -------- Instantiate empty parameters, set by the initialize function
         self.weight = nn.Parameter(torch.empty(self.param_size), requires_grad=True)
 
-        self.bias = nn.Parameter(torch.empty(1), requires_grad=True)
+        # Biases are not used in the forward. Let's remove the parameter then.
+        # self.bias = nn.Parameter(torch.empty(1), requires_grad=True)
         self.initialize_parameters()
         # -------- Instantiate empty parameters, set by the initialize function
 
@@ -156,7 +157,8 @@ class UpsamplingSeparableSymmetricConv2d(nn.Module):
         w[-1] = 1
         self.weight = nn.Parameter(w, requires_grad=True)
 
-        self.bias = nn.Parameter(torch.zeros_like(self.bias), requires_grad=True)
+        # Biases are not used in the forward. Let's remove the parameter then.
+        # self.bias = nn.Parameter(torch.zeros_like(self.bias), requires_grad=True)
 
     def forward(self, x: Tensor) -> Tensor:
         """Perform a "normal" 2D convolution, except that the underlying kernel
@@ -241,7 +243,8 @@ class UpsamplingSeparableSymmetricConvTranspose2d(nn.Module):
         # -------- Instantiate empty parameters, set by the initialize function
         self.weight = nn.Parameter(torch.empty(self.param_size), requires_grad=True)
 
-        self.bias = nn.Parameter(torch.empty(1), requires_grad=True)
+        # Biases are not used in the forward. Let's remove the parameter then.
+        # self.bias = nn.Parameter(torch.empty(1), requires_grad=True)
         self.initialize_parameters()
         # -------- Instantiate empty parameters, set by the initialize function
 
@@ -280,7 +283,8 @@ class UpsamplingSeparableSymmetricConvTranspose2d(nn.Module):
         w[zero_pad:] = kernel_core
         self.weight = nn.Parameter(w, requires_grad=True)
 
-        self.bias = nn.Parameter(torch.zeros_like(self.bias), requires_grad=True)
+        # Biases are not used in the forward. We removed the parameter.
+        # self.bias = nn.Parameter(torch.zeros_like(self.bias), requires_grad=True)
 
     def forward(self, x: Tensor) -> Tensor:
         """Perform the spatial upsampling (with scale 2) of an input with a
