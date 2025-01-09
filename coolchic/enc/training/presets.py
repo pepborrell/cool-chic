@@ -82,6 +82,7 @@ class TrainerPhase:
     patience: int = 10000
     quantize_model: bool = False
     schedule_lr: bool = False
+    end_lr: float | None = None
     softround_temperature: Tuple[float, float] = (0.3, 0.3)
     noise_parameter: Tuple[float, float] = (1.0, 1.0)
     quantizer_noise_type: POSSIBLE_QUANTIZATION_NOISE_TYPE = "kumaraswamy"
