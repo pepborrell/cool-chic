@@ -96,18 +96,18 @@ def select_images(image_csv: Path, n_images: int = 100) -> list[str]:
     return [format_image_str(line) for line in selected_lines]
 
 
-def get_images():
+def get_images(n_images: int = 100) -> list[Path]:
     """Downloads a subset of images from the Open Images dataset."""
     from coolchic.utils.paths import DATA_DIR
 
     # Download from https://storage.googleapis.com/openimages/2018_04/train/train-images-boxable-with-rotation.csv
     img_list = select_images(
         DATA_DIR / "metalearning" / "train-images-boxable-with-rotation.csv",
-        n_images=100,
+        n_images=n_images,
     )
     download_path = DATA_DIR / "metalearning" / "images"
     download_path.mkdir(parents=True, exist_ok=True)
     download_all_images(
         download_folder=download_path, input_image_list=img_list, num_processes=4
     )
-    return (download_path / f"{img_name.split('/')[1]}.jpg" for img_name in img_list)
+    return [download_path / f"{img_name.split('/')[1]}.jpg" for img_name in img_list]
