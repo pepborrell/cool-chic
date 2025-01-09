@@ -17,6 +17,7 @@ from coolchic.enc.component.video import (
 from coolchic.enc.io.io import load_frame_data_from_file
 from coolchic.enc.training.test import test
 from coolchic.enc.training.train import train
+from coolchic.enc.training.warmup import warmup
 from coolchic.enc.utils.codingstructure import CodingStructure, Frame
 from coolchic.enc.utils.misc import get_best_device
 from coolchic.enc.utils.parsecli import (
@@ -128,9 +129,11 @@ if __name__ == "__main__":
         if config.load_models and os.path.exists(path_video_encoder):
             video_encoder = load_video_encoder(path_video_encoder)
             frame_encoder, frame_encoder_manager = extract_image_encoder(video_encoder)
+            coolchic_encoder_parameter = video_encoder.shared_coolchic_parameter
 
             frame = video_encoder.coding_structure.get_frame_from_coding_order(0)
             assert frame is not None
+            assert frame.data is not None
         else:
             start_training(workdir, config)
 
@@ -153,6 +156,12 @@ if __name__ == "__main__":
                 str(config.input.absolute()), frame.display_order
             )
             coolchic_encoder_parameter.set_image_size(frame.data.img_size)
+            # Usually, the video encoder adapts the decoder structure to the number of channels of the output.
+            # In our case, we only encode images (I frames), so the number of channels is always 3.
+            coolchic_encoder_parameter.layers_synthesis = [
+                lay.replace("X", str(3))
+                for lay in coolchic_encoder_parameter.layers_synthesis
+            ]
             frame_encoder = build_frame_encoder(coolchic_encoder_parameter, frame)
 
             # We need the video encoder for this one operation.
@@ -166,10 +175,9 @@ if __name__ == "__main__":
         if "cuda" in device:
             torch.backends.cudnn.benchmark = True
         frame.to_device(device)
-        frame_encoder.to_device(device)
 
-        print(f"\n{video_encoder.coding_structure.pretty_string()}\n")
-
+        ##### LOGGING #####
+        # Setting up all logging using wandb.
         if config.disable_wandb:
             # To disable wandb completely.
             os.environ["WANDB_MODE"] = "disabled"
@@ -178,9 +186,54 @@ if __name__ == "__main__":
         # Start wandb logging.
         wandb.init(project="coolchic-runs", config=config.model_dump())
 
+        ##### WARMUP #####
+        # Get the number of candidates from the initial warm-up phase
+        n_initial_warmup_candidate = frame_encoder_manager.preset.warmup.phases[
+            0
+        ].candidates
+
+        list_candidates = []
+        torch.set_float32_matmul_precision("high")
+        for _ in range(n_initial_warmup_candidate):
+            cur_frame_encoder = FrameEncoder(
+                coolchic_encoder_param=coolchic_encoder_parameter,
+                frame_type=frame.frame_type,
+                frame_data_type=frame.data.frame_data_type,
+                bitdepth=frame.data.bitdepth,
+            ).to(device)
+            list_candidates.append(cur_frame_encoder)
+
+        # Show the encoder structure.
+        print(list_candidates[0].coolchic_encoder.pretty_string() + "\n\n")
+
+        # Use warm-up to find the best initialization among the list
+        # of candidates parameters.
+        frame_encoder = warmup(
+            frame_encoder_manager=frame_encoder_manager,
+            list_candidates=list_candidates,
+            frame=frame,
+            device=device,
+        )
+        frame_encoder.to_device(device)
+
+        ##### COMPILE #####
+        # When compiling the frame encoder, training goes faster.
+        # Compile only after the warm-up to compile only once.
+        if frame_encoder_manager.preset.preset_name == "debug":
+            print("Skip compilation when debugging")
+        else:
+            frame_encoder = torch.compile(
+                frame_encoder,
+                dynamic=False,
+                mode="reduce-overhead",
+                # Some part of the frame_encoder forward (420-related stuff)
+                # are not (yet) compatible with compilation. So we can't
+                # capture the full graph for yuv420 frame
+                fullgraph=frame.data.frame_data_type != "yuv420",
+            )
+
         # Launch training.
         frame_enc = frame_encoder
-        # TODO: add warmup!!!
         for training_phase in frame_encoder_manager.preset.all_phases:
             frame_enc = train(
                 frame_encoder=frame_enc,
