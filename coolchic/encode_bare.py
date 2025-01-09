@@ -69,7 +69,7 @@ def get_workdir(config: RunConfig) -> Path:
 
 
 def start_training(workdir: Path, config: RunConfig) -> None:
-    start_print = (
+    print(
         "\n\n"
         "*----------------------------------------------------------------------------------------------------------*\n"
         "|                                                                                                          |\n"
@@ -89,7 +89,6 @@ def start_training(workdir: Path, config: RunConfig) -> None:
         "| version 3.4, Nov. 2024                                                                © 2023-2024 Orange |\n"
         "*----------------------------------------------------------------------------------------------------------*\n"
     )
-    print(start_print)
 
     workdir.mkdir(exist_ok=True)
     # Dump raw parameters into a text file to keep track of them.
