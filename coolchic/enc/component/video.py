@@ -245,9 +245,22 @@ class VideoEncoder:
                 frame_encoder.to_device(device)
 
                 # Compile only after the warm-up to compile only once.
-                if frame_encoder_manager.preset.preset_name == "debug":
+                # No compilation for torch version older than 2.5.0 (models don't converge when compiled).
+                major, minor = [int(x) for x in torch.__version__.split(".")[:2]]
+                use_compile = False
+                if major > 2:
+                    use_compile = True
+                elif major == 2:
+                    use_compile = minor >= 5
+
+                if not use_compile:
+                    print(
+                        "Skipping compilation because torch version is older than 2.5.0"
+                    )
+                elif frame_encoder_manager.preset.preset_name == "debug":
                     print("Skip compilation when debugging")
                 else:
+                    print("Compiling frame encoder")
                     frame_encoder = torch.compile(
                         frame_encoder,
                         dynamic=False,
