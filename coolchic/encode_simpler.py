@@ -14,7 +14,7 @@ from coolchic.enc.component.video import (
     VideoEncoder,
     load_video_encoder,
 )
-from coolchic.enc.io.io import load_frame_data_from_file
+from coolchic.enc.io.io import load_frame_data_from_file, load_frame_data_from_tensor
 from coolchic.enc.training.test import test
 from coolchic.enc.training.train import train
 from coolchic.enc.training.warmup import warmup
@@ -25,6 +25,7 @@ from coolchic.enc.utils.parsecli import (
     get_coolchic_param_from_args,
     get_manager_from_args,
 )
+from coolchic.metalearning.data import OpenImagesDataset
 from coolchic.utils.paths import COOLCHIC_REPO_ROOT
 from coolchic.utils.types import RunConfig, UserConfig
 
@@ -64,8 +65,10 @@ def get_workdir(config: RunConfig) -> Path:
         / config_path.relative_to("cfg").with_suffix("")
         / config.unique_id  # unique id to distinguish different runs launched by the same config.
     )
+    if str(config.input) == "openimages":
+        assert config.workdir is None, "Workdir must be None when using openimages."
+        workdir = workdir.parent / args.openimages_id
     workdir.mkdir(parents=True, exist_ok=True)
-    assert workdir.is_dir()
     return workdir
 
 
@@ -115,11 +118,22 @@ if __name__ == "__main__":
     parser.add_argument(
         "--config", help="Specifies the path to the config file that will be used."
     )
+    parser.add_argument(
+        "--openimages_id",
+        help="Which image from openimages to train with",
+        required=False,
+    )
     args = parser.parse_args()
 
     config_path = Path(args.config)
     with open(config_path, "r") as stream:
         user_config = UserConfig(**yaml.safe_load(stream))
+
+    if args.openimages_id is not None:
+        assert isinstance(user_config.input, list)
+        assert user_config.input[0] == Path(
+            "openimages"
+        ), "If openimages_id is provided, input must be openimages."
 
     # One user config generates one or more runs, depending on the parameters specified.
     for config in user_config.get_run_configs():
@@ -151,10 +165,16 @@ if __name__ == "__main__":
             frame = coding_structure.get_frame_from_coding_order(0)
             assert frame is not None
 
-            # Loading the frame data is very important, apparently.
-            frame.data = load_frame_data_from_file(
-                str(config.input.absolute()), frame.display_order
-            )
+            if config.input == Path("openimages"):
+                # Special openimages case. We download the image we need from the dataset.
+                dataset = OpenImagesDataset(n_images=1000)
+                frame.data = load_frame_data_from_tensor(
+                    dataset[int(args.openimages_id)]
+                )
+            else:
+                frame.data = load_frame_data_from_file(
+                    str(config.input.absolute()), frame.display_order
+                )
             coolchic_encoder_parameter.set_image_size(frame.data.img_size)
             # Usually, the video encoder adapts the decoder structure to the number of channels of the output.
             # In our case, we only encode images (I frames), so the number of channels is always 3.
