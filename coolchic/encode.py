@@ -54,11 +54,22 @@ if __name__ == "__main__":
     parser.add_argument(
         "--config", help="Specifies the path to the config file that will be used."
     )
+    parser.add_argument(
+        "--openimages_id",
+        help="Which image from openimages to train with",
+        required=False,
+    )
     args = parser.parse_args()
 
     config_path = Path(args.config)
     with open(config_path, "r") as stream:
         user_config = UserConfig(**yaml.safe_load(stream))
+
+    if args.openimages_id is not None:
+        assert isinstance(user_config.input, list)
+        assert user_config.input[0] == Path(
+            "openimages"
+        ), "If openimages_id is provided, input must be openimages."
 
     # One user config generates one or more runs, depending on the parameters specified.
     all_run_configs = user_config.get_run_configs()
@@ -72,6 +83,9 @@ if __name__ == "__main__":
             / config_path.relative_to("cfg").with_suffix("")
             / config.unique_id  # unique id to distinguish different runs launched by the same config.
         )
+        if str(config.input) == "openimages":
+            assert config.workdir is None, "Workdir must be None when using openimages."
+            workdir = workdir.parent / args.openimages_id
         workdir.mkdir(parents=True, exist_ok=True)
         assert workdir.is_dir()
 
@@ -145,6 +159,9 @@ if __name__ == "__main__":
             device=device,
             workdir=workdir,
             job_duration_min=config.job_duration_min,
+            openimages_id=args.openimages_id
+            if args.openimages_id is not None
+            else None,
         )
 
         video_encoder_savepath = workdir / "video_encoder.pt"
