@@ -46,6 +46,9 @@ def load_frame_data_from_tensor(data: torch.Tensor) -> FrameData:
     """Load a frame from a tensor."""
     frame_data_type = "rgb"
     bitdepth = 8
+    data = data.to(dtype=torch.get_default_dtype())
+    if (data > 1).any():
+        data = data.div(255)
     data = data.squeeze()
-    data = rearrange(data, "c h w -> 1 c h w", c=3)
+    data = rearrange(data, "c h w -> 1 c h w")
     return FrameData(bitdepth, frame_data_type, data)
