@@ -14,7 +14,6 @@ from pathlib import Path
 from typing import Dict, List, Tuple
 
 import torch
-import torch._dynamo
 import torch._dynamo.exc
 
 from coolchic.enc.component.coolchic import CoolChicEncoderParameter
@@ -32,10 +31,6 @@ from coolchic.enc.utils.misc import (
     is_job_over,
     mem_info,
 )
-
-# Some GPUs are not supported by Triton.
-# We suppress the error message and fall back to eager mode.
-torch._dynamo.config.suppress_errors = True
 
 
 class VideoEncoder:
