@@ -76,15 +76,16 @@ Check-out the [release history](https://github.com/Orange-OpenSource/Cool-Chic/r
 
 More details are available on the [Cool-chic page](https://orange-opensource.github.io/Cool-Chic/getting_started/quickstart.html)
 
-With the new poetry setup:
+With uv:
 ```bash
-# If poetry is not installed:
-pip install poetry
-# Build associated packages using setuptools (triggered by poetry)
-poetry build
-# Install python dependencies
-poetry install
+uv run python
 ```
+This should be enough. If it's not and you get the message `clang++ not found` (happens on the server), try running:
+```bash
+export CC=gcc
+export CXX=g++
+```
+Then run the `uv run python` command again.
 
 Old setup system (probably doesn't work anymore):
 ```bash
