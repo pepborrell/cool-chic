@@ -159,7 +159,7 @@ if __name__ == "__main__":
             device=device,
             workdir=workdir,
             job_duration_min=config.job_duration_min,
-            openimages_id=args.openimages_id
+            openimages_id=int(args.openimages_id)
             if args.openimages_id is not None
             else None,
         )
