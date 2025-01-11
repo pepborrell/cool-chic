@@ -55,7 +55,7 @@ ext_modules = [
         ],
         # Example: passing in the version to the compiled code
         define_macros=[("VERSION_INFO", __version__), ("CCDECAPI_CPU", "1")],
-        extra_compile_args=["-g", "-O3", "-std=c++17"],
+        extra_compile_args=["-g", "-O3"],
     ),
 ]
 
@@ -81,7 +81,7 @@ if platform != "darwin":
             ],
             # Example: passing in the version to the compiled code
             define_macros=[("VERSION_INFO", __version__), ("CCDECAPI_AVX2", "1")],
-            extra_compile_args=["-g", "-O3", "-mavx2", "-std=c++17"],
+            extra_compile_args=["-g", "-O3", "-mavx2"],
         )
     )
 
