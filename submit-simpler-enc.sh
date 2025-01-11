@@ -54,9 +54,9 @@ cd ${DIRECTORY}
 
 # Execute your code
 if [[ $# -lt 2 ]]; then
-	srun uv run python coolchic/encode_simpler.py --config=$1
+	srun uv run python coolchic/encode.py --config=$1
 else
-	srun uv run python coolchic/encode_simpler.py --config=$1 --openimages_id=$2
+	srun uv run python coolchic/encode.py --config=$1 --openimages_id=$2
 fi
 
 # Send more noteworthy information to the output log
