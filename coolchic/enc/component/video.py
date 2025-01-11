@@ -33,6 +33,20 @@ from coolchic.enc.utils.misc import (
 )
 
 
+def is_triton_supported():
+    # Check if a GPU is available
+    if not torch.cuda.is_available():
+        print("No GPU available. Falling back to eager mode.")
+        return False
+
+    # Get the compute capability of the current GPU
+    major, minor = torch.cuda.get_device_capability()
+    print(f"CUDA Capability of the device: {major}.{minor}")
+
+    # Triton requires CUDA capability >= 7.0
+    return (major, minor) >= (7, 0)
+
+
 class VideoEncoder:
     def __init__(
         self,
@@ -257,6 +271,8 @@ class VideoEncoder:
                     print(
                         "Skipping compilation because torch version is older than 2.5.0"
                     )
+                elif not is_triton_supported():
+                    print("Skipping compilation because Triton is not supported")
                 elif frame_encoder_manager.preset.preset_name == "debug":
                     print("Skip compilation when debugging")
                 else:
