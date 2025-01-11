@@ -1,4 +1,5 @@
 import torch
+from einops import rearrange
 
 from coolchic.enc.io.format.data_type import FRAME_DATA_TYPE, POSSIBLE_BITDEPTH
 from coolchic.enc.io.format.png import read_png
@@ -45,4 +46,6 @@ def load_frame_data_from_tensor(data: torch.Tensor) -> FrameData:
     """Load a frame from a tensor."""
     frame_data_type = "rgb"
     bitdepth = 8
+    data = data.squeeze()
+    data = rearrange(data, "c h w -> 1 c h w", c=3)
     return FrameData(bitdepth, frame_data_type, data)
