@@ -7,7 +7,7 @@
 #SBATCH --cpus-per-task=4
 #SBATCH --gres=gpu:1
 # want hardin01, lbbgpu01, tikgpu04
-#SBATCH --exclude=tikgpu10,tikgpu[01-03],tikgpu[05-09],artongpu[01-05]
+#SBATCH --exclude=tikgpu10,tikgpu[02-03],tikgpu[05-09],artongpu[01-05]
 # deactivate #SBATCH --exclude=tikgpu10,tikgpu01,tikgpu[05-09],artongpu[01-05],hardin01,lbbgpu01
 # deactivate #CommentSBATCH --nodelist=tikgpu01 # Specify that it should run on this particular node
 # deactivate #CommentSBATCH --account=tik-internal
