@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Dict, List, Tuple
 
 import torch
+import torch._dynamo
 import torch._dynamo.exc
 
 from coolchic.enc.component.coolchic import CoolChicEncoderParameter
@@ -32,19 +33,9 @@ from coolchic.enc.utils.misc import (
     mem_info,
 )
 
-
-def is_triton_supported():
-    # Check if a GPU is available
-    if not torch.cuda.is_available():
-        print("No GPU available. Falling back to eager mode.")
-        return False
-
-    # Get the compute capability of the current GPU
-    major, minor = torch.cuda.get_device_capability()
-    print(f"CUDA Capability of the device: {major}.{minor}")
-
-    # Triton requires CUDA capability >= 7.0
-    return (major, minor) >= (7, 0)
+# Some GPUs are not supported by Triton.
+# We suppress the error message and fall back to eager mode.
+torch._dynamo.config.suppress_errors = True
 
 
 class VideoEncoder:
@@ -271,8 +262,6 @@ class VideoEncoder:
                     print(
                         "Skipping compilation because torch version is older than 2.5.0"
                     )
-                elif not is_triton_supported():
-                    print("Skipping compilation because Triton is not supported")
                 elif frame_encoder_manager.preset.preset_name == "debug":
                     print("Skip compilation when debugging")
                 else:
