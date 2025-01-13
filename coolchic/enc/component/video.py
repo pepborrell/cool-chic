@@ -18,7 +18,7 @@ import torch._dynamo.exc
 
 from coolchic.enc.component.coolchic import CoolChicEncoderParameter
 from coolchic.enc.component.frame import FrameEncoder, load_frame_encoder
-from coolchic.enc.io.io import load_frame_data_from_file
+from coolchic.enc.io.io import load_frame_data_from_file, load_frame_data_from_tensor
 from coolchic.enc.training.quantizemodel import quantize_model
 from coolchic.enc.training.test import test
 from coolchic.enc.training.train import train
@@ -31,6 +31,7 @@ from coolchic.enc.utils.misc import (
     is_job_over,
     mem_info,
 )
+from coolchic.metalearning.data import OpenImagesDataset
 
 
 class VideoEncoder:
@@ -74,6 +75,7 @@ class VideoEncoder:
         device: POSSIBLE_DEVICE,
         workdir: Path,
         job_duration_min: int = -1,
+        openimages_id: int | None = None,
     ) -> TrainingExitCode:
         """Main training function of a ``VideoEncoder``. Encode all required
         frames (*i.e.* as stated in ``self.coding_structure``) of the video
@@ -127,9 +129,14 @@ class VideoEncoder:
                 continue
 
             # Load the original data and its references
-            frame.data = load_frame_data_from_file(
-                path_original_sequence, frame.display_order
-            )
+            if openimages_id is not None:
+                # Special openimages case. We download the image we need from the dataset.
+                dataset = OpenImagesDataset(n_images=1000)
+                frame.data = load_frame_data_from_tensor(dataset[openimages_id])
+            else:
+                frame.data = load_frame_data_from_file(
+                    path_original_sequence, frame.display_order
+                )
             frame.refs_data = self.get_ref_data(frame)
 
             # Everything concerning this frame will be written here
@@ -374,9 +381,14 @@ class VideoEncoder:
                 self.save(workdir / "video_encoder.pt")
                 # The save function unload the decoded frames and the original
                 # ones. We need to reload them
-                frame.data = load_frame_data_from_file(
-                    path_original_sequence, frame.display_order
-                )
+                if openimages_id is not None:
+                    # Special openimages case. We download the image we need from the dataset.
+                    dataset = OpenImagesDataset(n_images=1000)
+                    frame.data = load_frame_data_from_tensor(dataset[openimages_id])
+                else:
+                    frame.data = load_frame_data_from_file(
+                        path_original_sequence, frame.display_order
+                    )
                 frame.refs_data = self.get_ref_data(frame)
 
                 if is_job_over(

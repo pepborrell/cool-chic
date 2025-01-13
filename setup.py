@@ -1,10 +1,10 @@
 # Available at setup time due to pyproject.toml
 
 import subprocess
+from sys import platform
 
 from pybind11.setup_helpers import Pybind11Extension, build_ext
 from setuptools import setup
-from sys import platform
 
 __version__ = "3.4.0"
 

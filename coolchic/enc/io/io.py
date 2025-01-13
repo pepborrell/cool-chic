@@ -1,8 +1,11 @@
-from enc.io.format.data_type import FRAME_DATA_TYPE, POSSIBLE_BITDEPTH
-from enc.io.format.png import read_png
-from enc.io.format.ppm import read_ppm
-from enc.io.format.yuv import read_yuv
-from enc.utils.codingstructure import FrameData
+import torch
+from einops import rearrange
+
+from coolchic.enc.io.format.data_type import FRAME_DATA_TYPE, POSSIBLE_BITDEPTH
+from coolchic.enc.io.format.png import read_png
+from coolchic.enc.io.format.ppm import read_ppm
+from coolchic.enc.io.format.yuv import read_yuv
+from coolchic.enc.utils.codingstructure import FrameData
 
 
 def load_frame_data_from_file(file_path: str, idx_display_order: int) -> FrameData:
@@ -36,4 +39,16 @@ def load_frame_data_from_file(file_path: str, idx_display_order: int) -> FrameDa
         frame_data_type: FRAME_DATA_TYPE = "rgb"
         data, bitdepth = read_ppm(file_path)
 
+    return FrameData(bitdepth, frame_data_type, data)
+
+
+def load_frame_data_from_tensor(data: torch.Tensor) -> FrameData:
+    """Load a frame from a tensor."""
+    frame_data_type = "rgb"
+    bitdepth = 8
+    data = data.to(dtype=torch.get_default_dtype())
+    if (data > 1).any():
+        data = data.div(255)
+    data = data.squeeze()
+    data = rearrange(data, "c h w -> 1 c h w")
     return FrameData(bitdepth, frame_data_type, data)
