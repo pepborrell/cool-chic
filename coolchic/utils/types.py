@@ -160,6 +160,31 @@ class DecoderConfig(BaseModel):
         ),
     )
 
+    def model_post_init(self, __context: Any) -> None:
+        # Parsing the arm architecture parameters.
+        assert len(self.arm.split(",")) == 2, (
+            f"--arm format should be X,Y." f" Found {self.arm}"
+        )
+        self.dim_arm, self.n_hidden_layers_arm = [int(x) for x in self.arm.split(",")]
+
+        # Parsing the synthesis layers.
+        self.parsed_layers_synthesis = [
+            x for x in self.layers_synthesis.split(",") if x != ""
+        ]
+        assert self.parsed_layers_synthesis, (
+            "Synthesis should have at least one layer, found nothing.\n"
+            "Try something like 32-1-linear-relu,X-1-linear-none,"
+            "X-3-residual-relu,X-3-residual-none"
+        )
+
+        # Parsing the number of features per resolution.
+        self.parsed_n_ft_per_res = [
+            int(x) for x in self.n_ft_per_res.split(",") if x != ""
+        ]
+        assert set(self.parsed_n_ft_per_res) == {
+            1
+        }, f"--n_ft_per_res should only contain 1. Found {self.n_ft_per_res}"
+
 
 def single_element_to_list(elem: Any) -> list[Any]:
     if not isinstance(elem, list):

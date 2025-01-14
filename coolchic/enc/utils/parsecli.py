@@ -75,18 +75,14 @@ def _parse_n_ft_per_res(n_ft_per_res: str) -> List[int]:
 
 
 def get_coolchic_param_from_args(config: DecoderConfig) -> Dict[str, Any]:
-    layers_synthesis = _parse_synthesis_layers(config.layers_synthesis)
-    n_ft_per_res = _parse_n_ft_per_res(config.n_ft_per_res)
-
     coolchic_param = {
-        "layers_synthesis": layers_synthesis,
-        "n_ft_per_res": n_ft_per_res,
+        "layers_synthesis": config.parsed_layers_synthesis,
+        "n_ft_per_res": config.parsed_n_ft_per_res,
         "ups_k_size": config.ups_k_size,
         "ups_preconcat_k_size": config.ups_preconcat_k_size,
+        "dim_arm": config.dim_arm,
+        "n_hidden_layers_arm": config.n_hidden_layers_arm,
     }
-
-    # Add ARM parameters
-    coolchic_param.update(_parse_arm_archi(config.arm))
 
     return coolchic_param
 
