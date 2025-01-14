@@ -2,6 +2,7 @@ import torch
 from torch import nn
 
 from coolchic.hypernet.backbone import BACKBONE_OUTPUT_FEATURES
+from coolchic.hypernet.common import build_mlp
 
 
 def symmetric_filter_n_params_from_target(target_size: int) -> int:
@@ -22,7 +23,14 @@ class UpsamplingHyperNet(nn.Module):
     (where L is the number of latents). So we output those.
     """
 
-    def __init__(self, ups_k_size: int, ups_preconcat_k_size: int, n_latents: int):
+    def __init__(
+        self,
+        n_latents: int,
+        ups_k_size: int,
+        ups_preconcat_k_size: int,
+        hypernet_hidden_dim: int,
+        hypernet_n_layers: int,
+    ):
         super().__init__()
         self.n_input_features = BACKBONE_OUTPUT_FEATURES
 
@@ -43,14 +51,13 @@ class UpsamplingHyperNet(nn.Module):
             self.ups_n_params + 1 + self.ups_preconcat_n_params + 1
         )
 
-        # The layers we need: an MLP with 1 hidden layers.
-        self.hidden_size = 256
-        self.mlp = nn.Sequential(
-            nn.Linear(self.n_input_features, self.hidden_size),
-            nn.ReLU(),
-            nn.Linear(self.hidden_size, self.hidden_size),
-            nn.ReLU(),
-            nn.Linear(self.hidden_size, self.n_output_features),
+        # The layers we need: an MLP with hypernet_n_layers hidden layers.
+        self.hidden_size = hypernet_hidden_dim
+        self.mlp = build_mlp(
+            input_size=self.n_input_features,
+            output_size=self.n_output_features,
+            n_hidden_layers=hypernet_n_layers,
+            hidden_size=self.hidden_size,
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:

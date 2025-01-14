@@ -2,12 +2,19 @@ import torch
 from torch import nn
 
 from coolchic.hypernet.backbone import BACKBONE_OUTPUT_FEATURES
+from coolchic.hypernet.common import build_mlp
 
 
 class ArmHyperNet(nn.Module):
     """Takes a latent tensor and outputs the filters of the ARM network."""
 
-    def __init__(self, dim_arm: int, n_hidden_layers: int) -> None:
+    def __init__(
+        self,
+        dim_arm: int,
+        n_hidden_layers: int,
+        hypernet_hidden_dim: int,
+        hypernet_n_layers: int,
+    ) -> None:
         """
         Args:
             dim_arm: Number of context pixels AND dimension of all hidden
@@ -23,18 +30,14 @@ class ArmHyperNet(nn.Module):
         # For hop config, this will be 544 parameters.
         self.n_output_features = self.n_params_synthesis()
 
-        # The layers we need: an MLP with 3 hidden layers.
-        self.hidden_size = 1024
-        self.mlp = nn.Sequential(
-            nn.Linear(self.n_input_features, self.hidden_size),
-            nn.ReLU(),
-            nn.Linear(self.hidden_size, self.hidden_size),
-            nn.ReLU(),
-            nn.Linear(self.hidden_size, self.hidden_size),
-            nn.ReLU(),
-            nn.Linear(self.hidden_size, self.hidden_size),
-            nn.ReLU(),
-            nn.Linear(self.hidden_size, self.n_output_features),
+        # The layers we need: an MLP with hypernet_n_layers hidden layers.
+        self.hidden_size = hypernet_hidden_dim
+
+        self.mlp = build_mlp(
+            input_size=self.n_input_features,
+            output_size=self.n_output_features,
+            n_hidden_layers=hypernet_n_layers,
+            hidden_size=self.hidden_size,
         )
 
     def n_params_synthesis(self) -> int:
