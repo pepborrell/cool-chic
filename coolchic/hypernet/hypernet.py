@@ -1,3 +1,5 @@
+from typing import OrderedDict
+
 import torch
 from pydantic import BaseModel, computed_field
 from torch import nn
@@ -37,6 +39,14 @@ ConvBackbone = resnet50
 BACKBONE_OUTPUT_FEATURES = 2048
 
 
+class SynthesisLayerInfo(BaseModel):
+    in_ft: int
+    out_ft: int
+    k_size: int
+    mode: str
+    non_linearity: str
+
+
 class SynthesisHyperNet(nn.Module):
     """Takes a latent tensor and outputs the filters of the synthesis network."""
 
@@ -52,6 +62,7 @@ class SynthesisHyperNet(nn.Module):
 
         self.n_latents = n_latents
         self.layers_dim = layers_dim
+        self.layer_info = self.parse_layers_dim()
 
         # For hop config, this will be 642 parameters.
         self.n_output_features = self.n_params_synthesis()
@@ -66,24 +77,63 @@ class SynthesisHyperNet(nn.Module):
             hidden_size=self.hidden_size,
         )
 
+    def parse_layers_dim(self) -> list[SynthesisLayerInfo]:
+        """Parses the layers_dim list to a list of SynthesisLayerInfo objects."""
+        layer_info = []
+        in_ft = self.n_latents  # The input to synthesis are the upsampled latents.
+        for layer in self.layers_dim:
+            out_ft, k_size, mode, non_linearity = layer.split("-")
+            layer_info.append(
+                SynthesisLayerInfo(
+                    in_ft=in_ft,
+                    out_ft=int(out_ft),
+                    k_size=int(k_size),
+                    mode=mode,
+                    non_linearity=non_linearity,
+                )
+            )
+            in_ft = int(out_ft)
+        return layer_info
+
     def n_params_synthesis(self) -> int:
         """Calculates the number of parameters needed for the synthesis network."""
-        n_params = 0
-        input_ft = self.n_latents  # The input to synthesis are the upsampled latents.
-        # There is one layer per line in layers_dim. We need to decode it to get the number of parameters.
-        for layers in self.layers_dim:
-            out_ft, k_size, _, _ = layers.split("-")
-            out_ft = int(out_ft)
-            k_size = int(k_size)
-
-            n_params += self.n_params_synthesis_layer(input_ft, out_ft, k_size)
-            input_ft = out_ft
-        return n_params
+        return sum(
+            self.n_params_synthesis_layer(layer_info) for layer_info in self.layer_info
+        )
 
     @staticmethod
-    def n_params_synthesis_layer(in_channels: int, out_channels: int, k: int) -> int:
+    def n_params_synthesis_layer(layer: SynthesisLayerInfo) -> int:
         """Every synthesis layer has out_channels conv kernels of size in_channels x k x k."""
-        return in_channels * out_channels * k * k
+        return layer.in_ft * layer.out_ft * layer.k_size * layer.k_size + layer.out_ft
+
+    def forward(self, latent: torch.Tensor) -> torch.Tensor:
+        return self.mlp(latent)
+
+    def shape_outputs(self, x: torch.Tensor) -> OrderedDict[str, torch.Tensor]:
+        """Reshape the output of the hypernetwork to match the shape of the filters."""
+        weight_count = 0
+        formatted_weights = OrderedDict()
+        for layer_num, layer in enumerate(self.layer_info):
+            # Select weights for the current layer.
+            n_params = self.n_params_synthesis_layer(layer)
+            layer_params = x[:, weight_count : weight_count + n_params]
+            weight, bias = (
+                layer_params[:, : -layer.out_ft],
+                layer_params[:, -layer.out_ft :],
+            )
+            # Reshaping
+            weight = weight.view(
+                -1, layer.out_ft, layer.in_ft, layer.k_size, layer.k_size
+            )
+            bias = bias.view(-1, layer.out_ft)
+            # Adding to the dictionary
+            layer_name = f"layers.{layer_num}"
+            formatted_weights[f"{layer_name}.weight"] = weight
+            formatted_weights[f"{layer_name}.bias"] = bias
+
+            weight_count += n_params
+
+        return formatted_weights
 
 
 class ArmHyperNet(nn.Module):
@@ -125,7 +175,11 @@ class ArmHyperNet(nn.Module):
         """Calculates the number of parameters needed for the arm network.
         An arm network is an MLP with n_hidden_layers of size dim_arm->dim_arm.
         The output layer outputs 2 values (mu and sigma)."""
-        return self.dim_arm * self.dim_arm * self.n_hidden_layers + self.dim_arm * 2
+        return (
+            (self.dim_arm * self.dim_arm + self.dim_arm) * self.n_hidden_layers
+            + self.dim_arm * 2
+            + 2
+        )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.mlp(x)
