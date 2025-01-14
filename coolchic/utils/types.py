@@ -5,9 +5,10 @@ from pathlib import Path
 from typing import Annotated, Any, Literal
 
 import yaml
-from enc.training.presets import TrainerPhase, Warmup, WarmupPhase
-from pydantic import BaseModel, BeforeValidator, Field
-from utils.paths import COOLCHIC_REPO_ROOT
+from pydantic import BaseModel, BeforeValidator, Field, computed_field
+
+from coolchic.enc.training.presets import TrainerPhase, Warmup, WarmupPhase
+from coolchic.utils.paths import COOLCHIC_REPO_ROOT
 
 PRESET_NAMES = Literal["c3x", "debug"]
 preset_configs_dir = COOLCHIC_REPO_ROOT / "preset_cfg"
@@ -160,30 +161,49 @@ class DecoderConfig(BaseModel):
         ),
     )
 
-    def model_post_init(self, __context: Any) -> None:
-        # Parsing the arm architecture parameters.
+    @computed_field
+    @property
+    def dim_arm(self) -> int:
         assert len(self.arm.split(",")) == 2, (
             f"--arm format should be X,Y." f" Found {self.arm}"
         )
-        self.dim_arm, self.n_hidden_layers_arm = [int(x) for x in self.arm.split(",")]
+        return int(self.arm.split(",")[0])
 
+    @computed_field
+    @property
+    def n_hidden_layers_arm(self) -> int:
+        assert len(self.arm.split(",")) == 2, (
+            f"--arm format should be X,Y." f" Found {self.arm}"
+        )
+        return int(self.arm.split(",")[1])
+
+    @computed_field
+    @property
+    def parsed_layers_synthesis(self) -> list[str]:
         # Parsing the synthesis layers.
-        self.parsed_layers_synthesis = [
+        parsed_layers_synthesis = [
             x for x in self.layers_synthesis.split(",") if x != ""
         ]
-        assert self.parsed_layers_synthesis, (
+        # NOTE: We replace the X in the number of channels by the number of output channels,
+        # which will always be 3, as we are working with RGB images.
+        parsed_layers_synthesis = [
+            lay.replace("X", str(3)) for lay in parsed_layers_synthesis
+        ]
+        assert parsed_layers_synthesis, (
             "Synthesis should have at least one layer, found nothing.\n"
             "Try something like 32-1-linear-relu,X-1-linear-none,"
             "X-3-residual-relu,X-3-residual-none"
         )
+        return parsed_layers_synthesis
 
-        # Parsing the number of features per resolution.
-        self.parsed_n_ft_per_res = [
-            int(x) for x in self.n_ft_per_res.split(",") if x != ""
-        ]
-        assert set(self.parsed_n_ft_per_res) == {
+    @computed_field
+    @property
+    def parsed_n_ft_per_res(self) -> list[int]:
+        parsed_n_ft_per_res = [int(x) for x in self.n_ft_per_res.split(",") if x != ""]
+        assert set(parsed_n_ft_per_res) == {
             1
         }, f"--n_ft_per_res should only contain 1. Found {self.n_ft_per_res}"
+        return parsed_n_ft_per_res
 
 
 def single_element_to_list(elem: Any) -> list[Any]:

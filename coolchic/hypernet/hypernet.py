@@ -1,5 +1,5 @@
 import torch
-from pydantic import BaseModel
+from pydantic import BaseModel, computed_field
 from torch import nn
 from torchvision.models import resnet50
 
@@ -109,7 +109,7 @@ class ArmHyperNet(nn.Module):
         self.dim_arm = dim_arm
         self.n_hidden_layers = n_hidden_layers
         # For hop config, this will be 544 parameters.
-        self.n_output_features = self.n_params_synthesis()
+        self.n_output_features = self.n_params_arm()
 
         # The layers we need: an MLP with hypernet_n_layers hidden layers.
         self.hidden_size = hypernet_hidden_dim
@@ -121,7 +121,7 @@ class ArmHyperNet(nn.Module):
             hidden_size=self.hidden_size,
         )
 
-    def n_params_synthesis(self) -> int:
+    def n_params_arm(self) -> int:
         """Calculates the number of parameters needed for the arm network.
         An arm network is an MLP with n_hidden_layers of size dim_arm->dim_arm.
         The output layer outputs 2 values (mu and sigma)."""
@@ -202,8 +202,10 @@ class HyperNetConfig(BaseModel):
     arm: HyperNetParams = HyperNetParams(hidden_dim=1024, n_layers=3)
     upsampling: HyperNetParams = HyperNetParams(hidden_dim=256, n_layers=1)
 
-    def model_post_init(self, _) -> None:
-        self.n_latents = len(self.dec_cfg.parsed_n_ft_per_res)
+    @computed_field
+    @property
+    def n_latents(self) -> int:
+        return len(self.dec_cfg.parsed_n_ft_per_res)
 
 
 class CoolchicHyperNet(nn.Module):
