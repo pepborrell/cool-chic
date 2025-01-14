@@ -4,7 +4,7 @@ output: null
 workdir: null
 disable_wandb: False
 load_models: False
-user_tag: only-latent-noise
+user_tag: latent-then-all
 lmbda: {lambda_value}
 
 enc_cfg:
