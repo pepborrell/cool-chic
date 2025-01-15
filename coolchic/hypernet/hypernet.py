@@ -127,7 +127,7 @@ class SynthesisHyperNet(nn.Module):
             )
             bias = bias.view(-1, layer.out_ft)
             # Adding to the dictionary
-            layer_name = f"layers.{layer_num}"
+            layer_name = f"layers.{2*layer_num}"  # Multiply by 2 because of the non-linearity layers.
             formatted_weights[f"{layer_name}.weight"] = weight
             formatted_weights[f"{layer_name}.bias"] = bias
 
@@ -183,6 +183,42 @@ class ArmHyperNet(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.mlp(x)
+
+    def shape_outputs(self, x: torch.Tensor) -> OrderedDict[str, torch.Tensor]:
+        """Reshape the output of the hypernetwork to match the shape of the arm mlp layers."""
+        weight_count = 0
+        formatted_weights = OrderedDict()
+        for layer in range(self.n_hidden_layers):
+            # Select weights for the current layer.
+            n_params = self.dim_arm * self.dim_arm + self.dim_arm
+            layer_params = x[:, weight_count : weight_count + n_params]
+            weight, bias = (
+                layer_params[:, : -self.dim_arm],
+                layer_params[:, -self.dim_arm :],
+            )
+            # Reshaping
+            weight = weight.view(-1, self.dim_arm, self.dim_arm)
+            bias = bias.view(-1, self.dim_arm)
+            weight_count += n_params
+
+            # Adding to the dictionary
+            layer_name = f"mlp.{2*layer}"  # Multiplying by 2 because we have activations interleaved.
+            formatted_weights[f"{layer_name}.weight"] = weight
+            formatted_weights[f"{layer_name}.bias"] = bias
+
+            weight_count += n_params
+
+        # Output layer
+        n_params = self.dim_arm * 2 + 2
+        layer_params = x[:, weight_count : weight_count + n_params]
+        weight, bias = (
+            layer_params[:, :-2],
+            layer_params[:, -2:],
+        )
+        formatted_weights[f"mlp.{2*self.n_hidden_layers}.weight"] = weight
+        formatted_weights[f"mlp.{2*self.n_hidden_layers}.bias"] = bias
+
+        return formatted_weights
 
 
 class UpsamplingHyperNet(nn.Module):
@@ -242,6 +278,52 @@ class UpsamplingHyperNet(nn.Module):
         e.g. 4 params a b c d to parameterize a b c d c b a.
         """
         return (target_size + 1) // 2
+
+    def shape_output(self, x: torch.Tensor) -> OrderedDict[str, torch.Tensor]:
+        """Reshape the output of the hypernetwork to match the shape of the upsampling filters."""
+        weight_count = 0
+        formatted_weights = OrderedDict()
+        for n_stage in range(self.n_latents - 1):
+            # Select weights for the current layer.
+            n_params_transpose = self.ups_n_params + 1
+            n_params_preconcat = self.ups_preconcat_n_params + 1
+            stage_params = x[
+                :, weight_count : weight_count + n_params_transpose + n_params_preconcat
+            ]
+            transpose_params, preconcat_params = (
+                stage_params[:, :n_params_transpose],
+                stage_params[:, n_params_transpose:],
+            )
+
+            # First we do the transpose filters.
+            transpose_weight, transpose_bias = (
+                transpose_params[:, :-1],
+                transpose_params[:, -1],
+            )
+            # Reshaping
+            transpose_weight = transpose_weight.view(-1, self.ups_n_params)
+            transpose_bias = transpose_bias.view(-1, 1)
+            formatted_weights[f"conv_transpose2ds.{n_stage}.bias"] = transpose_bias
+            formatted_weights[
+                f"conv_transpose2ds.{n_stage}.parametrizations.weight.original"
+            ] = transpose_weight
+
+            # Now we do the preconcat filters.
+            preconcat_weight, preconcat_bias = (
+                preconcat_params[:, :-1],
+                preconcat_params[:, -1],
+            )
+            # Reshaping
+            preconcat_weight = preconcat_weight.view(-1, self.ups_preconcat_n_params)
+            preconcat_bias = preconcat_bias.view(-1, 1)
+            formatted_weights[f"conv2ds.{n_stage}.bias"] = preconcat_bias
+            formatted_weights[f"conv2ds.{n_stage}.parametrizations.weight.original"] = (
+                preconcat_weight
+            )
+
+            weight_count += n_params_transpose + n_params_preconcat
+
+        return formatted_weights
 
 
 class HyperNetParams(BaseModel):
