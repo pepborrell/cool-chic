@@ -1,10 +1,12 @@
-from typing import OrderedDict
+from typing import Any, OrderedDict
 
 import torch
 from pydantic import BaseModel, computed_field
 from torch import nn
 from torchvision.models import resnet50
 
+from coolchic.enc.component.coolchic import CoolChicEncoder, CoolChicEncoderParameter
+from coolchic.enc.utils.parsecli import get_coolchic_param_from_args
 from coolchic.hypernet.common import ResidualBlockDown, build_mlp
 from coolchic.utils.types import DecoderConfig
 
@@ -386,4 +388,39 @@ class CoolchicHyperNet(nn.Module):
             synthesis_weights,
             arm_weights,
             upsampling_weights,
+        )
+
+
+class CoolchicNet(nn.Module):
+    def __init__(self, config: HyperNetConfig):
+        super().__init__()
+        self.config = config
+        coolchic_encoder_parameter = CoolChicEncoderParameter(
+            **get_coolchic_param_from_args(config.dec_cfg)
+        )
+
+        self.hypernet = CoolchicHyperNet(config)
+        self.cc_encoder = CoolChicEncoder(param=coolchic_encoder_parameter)
+
+    def forward(
+        self, img: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor, dict[str, Any]]:
+        latent_weights, synthesis_weights, arm_weights, upsampling_weights = (
+            self.hypernet(img)
+        )
+
+        # Replacing weights.
+        self.cc_encoder.latent_grids = latent_weights
+        self.cc_encoder.synthesis.set_hypernet_weights(synthesis_weights)
+        self.cc_encoder.arm.set_hypernet_weights(arm_weights)
+        self.cc_encoder.upsampling.set_hypernet_weights(upsampling_weights)
+
+        # TODO: get these parameters from input.
+        return self.cc_encoder(
+            quantizer_noise_type="kumaraswamy",
+            quantizer_type="softround",
+            soft_round_temperature=0.3,
+            noise_parameter=1.0,
+            AC_MAX_VAL=-1,
+            flag_additional_outputs=False,
         )
