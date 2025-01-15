@@ -1,3 +1,5 @@
+from typing import OrderedDict
+
 import torch
 from torch import nn
 
@@ -97,3 +99,43 @@ class ResidualBlockDown(nn.Module):
         z = z + y
         z = self.convnexts_post(z)
         return z
+
+
+def select_param_from_name(obj: nn.Module, name: str) -> tuple[nn.Parameter, nn.Module]:
+    """Select a parameter from a module by name, where the name
+    follows how parametes are usually named inside of nn modules.
+    """
+    split_name = name.split(".")
+    obj_parent = None
+    for sub_name in split_name:
+        if sub_name.isdigit():
+            assert isinstance(obj, list), "Indexing a non-list object."
+            obj_parent = obj
+            obj = obj[int(sub_name)]
+        else:
+            obj_parent = obj
+            obj = getattr(obj, sub_name)
+    assert isinstance(obj, nn.Parameter), "Selected object is not a parameter."
+    assert isinstance(obj_parent, nn.Module), "Selected object has no parent."
+    return obj, obj_parent
+
+
+def set_hypernet_weights(obj, all_weights: OrderedDict[str, torch.Tensor]):
+    """Set the weights coming from the hypernetwork.
+    The weights are copied so that all gradients can flow through them.
+    """
+    for name, weight in all_weights.items():
+        _, weight_parent = select_param_from_name(obj, name)
+        if name.endswith("weight"):
+            del weight_parent.weight
+            weight_parent.weight = weight
+        elif name.endswith("bias"):
+            del weight_parent.bias
+            weight_parent.bias = weight
+        elif name.endswith(
+            "original"
+        ):  # transpose convolutions are using `parametrize`.
+            del weight_parent.original
+            weight_parent.original = weight
+        else:
+            raise ValueError(f"Unknown parameter name {name}")

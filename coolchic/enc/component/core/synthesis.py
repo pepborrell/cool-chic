@@ -14,6 +14,8 @@ import torch
 import torch.nn.functional as F
 from torch import Tensor, nn
 
+from coolchic.hypernet.common import set_hypernet_weights
+
 
 class SynthesisConv2d(nn.Module):
     """Instantiate a synthesis layer applying the following operation to an
@@ -240,3 +242,6 @@ class Synthesis(nn.Module):
         for layer in self.layers.children():
             if isinstance(layer, SynthesisConv2d):
                 layer.initialize_parameters()
+
+    def set_hypernet_weights(self, all_weights: OrderedDict[str, torch.Tensor]):
+        set_hypernet_weights(self, all_weights)

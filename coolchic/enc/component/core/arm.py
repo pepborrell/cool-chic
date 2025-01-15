@@ -423,3 +423,6 @@ def _get_non_zero_pixel_ctx_index(dim_arm: int) -> Tensor:
             ]
         )
     # fmt: on
+
+    def set_hypernet_weights(self, all_weights: OrderedDict[str, torch.Tensor]):
+        set_hypernet_weights(self, all_weights)

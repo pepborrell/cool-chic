@@ -15,6 +15,8 @@ import torch.nn.utils.parametrize as parametrize
 from einops import rearrange
 from torch import Tensor, nn
 
+from coolchic.hypernet.common import set_hypernet_weights
+
 
 class _Parameterization_Symmetric_1d(nn.Module):
     """This module is not meant to be instantiated. It should rather be used
@@ -526,3 +528,6 @@ class Upsampling(nn.Module):
             self.conv_transpose2ds[i].initialize_parameters()
         for i in range(len(self.conv2ds)):
             self.conv2ds[i].initialize_parameters()
+
+    def set_hypernet_weights(self, all_weights: OrderedDict[str, torch.Tensor]):
+        set_hypernet_weights(self, all_weights)
