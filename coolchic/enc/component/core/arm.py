@@ -13,6 +13,8 @@ import torch
 import torch.nn.functional as F
 from torch import Tensor, index_select, nn
 
+from coolchic.hypernet.common import set_hypernet_weights
+
 
 class ArmLinear(nn.Module):
     """Create a Linear layer of the Auto-Regressive Module (ARM). This is a
@@ -231,6 +233,9 @@ class Arm(nn.Module):
             if isinstance(layer, ArmLinear):
                 layer.initialize_parameters()
 
+    def set_hypernet_weights(self, all_weights: OrderedDict[str, torch.Tensor]):
+        set_hypernet_weights(self, all_weights)
+
 
 def _get_neighbor(x: Tensor, mask_size: int, non_zero_pixel_ctx_idx: Tensor) -> Tensor:
     """Use the unfold function to extract the neighbors of each pixel in x.
@@ -423,6 +428,3 @@ def _get_non_zero_pixel_ctx_index(dim_arm: int) -> Tensor:
             ]
         )
     # fmt: on
-
-    def set_hypernet_weights(self, all_weights: OrderedDict[str, torch.Tensor]):
-        set_hypernet_weights(self, all_weights)
