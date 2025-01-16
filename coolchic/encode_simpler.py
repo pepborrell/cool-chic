@@ -55,7 +55,7 @@ def build_frame_encoder(param: CoolChicEncoderParameter, frame: Frame):
     )
 
 
-def get_workdir(config: RunConfig) -> Path:
+def get_workdir(config: RunConfig, config_path: Path) -> Path:
     workdir = (
         config.workdir
         if config.workdir is not None
@@ -137,7 +137,7 @@ if __name__ == "__main__":
 
     # One user config generates one or more runs, depending on the parameters specified.
     for config in user_config.get_run_configs():
-        workdir = get_workdir(config)
+        workdir = get_workdir(config, config_path)
         path_video_encoder = workdir / "video_encoder.pt"
 
         if config.load_models and os.path.exists(path_video_encoder):
