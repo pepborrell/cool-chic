@@ -132,10 +132,9 @@ def main():
 
     # Load data
     all_data = OpenImagesDataset(run_cfg.n_samples, device=device)
-    subset = all_data[:100]
-    n_train = int(len(subset) * 0.8)
-    train_data = subset[:n_train]
-    test_data = subset[n_train:]
+    n_train = int(len(all_data) * 0.8)
+    train_data = all_data[:n_train]
+    test_data = all_data[n_train:]
 
     # Train
     _ = train(

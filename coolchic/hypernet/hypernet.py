@@ -8,6 +8,7 @@ from torchvision.models import ResNet50_Weights, resnet50
 from coolchic.enc.component.coolchic import CoolChicEncoder, CoolChicEncoderParameter
 from coolchic.enc.utils.parsecli import get_coolchic_param_from_args
 from coolchic.hypernet.common import ResidualBlockDown, build_mlp
+from coolchic.metalearning.data import PATCH_SIZE
 from coolchic.utils.types import HyperNetConfig
 
 
@@ -384,6 +385,7 @@ class CoolchicWholeNet(nn.Module):
         coolchic_encoder_parameter = CoolChicEncoderParameter(
             **get_coolchic_param_from_args(config.dec_cfg)
         )
+        coolchic_encoder_parameter.set_image_size(PATCH_SIZE)
 
         self.hypernet = CoolchicHyperNet(config)
         self.cc_encoder = CoolChicEncoder(param=coolchic_encoder_parameter)
