@@ -391,7 +391,7 @@ class CoolchicHyperNet(nn.Module):
         )
 
 
-class CoolchicNet(nn.Module):
+class CoolchicWholeNet(nn.Module):
     def __init__(self, config: HyperNetConfig):
         super().__init__()
         self.config = config
