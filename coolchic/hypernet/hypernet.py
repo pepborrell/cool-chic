@@ -3,7 +3,7 @@ from typing import Any, OrderedDict
 import torch
 from pydantic import BaseModel, computed_field
 from torch import nn
-from torchvision.models import resnet50
+from torchvision.models import ResNet50_Weights, resnet50
 
 from coolchic.enc.component.coolchic import CoolChicEncoder, CoolChicEncoderParameter
 from coolchic.enc.utils.parsecli import get_coolchic_param_from_args
@@ -36,7 +36,11 @@ class LatentHyperNet(nn.Module):
         return outputs
 
 
-ConvBackbone = resnet50
+def get_backbone(pretrained: bool = True) -> nn.Module:
+    if pretrained:
+        return resnet50(weights=ResNet50_Weights.DEFAULT)
+    return resnet50()
+
 
 BACKBONE_OUTPUT_FEATURES = 2048
 
@@ -353,7 +357,7 @@ class CoolchicHyperNet(nn.Module):
 
         # Instantiate all the hypernetworks.
         self.latent_hn = LatentHyperNet(n_latents=self.config.n_latents)
-        self.hn_backbone = ConvBackbone()
+        self.hn_backbone = get_backbone(pretrained=True)
         self.synthesis_hn = SynthesisHyperNet(
             n_latents=self.config.n_latents,
             layers_dim=self.config.dec_cfg.parsed_layers_synthesis,
