@@ -1,14 +1,14 @@
 from typing import Any, OrderedDict
 
 import torch
-from pydantic import BaseModel, computed_field
+from pydantic import BaseModel
 from torch import nn
 from torchvision.models import ResNet50_Weights, resnet50
 
 from coolchic.enc.component.coolchic import CoolChicEncoder, CoolChicEncoderParameter
 from coolchic.enc.utils.parsecli import get_coolchic_param_from_args
 from coolchic.hypernet.common import ResidualBlockDown, build_mlp
-from coolchic.utils.types import DecoderConfig
+from coolchic.utils.types import HyperNetConfig
 
 
 class LatentHyperNet(nn.Module):
@@ -330,24 +330,6 @@ class UpsamplingHyperNet(nn.Module):
             weight_count += n_params_transpose + n_params_preconcat
 
         return formatted_weights
-
-
-class HyperNetParams(BaseModel):
-    hidden_dim: int
-    n_layers: int
-
-
-class HyperNetConfig(BaseModel):
-    dec_cfg: DecoderConfig
-
-    synthesis: HyperNetParams = HyperNetParams(hidden_dim=1024, n_layers=3)
-    arm: HyperNetParams = HyperNetParams(hidden_dim=1024, n_layers=3)
-    upsampling: HyperNetParams = HyperNetParams(hidden_dim=256, n_layers=1)
-
-    @computed_field
-    @property
-    def n_latents(self) -> int:
-        return len(self.dec_cfg.parsed_n_ft_per_res)
 
 
 class CoolchicHyperNet(nn.Module):

@@ -1,6 +1,7 @@
 import torch
 from torch.utils.data import Dataset
 
+from coolchic.enc.utils.misc import POSSIBLE_DEVICE
 from coolchic.metalearning.training_data import get_image_list, image_to_tensor
 
 PATCH_WIDTH = PATCH_HEIGHT = 512
@@ -8,9 +9,12 @@ PATCH_SIZE = (PATCH_HEIGHT, PATCH_WIDTH)
 
 
 class OpenImagesDataset(Dataset):
-    def __init__(self, n_images: int = 1000) -> None:
+    def __init__(
+        self, n_images: int = 1000, device: POSSIBLE_DEVICE = "cuda:0"
+    ) -> None:
         self.n_images = n_images
         self.img_ids = get_image_list(n_images)
+        self.device = device
 
     def __len__(self) -> int:
         return self.n_images
@@ -28,4 +32,4 @@ class OpenImagesDataset(Dataset):
         img_path = self.img_ids[index]
         img = image_to_tensor(img_path)
         patch = self.extract_random_patch(img)
-        return patch
+        return patch.to(self.device)

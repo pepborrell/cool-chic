@@ -267,3 +267,32 @@ class UserConfig(BaseModel):
             cur_config.unique_id = get_run_uid(len(configs))
             configs.append(cur_config)
         return configs
+
+
+class HyperNetParams(BaseModel):
+    hidden_dim: int
+    n_layers: int
+
+
+class HyperNetConfig(BaseModel):
+    dec_cfg: DecoderConfig
+
+    synthesis: HyperNetParams = HyperNetParams(hidden_dim=1024, n_layers=3)
+    arm: HyperNetParams = HyperNetParams(hidden_dim=1024, n_layers=3)
+    upsampling: HyperNetParams = HyperNetParams(hidden_dim=256, n_layers=1)
+
+    @computed_field
+    @property
+    def n_latents(self) -> int:
+        return len(self.dec_cfg.parsed_n_ft_per_res)
+
+
+class HypernetRunConfig(BaseModel):
+    n_samples: int
+    n_epochs: int
+    workdir: Path | None = None
+    lmbda: float = 1e-3
+    hypernet_cfg: HyperNetConfig
+    disable_wandb: bool = False
+    unique_id: str = get_run_uid()
+    user_tag: str | None
