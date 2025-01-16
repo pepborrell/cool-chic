@@ -138,7 +138,7 @@ def main():
     test_data = subset[n_train:]
 
     # Train
-    trained_net = train(
+    _ = train(
         train_data,
         test_data,
         config=run_cfg.hypernet_cfg,
