@@ -75,8 +75,8 @@ def evaluate_wholenet(
 
 
 def train(
-    train_data,
-    test_data,
+    train_data: list[torch.Tensor],
+    test_data: list[torch.Tensor],
     config: HyperNetConfig,
     n_epochs: int,
     lmbda: float,
@@ -147,13 +147,11 @@ def main():
     train_data = []
     for i in tqdm.tqdm(range(n_train)):
         train_data.append(all_data[i])
-    train_data = torch.stack(train_data)
 
     print("Downloading test data...")
     test_data = []
     for i in tqdm.tqdm(range(n_train, len(all_data))):
         test_data.append(all_data[i])
-    test_data = torch.stack(test_data)
 
     ##### LOGGING #####
     # Setting up all logging using wandb.
