@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 
 import torch
+import tqdm
 import yaml
 
 import wandb
@@ -141,8 +142,18 @@ def main():
     # Load data
     all_data = OpenImagesDataset(run_cfg.n_samples, device=device)
     n_train = int(len(all_data) * 0.8)
-    train_data = all_data[:n_train]
-    test_data = all_data[n_train:]
+
+    print("Downloading training data...")
+    train_data = []
+    for i in tqdm.tqdm(range(n_train)):
+        train_data.append(all_data[i])
+    train_data = torch.stack(train_data)
+
+    print("Downloading test data...")
+    test_data = []
+    for i in tqdm.tqdm(range(n_train, len(all_data))):
+        test_data.append(all_data[i])
+    test_data = torch.stack(test_data)
 
     ##### LOGGING #####
     # Setting up all logging using wandb.
