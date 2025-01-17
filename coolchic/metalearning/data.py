@@ -1,6 +1,7 @@
 import torch
 from torch.utils.data import Dataset
 
+from coolchic.enc.io.io import load_frame_data_from_tensor
 from coolchic.enc.utils.misc import POSSIBLE_DEVICE
 from coolchic.metalearning.training_data import get_image_list, image_to_tensor
 
@@ -30,7 +31,9 @@ class OpenImagesDataset(Dataset):
         img_path = self.img_ids[index]
         img = image_to_tensor(img_path)
         patch = self.extract_random_patch(img)
-        return patch.to(self.device)
+        patch_correct = load_frame_data_from_tensor(patch).data
+        assert isinstance(patch_correct, torch.Tensor)
+        return patch_correct.to(self.device)
 
     def _getitem_slice(self, indices: slice) -> torch.Tensor:
         patches = []

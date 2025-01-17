@@ -32,7 +32,11 @@ class ConvNextBlock(nn.Module):
         super().__init__()
         self.n_channels = n_channels
         self.dw_conv = nn.Conv2d(
-            self.n_channels, self.n_channels, kernel_size=7, groups=self.n_channels
+            self.n_channels,
+            self.n_channels,
+            kernel_size=7,
+            groups=self.n_channels,
+            padding="same",
         )
         self.conv1 = nn.Conv2d(
             self.n_channels, self.n_channels, kernel_size=1, padding=0
@@ -40,7 +44,7 @@ class ConvNextBlock(nn.Module):
         self.conv2 = nn.Conv2d(
             self.n_channels, self.n_channels, kernel_size=1, padding=0
         )
-        self.layer_norm = nn.LayerNorm(self.n_channels)
+        self.layer_norm = nn.GroupNorm(num_groups=1, num_channels=self.n_channels)
         self.gelu = nn.GELU()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -75,25 +79,30 @@ class ResidualBlockDown(nn.Module):
             padding=1,
         )
         self.conv1d = nn.Conv2d(
-            self.out_channels, self.out_channels, kernel_size=1, padding=0
+            self.in_channels, self.out_channels, kernel_size=1, padding=0
         )
         self.convnext_pre = ConvNextBlock(self.out_channels)
         self.convnexts_post = nn.Sequential(
             ConvNextBlock(self.out_channels), ConvNextBlock(self.out_channels)
         )
 
-        self.layer_norm = nn.LayerNorm(self.out_channels)
+        self.group_norm = nn.GroupNorm(num_groups=1, num_channels=self.out_channels)
         self.gelu = nn.GELU()
-        self.avg_pool = nn.AvgPool2d(2, stride=self.downsample_n, padding=1)
+        # In the non-downsampling case, padding is applied manually and only on the left.
+        self.pre_pool_padding = lambda x: nn.functional.pad(
+            x, (0, 1, 0, 1) if self.downsample_n == 1 else (0, 0, 0, 0)
+        )
+        self.avg_pool = nn.AvgPool2d(2, stride=self.downsample_n, padding=0)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # Branch 1
         z = self.strided_conv(x)
-        z = self.layer_norm(z)
+        z = self.group_norm(z)
         z = self.gelu(z)
         z = self.convnext_pre(z)
         # Branch 2
-        y = self.avg_pool(x)
+        y = self.pre_pool_padding(x)
+        y = self.avg_pool(y)
         y = self.conv1d(y)
         # Merge branches
         z = z + y
@@ -101,7 +110,7 @@ class ResidualBlockDown(nn.Module):
         return z
 
 
-def select_param_from_name(obj: nn.Module, name: str) -> tuple[nn.Parameter, nn.Module]:
+def select_param_from_name(obj: nn.Module, name: str) -> tuple[torch.Tensor, nn.Module]:
     """Select a parameter from a module by name, where the name
     follows how parametes are usually named inside of nn modules.
     """
@@ -109,13 +118,15 @@ def select_param_from_name(obj: nn.Module, name: str) -> tuple[nn.Parameter, nn.
     obj_parent = None
     for sub_name in split_name:
         if sub_name.isdigit():
-            assert isinstance(obj, list), "Indexing a non-list object."
             obj_parent = obj
-            obj = obj[int(sub_name)]
+            assert hasattr(obj, "__getitem__"), "Selected object is not a container."
+            obj = obj[int(sub_name)]  # pyright: ignore
         else:
             obj_parent = obj
             obj = getattr(obj, sub_name)
-    assert isinstance(obj, nn.Parameter), "Selected object is not a parameter."
+    assert isinstance(obj, torch.Tensor), (
+        "Selected object is not a tensor. " f"Got {type(obj)} instead."
+    )
     assert isinstance(obj_parent, nn.Module), "Selected object has no parent."
     return obj, obj_parent
 

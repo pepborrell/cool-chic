@@ -1,12 +1,13 @@
 import argparse
-from dataclasses import asdict
+import os
 from pathlib import Path
 
 import torch
 import yaml
 
 import wandb
-from coolchic.enc.training.loss import loss_function
+from coolchic.enc.component.coolchic import CoolChicEncoderOutput
+from coolchic.enc.training.loss import LossFunctionOutput, loss_function
 from coolchic.enc.utils.misc import POSSIBLE_DEVICE, get_best_device
 from coolchic.hypernet.hypernet import CoolchicWholeNet
 from coolchic.metalearning.data import OpenImagesDataset
@@ -31,7 +32,7 @@ def get_workdir_hypernet(config: HypernetRunConfig, config_path: Path) -> Path:
 def get_mlp_rate(net: CoolchicWholeNet) -> float:
     rate_mlp = 0.0
     rate_per_module = net.cc_encoder.get_network_rate()
-    for _, module_rate in asdict(rate_per_module).items():
+    for _, module_rate in rate_per_module.items():  # pyright: ignore
         for _, param_rate in module_rate.items():  # weight, bias
             rate_mlp += param_rate
     return rate_mlp
@@ -40,26 +41,30 @@ def get_mlp_rate(net: CoolchicWholeNet) -> float:
 def evaluate_wholenet(
     net: CoolchicWholeNet, test_data, lmbda: float
 ) -> dict[str, float]:
-    all_losses = []
+    all_losses: list[LossFunctionOutput] = []
     for test_img in test_data:
-        test_out = net(test_img)
+        raw_out, rate, add_data = net.forward(test_img)
+        test_out = CoolChicEncoderOutput(
+            raw_out=raw_out, rate=rate, additional_data=add_data
+        )
         rate_mlp = get_mlp_rate(net)
         test_loss = loss_function(
-            test_out.decoded_image,
+            test_out.raw_out,
             test_out.rate,
             test_img,
             lmbda=lmbda,
             rate_mlp_bit=rate_mlp,
-            compute_logs=False,
+            compute_logs=True,
         )
         all_losses.append(test_loss)
 
-    avg_loss = torch.mean(torch.stack([loss.loss for loss in all_losses])).item()
-    avg_mse = torch.mean(torch.stack([loss.mse for loss in all_losses])).item()
+    loss_tensor = torch.stack([loss.loss for loss in all_losses])  # pyright: ignore
+    avg_loss = torch.mean(loss_tensor).item()
+    std_loss = torch.std(loss_tensor).item()
+    avg_mse = torch.mean(torch.tensor([loss.mse for loss in all_losses])).item()
     avg_total_rate_bpp = torch.mean(
-        torch.stack([loss.total_rate_bpp for loss in all_losses])
+        torch.tensor([loss.total_rate_bpp for loss in all_losses])
     ).item()
-    std_loss = torch.std(torch.stack([loss.loss for loss in all_losses])).item()
     return {
         "test_loss": avg_loss,
         "test_mse": avg_mse,
@@ -83,9 +88,12 @@ def train(
 
     for epoch in range(n_epochs):
         for i, img in enumerate(train_data):
-            out_forward = wholenet(img)
+            raw_out, rate, add_data = wholenet.forward(img)
+            out_forward = CoolChicEncoderOutput(
+                raw_out=raw_out, rate=rate, additional_data=add_data
+            )
             loss_function_output = loss_function(
-                out_forward.decoded_image,
+                out_forward.raw_out,
                 out_forward.rate,
                 img,
                 lmbda=lmbda,
@@ -135,6 +143,16 @@ def main():
     n_train = int(len(all_data) * 0.8)
     train_data = all_data[:n_train]
     test_data = all_data[n_train:]
+
+    ##### LOGGING #####
+    # Setting up all logging using wandb.
+    if run_cfg.disable_wandb:
+        # To disable wandb completely.
+        os.environ["WANDB_MODE"] = "disabled"
+    else:
+        os.environ["WANDB_MODE"] = "online"
+    # Start wandb logging.
+    wandb.init(project="coolchic-runs", config=run_cfg.model_dump())
 
     # Train
     _ = train(

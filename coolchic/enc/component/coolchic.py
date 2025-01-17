@@ -283,8 +283,8 @@ class CoolChicEncoder(nn.Module):
         self,
         quantizer_noise_type: POSSIBLE_QUANTIZATION_NOISE_TYPE = "kumaraswamy",
         quantizer_type: POSSIBLE_QUANTIZER_TYPE = "softround",
-        soft_round_temperature: Optional[float] = 0.3,
-        noise_parameter: Optional[float] = 1.0,
+        soft_round_temperature: Optional[Tensor] = torch.tensor(0.3),
+        noise_parameter: Optional[Tensor] = torch.tensor(1.0),
         AC_MAX_VAL: int = -1,
         flag_additional_outputs: bool = False,
     ) -> tuple[Tensor, Tensor, dict[str, Any]]:

@@ -17,7 +17,7 @@ class LatentHyperNet(nn.Module):
         super().__init__()
         self.n_latents = n_latents
 
-        self.residuals = nn.ModuleList(
+        self.residual_blocks = nn.ModuleList(
             [
                 ResidualBlockDown(64, 64, downsample_n=2)
                 if i > 0
@@ -32,15 +32,19 @@ class LatentHyperNet(nn.Module):
     def forward(self, x: torch.Tensor) -> list[torch.Tensor]:
         outputs = []
         for i in range(self.n_latents):
-            x = self.residuals[i](x)
+            x = self.residual_blocks[i](x)
             outputs.append(self.conv1ds[i](x))
         return outputs
 
 
 def get_backbone(pretrained: bool = True) -> nn.Module:
     if pretrained:
-        return resnet50(weights=ResNet50_Weights.DEFAULT)
-    return resnet50()
+        model = resnet50(weights=ResNet50_Weights.DEFAULT)
+    else:
+        model = resnet50()
+    # We want to extract the features, so we remove the final fc layer.
+    model = torch.nn.Sequential(*list(model.children())[:-1], nn.Flatten(start_dim=1))
+    return model
 
 
 BACKBONE_OUTPUT_FEATURES = 2048
@@ -129,10 +133,8 @@ class SynthesisHyperNet(nn.Module):
                 layer_params[:, -layer.out_ft :],
             )
             # Reshaping
-            weight = weight.view(
-                -1, layer.out_ft, layer.in_ft, layer.k_size, layer.k_size
-            )
-            bias = bias.view(-1, layer.out_ft)
+            weight = weight.view(layer.out_ft, layer.in_ft, layer.k_size, layer.k_size)
+            bias = bias.view(layer.out_ft)
             # Adding to the dictionary
             layer_name = f"layers.{2*layer_num}"  # Multiply by 2 because of the non-linearity layers.
             formatted_weights[f"{layer_name}.weight"] = weight
@@ -193,20 +195,22 @@ class ArmHyperNet(nn.Module):
 
     def shape_outputs(self, x: torch.Tensor) -> OrderedDict[str, torch.Tensor]:
         """Reshape the output of the hypernetwork to match the shape of the arm mlp layers."""
+        # Batch dimension shouldn't be there when passing to the model.
+        x = x.squeeze(0)
+
         weight_count = 0
         formatted_weights = OrderedDict()
         for layer in range(self.n_hidden_layers):
             # Select weights for the current layer.
             n_params = self.dim_arm * self.dim_arm + self.dim_arm
-            layer_params = x[:, weight_count : weight_count + n_params]
+            layer_params = x[weight_count : weight_count + n_params]
             weight, bias = (
-                layer_params[:, : -self.dim_arm],
-                layer_params[:, -self.dim_arm :],
+                layer_params[: -self.dim_arm],
+                layer_params[-self.dim_arm :],
             )
             # Reshaping
-            weight = weight.view(-1, self.dim_arm, self.dim_arm)
-            bias = bias.view(-1, self.dim_arm)
-            weight_count += n_params
+            weight = weight.view(self.dim_arm, self.dim_arm)
+            bias = bias.view(self.dim_arm)
 
             # Adding to the dictionary
             layer_name = f"mlp.{2*layer}"  # Multiplying by 2 because we have activations interleaved.
@@ -217,11 +221,15 @@ class ArmHyperNet(nn.Module):
 
         # Output layer
         n_params = self.dim_arm * 2 + 2
-        layer_params = x[:, weight_count : weight_count + n_params]
+        layer_params = x[weight_count : weight_count + n_params]
         weight, bias = (
-            layer_params[:, :-2],
-            layer_params[:, -2:],
+            layer_params[:-2],
+            layer_params[-2:],
         )
+        # Reshaping
+        weight = weight.view(2, self.dim_arm)
+        bias = bias.view(2)
+
         formatted_weights[f"mlp.{2*self.n_hidden_layers}.weight"] = weight
         formatted_weights[f"mlp.{2*self.n_hidden_layers}.bias"] = bias
 
@@ -308,8 +316,8 @@ class UpsamplingHyperNet(nn.Module):
                 transpose_params[:, -1],
             )
             # Reshaping
-            transpose_weight = transpose_weight.view(-1, self.ups_n_params)
-            transpose_bias = transpose_bias.view(-1, 1)
+            transpose_weight = transpose_weight.view(self.ups_n_params)
+            transpose_bias = transpose_bias.view(1)
             formatted_weights[f"conv_transpose2ds.{n_stage}.bias"] = transpose_bias
             formatted_weights[
                 f"conv_transpose2ds.{n_stage}.parametrizations.weight.original"
@@ -321,8 +329,8 @@ class UpsamplingHyperNet(nn.Module):
                 preconcat_params[:, -1],
             )
             # Reshaping
-            preconcat_weight = preconcat_weight.view(-1, self.ups_preconcat_n_params)
-            preconcat_bias = preconcat_bias.view(-1, 1)
+            preconcat_weight = preconcat_weight.view(self.ups_preconcat_n_params)
+            preconcat_bias = preconcat_bias.view(1)
             formatted_weights[f"conv2ds.{n_stage}.bias"] = preconcat_bias
             formatted_weights[f"conv2ds.{n_stage}.parametrizations.weight.original"] = (
                 preconcat_weight
@@ -363,18 +371,23 @@ class CoolchicHyperNet(nn.Module):
 
     def forward(
         self, img: torch.Tensor
-    ) -> tuple[list[torch.Tensor], torch.Tensor, torch.Tensor, torch.Tensor]:
+    ) -> tuple[
+        list[torch.Tensor],
+        OrderedDict[str, torch.Tensor],
+        OrderedDict[str, torch.Tensor],
+        OrderedDict[str, torch.Tensor],
+    ]:
         """This strings together all hypernetwork components."""
         latent_weights = self.latent_hn(img)
-        features = self.hn_backbone(latent_weights)
+        features = self.hn_backbone(img)
         synthesis_weights = self.synthesis_hn(features)
         arm_weights = self.arm_hn(features)
         upsampling_weights = self.upsampling_hn(features)
         return (
             latent_weights,
-            synthesis_weights,
-            arm_weights,
-            upsampling_weights,
+            self.synthesis_hn.shape_outputs(synthesis_weights),
+            self.arm_hn.shape_outputs(arm_weights),
+            self.upsampling_hn.shape_output(upsampling_weights),
         )
 
 
@@ -396,19 +409,23 @@ class CoolchicWholeNet(nn.Module):
         latent_weights, synthesis_weights, arm_weights, upsampling_weights = (
             self.hypernet(img)
         )
-
         # Replacing weights.
-        self.cc_encoder.latent_grids = latent_weights
         self.cc_encoder.synthesis.set_hypernet_weights(synthesis_weights)
         self.cc_encoder.arm.set_hypernet_weights(arm_weights)
         self.cc_encoder.upsampling.set_hypernet_weights(upsampling_weights)
 
+        # Replace latents, they are not exactly like a module's weights.
+        self.cc_encoder.size_per_latent = [
+            (1, *lat.shape[-3:]) for lat in latent_weights
+        ]
+        self.cc_encoder.latent_grids = nn.ParameterList(latent_weights)
+
         # TODO: get these parameters from input.
-        return self.cc_encoder(
+        return self.cc_encoder.forward(
             quantizer_noise_type="kumaraswamy",
             quantizer_type="softround",
-            soft_round_temperature=0.3,
-            noise_parameter=1.0,
+            soft_round_temperature=torch.tensor(0.3),
+            noise_parameter=torch.tensor(1.0),
             AC_MAX_VAL=-1,
             flag_additional_outputs=False,
         )
