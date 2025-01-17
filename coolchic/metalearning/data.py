@@ -23,6 +23,9 @@ class OpenImagesDataset(Dataset):
         h, w = img.shape[-2:]
         # Set random seed for reproducibility.
         torch.manual_seed(1999)
+        if h < PATCH_HEIGHT or w < PATCH_WIDTH:
+            # Work with the full image if it is too small.
+            return img
         i = torch.randint(0, h - PATCH_HEIGHT, (1,)).item()
         j = torch.randint(0, w - PATCH_WIDTH, (1,)).item()
         return img[..., i : i + PATCH_HEIGHT, j : j + PATCH_WIDTH]
