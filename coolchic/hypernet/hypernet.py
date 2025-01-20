@@ -430,3 +430,11 @@ class CoolchicWholeNet(nn.Module):
             AC_MAX_VAL=-1,
             flag_additional_outputs=False,
         )
+
+    def freeze_resnet(self):
+        for param in self.hypernet.hn_backbone.parameters():
+            param.requires_grad = False
+
+    def unfreeze_resnet(self):
+        for param in self.hypernet.hn_backbone.parameters():
+            param.requires_grad = True

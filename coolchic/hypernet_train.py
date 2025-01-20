@@ -83,12 +83,19 @@ def train(
     lmbda: float,
     workdir: Path,
     device: POSSIBLE_DEVICE,
+    start_lr: float = 1e-2,
 ):
     wholenet = CoolchicWholeNet(config)
     wholenet.to(device)
-    optimizer = torch.optim.Adam(wholenet.parameters(), lr=1e-3)
+    optimizer = torch.optim.Adam(wholenet.parameters(), lr=start_lr)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        optimizer, n_epochs, eta_min=1e-5
+    )
 
+    wholenet.freeze_resnet()
     for epoch in range(n_epochs):
+        if epoch > 0:
+            wholenet.unfreeze_resnet()
         for i, img in enumerate(train_data):
             img = img.to(device)
             raw_out, rate, add_data = wholenet.forward(img)
@@ -109,20 +116,31 @@ def train(
             ), "Loss is not a tensor"
             loss_function_output.loss.backward()
             optimizer.step()
-            optimizer.zero_grad()
+            # Logging training numbers.
+            wandb.log(
+                {
+                    "epoch": epoch,
+                    "iteration": i,
+                    "train_loss": loss_function_output.loss.item(),
+                    "train_mse": loss_function_output.mse,
+                    "train_total_rate_bpp": loss_function_output.total_rate_bpp,
+                    "train_psnr_db": loss_function_output.psnr_db,
+                }
+            )
 
             if i % 20 == 0:
                 # Evaluate on test data
                 eval_results = evaluate_wholenet(
                     wholenet, test_data, lmbda=lmbda, device=device
                 )
-                print(f"Epoch {epoch}, iteration {i}:")
                 print(eval_results)
                 wandb.log({"epoch": epoch, "iteration": i, **eval_results})
 
                 # Save model
                 save_path = workdir / f"epoch_{epoch}_it_{i}.pt"
                 torch.save(wholenet.state_dict(), save_path)
+
+        scheduler.step()
 
     return wholenet
 
