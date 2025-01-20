@@ -1,9 +1,14 @@
 import torch
+import torchvision
 from torch.utils.data import Dataset
 
 from coolchic.enc.io.io import load_frame_data_from_tensor
 from coolchic.enc.utils.misc import POSSIBLE_DEVICE
-from coolchic.metalearning.training_data import get_image_list, image_to_tensor
+from coolchic.metalearning.training_data import (
+    download_image_to_tensor,
+    get_image_list,
+    get_image_save_path,
+)
 
 PATCH_WIDTH = PATCH_HEIGHT = 512
 PATCH_SIZE = (PATCH_HEIGHT, PATCH_WIDTH)
@@ -32,7 +37,13 @@ class OpenImagesDataset(Dataset):
 
     def _getitem_one(self, index: int) -> torch.Tensor:
         img_path = self.img_ids[index]
-        img = image_to_tensor(img_path)
+        # Check if we have it downloaded.
+        save_path = get_image_save_path(img_path)
+        if save_path.exists():
+            # Load image from filesystem to tensor.
+            img = torchvision.io.read_image(str(save_path))
+        else:
+            img = download_image_to_tensor(img_path)
         patch = self.extract_random_patch(img)
         patch_correct = load_frame_data_from_tensor(patch).data
         assert isinstance(patch_correct, torch.Tensor)

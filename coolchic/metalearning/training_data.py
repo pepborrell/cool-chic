@@ -81,7 +81,7 @@ def download_all_images(
     progress_bar.close()
 
 
-def image_to_tensor(image_path: str) -> torch.Tensor:
+def download_image_to_tensor(image_path: str) -> torch.Tensor:
     s3_client = boto3.client(
         "s3", config=botocore.config.Config(signature_version=botocore.UNSIGNED)
     )
@@ -138,6 +138,10 @@ def get_image_list(n_images: int = 100) -> list[str]:
     return img_list
 
 
+def get_image_save_path(image_name: str) -> Path:
+    return OPENIMAGES_DOWNLOAD_PATH / f"{image_name.split('/')[1]}.jpg"
+
+
 def select_download_all_images(n_images: int = 100) -> list[Path]:
     """Downloads a subset of images from the Open Images dataset."""
     OPENIMAGES_DOWNLOAD_PATH.mkdir(parents=True, exist_ok=True)
@@ -147,10 +151,7 @@ def select_download_all_images(n_images: int = 100) -> list[Path]:
         input_image_list=img_list,
         num_processes=4,
     )
-    return [
-        OPENIMAGES_DOWNLOAD_PATH / f"{img_name.split('/')[1]}.jpg"
-        for img_name in img_list
-    ]
+    return [get_image_save_path(img_name) for img_name in img_list]
 
 
 if __name__ == "__main__":
