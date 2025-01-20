@@ -12,10 +12,11 @@ from typing import Tuple
 
 import torch
 from einops import rearrange
-from enc.io.format.data_type import POSSIBLE_BITDEPTH
 from PIL import Image
 from torch import Tensor
 from torchvision.transforms.functional import to_pil_image, to_tensor
+
+from coolchic.enc.io.format.data_type import POSSIBLE_BITDEPTH
 
 
 def read_png(file_path: str) -> Tuple[Tensor, POSSIBLE_BITDEPTH]:

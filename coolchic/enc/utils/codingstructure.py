@@ -12,10 +12,15 @@ import math
 from dataclasses import dataclass, field
 from typing import List, Literal, Optional, Tuple, Union
 
-from enc.io.format.data_type import FRAME_DATA_TYPE, POSSIBLE_BITDEPTH
-from enc.io.format.yuv import DictTensorYUV, convert_420_to_444, yuv_dict_to_device
-from enc.utils.misc import POSSIBLE_DEVICE
 from torch import Tensor
+
+from coolchic.enc.io.format.data_type import FRAME_DATA_TYPE, POSSIBLE_BITDEPTH
+from coolchic.enc.io.format.yuv import (
+    DictTensorYUV,
+    convert_420_to_444,
+    yuv_dict_to_device,
+)
+from coolchic.enc.utils.misc import POSSIBLE_DEVICE
 
 # The different frame types:
 #       - I frames have no reference (intra)
