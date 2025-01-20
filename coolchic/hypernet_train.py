@@ -94,6 +94,7 @@ def train(
 
     wholenet.freeze_resnet()
     for epoch in range(n_epochs):
+        train_losses = []
         if epoch > 0:
             wholenet.unfreeze_resnet()
         for i, img in enumerate(train_data):
@@ -108,7 +109,7 @@ def train(
                 img,
                 lmbda=lmbda,
                 rate_mlp_bit=0.0,
-                compute_logs=False,
+                compute_logs=True,
             )
             optimizer.zero_grad()
             assert isinstance(
@@ -117,7 +118,7 @@ def train(
             loss_function_output.loss.backward()
             optimizer.step()
             # Logging training numbers.
-            wandb.log(
+            train_losses.append(
                 {
                     "epoch": epoch,
                     "iteration": i,
@@ -129,12 +130,29 @@ def train(
             )
 
             if i % 20 == 0:
+                # Average train losses.
+                train_losses_avg = {
+                    "train_loss": torch.mean(
+                        torch.tensor([loss["train_loss"] for loss in train_losses])
+                    ),
+                    "train_mse": torch.mean(
+                        torch.tensor([loss["train_mse"] for loss in train_losses])
+                    ),
+                    "train_total_rate_bpp": torch.mean(
+                        torch.tensor(
+                            [loss["train_total_rate_bpp"] for loss in train_losses]
+                        )
+                    ),
+                }
+                train_losses = []
                 # Evaluate on test data
                 eval_results = evaluate_wholenet(
                     wholenet, test_data, lmbda=lmbda, device=device
                 )
                 print(eval_results)
-                wandb.log({"epoch": epoch, "iteration": i, **eval_results})
+                wandb.log(
+                    {"epoch": epoch, "iteration": i, **train_losses_avg, **eval_results}
+                )
 
                 # Save model
                 save_path = workdir / f"epoch_{epoch}_it_{i}.pt"
