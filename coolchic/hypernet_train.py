@@ -83,7 +83,7 @@ def train(
     lmbda: float,
     workdir: Path,
     device: POSSIBLE_DEVICE,
-    start_lr: float = 1e-2,
+    start_lr: float = 1e-3,
 ):
     wholenet = CoolchicWholeNet(config)
     wholenet.to(device)
