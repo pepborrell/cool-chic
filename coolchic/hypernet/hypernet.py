@@ -3,7 +3,7 @@ from typing import Any, OrderedDict
 import torch
 from pydantic import BaseModel
 from torch import nn
-from torchvision.models import ResNet50_Weights, resnet50
+from torchvision.models import ResNet18_Weights, resnet18
 
 from coolchic.enc.component.coolchic import CoolChicEncoder, CoolChicEncoderParameter
 from coolchic.enc.utils.parsecli import get_coolchic_param_from_args
@@ -39,9 +39,9 @@ class LatentHyperNet(nn.Module):
 
 def get_backbone(pretrained: bool = True) -> nn.Module:
     if pretrained:
-        model = resnet50(weights=ResNet50_Weights.DEFAULT)
+        model = resnet18(weights=ResNet18_Weights.DEFAULT)
     else:
-        model = resnet50()
+        model = resnet18()
     # We want to extract the features, so we remove the final fc layer.
     model = torch.nn.Sequential(*list(model.children())[:-1], nn.Flatten(start_dim=1))
     return model
