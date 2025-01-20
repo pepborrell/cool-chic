@@ -40,11 +40,11 @@ def get_mlp_rate(net: CoolchicWholeNet) -> float:
 
 
 def evaluate_wholenet(
-    net: CoolchicWholeNet, test_data, lmbda: float
+    net: CoolchicWholeNet, test_data, lmbda: float, device: POSSIBLE_DEVICE
 ) -> dict[str, float]:
     all_losses: list[LossFunctionOutput] = []
     for test_img in test_data:
-        test_img = test_img.to(net.device)
+        test_img = test_img.to(device)
         raw_out, rate, add_data = net.forward(test_img)
         test_out = CoolChicEncoderOutput(
             raw_out=raw_out, rate=rate, additional_data=add_data
@@ -113,7 +113,9 @@ def train(
 
             if i % 20 == 0:
                 # Evaluate on test data
-                eval_results = evaluate_wholenet(wholenet, test_data, lmbda=lmbda)
+                eval_results = evaluate_wholenet(
+                    wholenet, test_data, lmbda=lmbda, device=device
+                )
                 print(f"Epoch {epoch}, iteration {i}:")
                 print(eval_results)
                 wandb.log({"epoch": epoch, "iteration": i, **eval_results})
