@@ -41,7 +41,9 @@ class OpenImagesDataset(Dataset):
         save_path = get_image_save_path(img_path)
         if save_path.exists():
             # Load image from filesystem to tensor.
-            img = torchvision.io.read_image(str(save_path))
+            img = torchvision.io.decode_image(
+                str(save_path), mode=torchvision.io.ImageReadMode.RGB
+            )
         else:
             img = download_image_to_tensor(img_path)
         patch = self.extract_random_patch(img)
