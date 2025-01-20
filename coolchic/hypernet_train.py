@@ -89,6 +89,7 @@ def train(
 
     for epoch in range(n_epochs):
         for i, img in enumerate(train_data):
+            img = img.to(device)
             raw_out, rate, add_data = wholenet.forward(img)
             out_forward = CoolChicEncoderOutput(
                 raw_out=raw_out, rate=rate, additional_data=add_data
@@ -107,6 +108,7 @@ def train(
             ), "Loss is not a tensor"
             loss_function_output.loss.backward()
             optimizer.step()
+            optimizer.zero_grad()
 
             if i % 20 == 0:
                 # Evaluate on test data
@@ -140,7 +142,7 @@ def main():
     print(f'{"Device":<20}: {device}')
 
     # Load data
-    all_data = OpenImagesDataset(run_cfg.n_samples, device=device)
+    all_data = OpenImagesDataset(run_cfg.n_samples)
     n_train = int(len(all_data) * 0.8)
 
     print("Downloading training data...")

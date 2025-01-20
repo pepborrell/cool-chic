@@ -3,7 +3,6 @@ import torchvision
 from torch.utils.data import Dataset
 
 from coolchic.enc.io.io import load_frame_data_from_tensor
-from coolchic.enc.utils.misc import POSSIBLE_DEVICE
 from coolchic.metalearning.training_data import (
     download_image_to_tensor,
     get_image_list,
@@ -15,10 +14,9 @@ PATCH_SIZE = (PATCH_HEIGHT, PATCH_WIDTH)
 
 
 class OpenImagesDataset(Dataset):
-    def __init__(self, n_images: int = 1000, device: POSSIBLE_DEVICE = "cpu") -> None:
+    def __init__(self, n_images: int = 1000) -> None:
         self.n_images = n_images
         self.img_ids = get_image_list(n_images)
-        self.device = device
 
     def __len__(self) -> int:
         return self.n_images
@@ -49,7 +47,7 @@ class OpenImagesDataset(Dataset):
         patch = self.extract_random_patch(img)
         patch_correct = load_frame_data_from_tensor(patch).data
         assert isinstance(patch_correct, torch.Tensor)
-        return patch_correct.to(self.device)
+        return patch_correct
 
     def _getitem_slice(self, indices: slice) -> torch.Tensor:
         patches = []
