@@ -47,7 +47,8 @@ def get_backbone(pretrained: bool = True) -> nn.Module:
     return model
 
 
-BACKBONE_OUTPUT_FEATURES = 2048
+# BACKBONE_OUTPUT_FEATURES = 2048  # Was valid for ResNet50, not for 18.
+BACKBONE_OUTPUT_FEATURES = 512  # Valid for ResNet18.
 
 
 class SynthesisLayerInfo(BaseModel):
