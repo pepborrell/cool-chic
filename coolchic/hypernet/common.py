@@ -89,10 +89,14 @@ class ResidualBlockDown(nn.Module):
         self.group_norm = nn.GroupNorm(num_groups=1, num_channels=self.out_channels)
         self.gelu = nn.GELU()
         # In the non-downsampling case, padding is applied manually and only on the left.
-        self.pre_pool_padding = lambda x: nn.functional.pad(
-            x, (0, 1, 0, 1) if self.downsample_n == 1 else (0, 0, 0, 0)
+        self.pre_pool_padding = (
+            lambda x: nn.functional.pad(x, (1, 0, 1, 0))
+            if self.downsample_n == 1
+            else x
         )
-        self.avg_pool = nn.AvgPool2d(2, stride=self.downsample_n, padding=0)
+        self.avg_pool = nn.AvgPool2d(
+            2, stride=self.downsample_n, padding=0, ceil_mode=True
+        )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # Branch 1
