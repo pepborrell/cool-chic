@@ -5,6 +5,7 @@ venv/
 *.pyc
 *.pt
 *.png
+*.jpg
 *.out
 wandb/
 results/exps/
