@@ -9,7 +9,7 @@ from coolchic.metalearning.training_data import (
     get_image_save_path,
 )
 
-PATCH_WIDTH = PATCH_HEIGHT = 512
+PATCH_WIDTH = PATCH_HEIGHT = 256
 PATCH_SIZE = (PATCH_HEIGHT, PATCH_WIDTH)
 
 
