@@ -15,6 +15,7 @@ hypernet_cfg:
   upsampling:
     hidden_dim: 256
     n_layers: 1
+  backbone_arch: resnet18
   
   dec_cfg:
     config_name: hop

@@ -1,9 +1,9 @@
-from typing import Any, OrderedDict
+from typing import Any, Literal, OrderedDict
 
 import torch
 from pydantic import BaseModel
 from torch import nn
-from torchvision.models import ResNet18_Weights, resnet18
+from torchvision.models import ResNet18_Weights, ResNet50_Weights, resnet18, resnet50
 
 from coolchic.enc.component.coolchic import CoolChicEncoder, CoolChicEncoderParameter
 from coolchic.enc.utils.parsecli import get_coolchic_param_from_args
@@ -37,18 +37,18 @@ class LatentHyperNet(nn.Module):
         return outputs
 
 
-def get_backbone(pretrained: bool = True) -> nn.Module:
-    if pretrained:
-        model = resnet18(weights=ResNet18_Weights.DEFAULT)
-    else:
-        model = resnet18()
+def get_backbone(
+    pretrained: bool = True, arch: Literal["resnet18", "resnet50"] = "resnet18"
+) -> tuple[nn.Module, int]:
+    if arch == "resnet18":
+        model = resnet18(weights=ResNet18_Weights.DEFAULT if pretrained else None)
+        n_output_features = 512
+    elif arch == "resnet50":
+        model = resnet50(weights=ResNet50_Weights.DEFAULT if pretrained else None)
+        n_output_features = 2048
     # We want to extract the features, so we remove the final fc layer.
     model = torch.nn.Sequential(*list(model.children())[:-1], nn.Flatten(start_dim=1))
-    return model
-
-
-# BACKBONE_OUTPUT_FEATURES = 2048  # Was valid for ResNet50, not for 18.
-BACKBONE_OUTPUT_FEATURES = 512  # Valid for ResNet18.
+    return model, n_output_features
 
 
 class SynthesisLayerInfo(BaseModel):
@@ -66,11 +66,12 @@ class SynthesisHyperNet(nn.Module):
         self,
         n_latents: int,
         layers_dim: list[str],
+        n_input_features: int,
         hypernet_hidden_dim: int,
         hypernet_n_layers: int,
     ) -> None:
         super().__init__()
-        self.n_input_features = BACKBONE_OUTPUT_FEATURES
+        self.n_input_features = n_input_features
 
         self.n_latents = n_latents
         self.layers_dim = layers_dim
@@ -153,6 +154,7 @@ class ArmHyperNet(nn.Module):
         self,
         dim_arm: int,
         n_hidden_layers: int,
+        n_input_features: int,
         hypernet_hidden_dim: int,
         hypernet_n_layers: int,
     ) -> None:
@@ -164,7 +166,7 @@ class ArmHyperNet(nn.Module):
                 a linear ARM.
         """
         super().__init__()
-        self.n_input_features = BACKBONE_OUTPUT_FEATURES
+        self.n_input_features = n_input_features
 
         self.dim_arm = dim_arm
         self.n_hidden_layers = n_hidden_layers
@@ -248,11 +250,12 @@ class UpsamplingHyperNet(nn.Module):
         n_latents: int,
         ups_k_size: int,
         ups_preconcat_k_size: int,
+        n_input_features: int,
         hypernet_hidden_dim: int,
         hypernet_n_layers: int,
     ):
         super().__init__()
-        self.n_input_features = BACKBONE_OUTPUT_FEATURES
+        self.n_input_features = n_input_features
 
         self.ups_k_size = ups_k_size
         self.ups_n_params = self.symmetric_filter_n_params_from_target(ups_k_size)
@@ -349,16 +352,20 @@ class CoolchicHyperNet(nn.Module):
 
         # Instantiate all the hypernetworks.
         self.latent_hn = LatentHyperNet(n_latents=self.config.n_latents)
-        self.hn_backbone = get_backbone(pretrained=True)
+        self.hn_backbone, backbone_n_features = get_backbone(
+            pretrained=True, arch=config.backbone_arch
+        )
         self.synthesis_hn = SynthesisHyperNet(
             n_latents=self.config.n_latents,
             layers_dim=self.config.dec_cfg.parsed_layers_synthesis,
+            n_input_features=backbone_n_features,
             hypernet_hidden_dim=self.config.synthesis.hidden_dim,
             hypernet_n_layers=self.config.synthesis.n_layers,
         )
         self.arm_hn = ArmHyperNet(
             dim_arm=self.config.dec_cfg.dim_arm,
             n_hidden_layers=self.config.dec_cfg.n_hidden_layers_arm,
+            n_input_features=backbone_n_features,
             hypernet_hidden_dim=self.config.arm.hidden_dim,
             hypernet_n_layers=self.config.arm.n_layers,
         )
@@ -366,6 +373,7 @@ class CoolchicHyperNet(nn.Module):
             n_latents=self.config.n_latents,
             ups_k_size=self.config.dec_cfg.ups_k_size,
             ups_preconcat_k_size=self.config.dec_cfg.ups_preconcat_k_size,
+            n_input_features=backbone_n_features,
             hypernet_hidden_dim=self.config.upsampling.hidden_dim,
             hypernet_n_layers=self.config.upsampling.n_layers,
         )
