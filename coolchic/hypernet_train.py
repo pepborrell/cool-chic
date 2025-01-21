@@ -95,7 +95,7 @@ def train(
     wholenet.freeze_resnet()
     for epoch in range(n_epochs):
         train_losses = []
-        if epoch > 0:
+        if epoch > 5:
             wholenet.unfreeze_resnet()
         for i, img in enumerate(train_data):
             img = img.to(device)
