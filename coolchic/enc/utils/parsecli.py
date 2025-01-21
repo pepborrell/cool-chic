@@ -10,7 +10,7 @@
 from pathlib import Path
 from typing import Any, Dict, List
 
-from utils.types import DecoderConfig, RunConfig
+from coolchic.utils.types import DecoderConfig, RunConfig
 
 
 # ----- Arguments related to Cool-chic parameters

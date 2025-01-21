@@ -12,29 +12,30 @@ from dataclasses import dataclass, field, fields
 from typing import Any, Dict, List, Optional, OrderedDict, Tuple
 
 import torch
-from enc.component.core.arm import (
+from fvcore.nn import FlopCountAnalysis, flop_count_table
+from torch import Tensor, nn
+
+from coolchic.enc.component.core.arm import (
     Arm,
     _get_neighbor,
     _get_non_zero_pixel_ctx_index,
     _laplace_cdf,
 )
-from enc.component.core.quantizer import (
+from coolchic.enc.component.core.quantizer import (
     POSSIBLE_QUANTIZATION_NOISE_TYPE,
     POSSIBLE_QUANTIZER_TYPE,
     quantize,
 )
-from enc.component.core.synthesis import Synthesis
-from enc.component.core.upsampling import Upsampling
-from enc.utils.misc import (
+from coolchic.enc.component.core.synthesis import Synthesis
+from coolchic.enc.component.core.upsampling import Upsampling
+from coolchic.enc.utils.misc import (
     MAX_ARM_MASK_SIZE,
     POSSIBLE_DEVICE,
     DescriptorCoolChic,
     DescriptorNN,
     measure_expgolomb_rate,
 )
-from enc.visu.console import pretty_string_nn, pretty_string_ups
-from fvcore.nn import FlopCountAnalysis, flop_count_table
-from torch import Tensor, nn
+from coolchic.enc.visu.console import pretty_string_nn, pretty_string_ups
 
 """A cool-chic encoder is composed of:
     - A set of 2d hierarchical latent grids
