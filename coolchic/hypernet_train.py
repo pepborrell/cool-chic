@@ -24,7 +24,6 @@ def get_workdir_hypernet(config: HypernetRunConfig, config_path: Path) -> Path:
         else COOLCHIC_REPO_ROOT
         / "results"
         / config_path.relative_to("cfg").with_suffix("")
-        / config.unique_id  # unique id to distinguish different runs launched by the same config.
     )
     workdir.mkdir(parents=True, exist_ok=True)
     return workdir
