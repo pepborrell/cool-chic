@@ -5,6 +5,7 @@ from pathlib import Path
 import torch
 import tqdm
 import yaml
+from torch import nn
 
 import wandb
 from coolchic.enc.component.coolchic import CoolChicEncoderOutput
@@ -29,7 +30,7 @@ def get_workdir_hypernet(config: HypernetRunConfig, config_path: Path) -> Path:
     return workdir
 
 
-def get_mlp_rate(net: CoolchicWholeNet) -> float:
+def get_mlp_rate(net: CoolchicWholeNet | nn.DataParallel[CoolchicWholeNet]) -> float:
     rate_mlp = 0.0
     rate_per_module = net.cc_encoder.get_network_rate()
     for _, module_rate in rate_per_module.items():  # pyright: ignore
@@ -39,7 +40,10 @@ def get_mlp_rate(net: CoolchicWholeNet) -> float:
 
 
 def evaluate_wholenet(
-    net: CoolchicWholeNet, test_data, lmbda: float, device: POSSIBLE_DEVICE
+    net: CoolchicWholeNet | nn.DataParallel[CoolchicWholeNet],
+    test_data,
+    lmbda: float,
+    device: POSSIBLE_DEVICE,
 ) -> dict[str, float]:
     all_losses: list[LossFunctionOutput] = []
     for test_img in test_data:
@@ -85,7 +89,11 @@ def train(
     start_lr: float = 1e-3,
 ):
     wholenet = CoolchicWholeNet(config)
-    wholenet.to(device)
+    if torch.cuda.is_available():
+        wholenet = nn.DataParallel(wholenet)  # Wrap model in DataParallel
+        wholenet = wholenet.cuda()
+    else:
+        wholenet.to(device)
     optimizer = torch.optim.Adam(wholenet.parameters(), lr=start_lr)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
         optimizer, n_epochs, eta_min=1e-5
