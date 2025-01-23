@@ -124,12 +124,14 @@ def get_image_list(n_images: int = 100) -> list[str]:
     """Returns a list of the selected images to download from
     the Open Images dataset.
     """
-    # Download from https://storage.googleapis.com/openimages/2018_04/train/train-images-boxable-with-rotation.csv
-    img_list_path = DATA_DIR / "metalearning" / "train-images-boxable-with-rotation.csv"
+    # Download from https://storage.googleapis.com/openimages/v6/oidv6-train-images-with-labels-with-rotation.csv
+    img_list_path = (
+        DATA_DIR / "metalearning" / "oidv6-train-images-with-labels-with-rotation.csv"
+    )
     assert img_list_path.exists(), (
         "Training images list not found. "
         "Please download it from "
-        "https://storage.googleapis.com/openimages/2018_04/train/train-images-boxable-with-rotation.csv"
+        "https://storage.googleapis.com/openimages/v6/oidv6-train-images-with-labels-with-rotation.csv"
     )
     img_list = select_images(
         img_list_path,
