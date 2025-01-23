@@ -1,5 +1,7 @@
 n_samples: 10000
 n_epochs: 50
+batch_size: 1
+patch_size: [256, 256]
 workdir: null
 disable_wandb: False
 lmbda: 1e-3
@@ -15,7 +17,7 @@ hypernet_cfg:
   upsampling:
     hidden_dim: 256
     n_layers: 1
-  backbone_arch: resnet18
+  backbone_arch: resnet50
 
   dec_cfg:
     config_name: hop

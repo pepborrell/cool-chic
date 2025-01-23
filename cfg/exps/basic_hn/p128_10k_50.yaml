@@ -1,8 +1,9 @@
 n_samples: 10000
 n_epochs: 50
+lmbda: 1e-3
+patch_size: [256, 256]
 workdir: null
 disable_wandb: False
-lmbda: 1e-3
 user_tag: hypernet-make-it-work
 
 hypernet_cfg:
