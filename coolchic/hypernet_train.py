@@ -43,31 +43,35 @@ def evaluate_wholenet(
     lmbda: float,
     device: POSSIBLE_DEVICE,
 ) -> dict[str, float]:
-    all_losses: list[LossFunctionOutput] = []
-    for test_img in test_data:
-        test_img = test_img.to(device)
-        raw_out, rate, add_data = net.forward(test_img)
-        test_out = CoolChicEncoderOutput(
-            raw_out=raw_out, rate=rate, additional_data=add_data
-        )
-        rate_mlp = get_mlp_rate(net)
-        test_loss = loss_function(
-            test_out.raw_out,
-            test_out.rate,
-            test_img,
-            lmbda=lmbda,
-            rate_mlp_bit=rate_mlp,
-            compute_logs=True,
-        )
-        all_losses.append(test_loss)
+    net.eval()
+    with torch.no_grad():
+        all_losses: list[LossFunctionOutput] = []
+        for test_img in test_data:
+            test_img = test_img.to(device)
+            raw_out, rate, add_data = net.forward(test_img)
+            test_out = CoolChicEncoderOutput(
+                raw_out=raw_out, rate=rate, additional_data=add_data
+            )
+            rate_mlp = get_mlp_rate(net)
+            test_loss = loss_function(
+                test_out.raw_out,
+                test_out.rate,
+                test_img,
+                lmbda=lmbda,
+                rate_mlp_bit=rate_mlp,
+                compute_logs=True,
+            )
+            all_losses.append(test_loss)
 
-    loss_tensor = torch.stack([loss.loss for loss in all_losses])  # pyright: ignore
-    avg_loss = torch.mean(loss_tensor).item()
-    std_loss = torch.std(loss_tensor).item()
-    avg_mse = torch.mean(torch.tensor([loss.mse for loss in all_losses])).item()
-    avg_total_rate_bpp = torch.mean(
-        torch.tensor([loss.total_rate_bpp for loss in all_losses])
-    ).item()
+        loss_tensor = torch.stack([loss.loss for loss in all_losses])  # pyright: ignore
+        avg_loss = torch.mean(loss_tensor).item()
+        std_loss = torch.std(loss_tensor).item()
+        avg_mse = torch.mean(torch.tensor([loss.mse for loss in all_losses])).item()
+        avg_total_rate_bpp = torch.mean(
+            torch.tensor([loss.total_rate_bpp for loss in all_losses])
+        ).item()
+    # Switch back to training mode.
+    net.train()
     return {
         "test_loss": avg_loss,
         "test_mse": avg_mse,
@@ -145,7 +149,7 @@ def train(
 
             batch_n += 1
 
-            if batch_n % 20 == 0:
+            if batch_n % 100 == 0:
                 # Average train losses.
                 train_losses_avg = {
                     "train_loss": torch.mean(
