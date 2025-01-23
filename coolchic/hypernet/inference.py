@@ -9,12 +9,12 @@ from coolchic.enc.io.io import load_frame_data_from_tensor
 from coolchic.enc.training.loss import LossFunctionOutput, loss_function
 from coolchic.hypernet.hypernet import CoolchicWholeNet
 from coolchic.utils.paths import DATA_DIR
-from coolchic.utils.types import HyperNetConfig, HypernetRunConfig
+from coolchic.utils.types import HypernetRunConfig
 
 
-def load_hypernet(weights_path: Path, config: HyperNetConfig) -> CoolchicWholeNet:
+def load_hypernet(weights_path: Path, config: HypernetRunConfig) -> CoolchicWholeNet:
     # Loading weights.
-    net = CoolchicWholeNet(config=config)
+    net = CoolchicWholeNet(config=config.hypernet_cfg)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     net.to(device)
     weights = torch.load(weights_path, map_location=device, weights_only=True)
@@ -71,7 +71,7 @@ if __name__ == "__main__":
     with open(args.config, "r") as stream:
         run_cfg = HypernetRunConfig(**yaml.safe_load(stream))
     # Loading weights.
-    model = load_hypernet(args.weights_path, args.config)
+    model = load_hypernet(args.weights_path, run_cfg)
     if args.img_num is not None:
         show_kodak(args.img_num, model)
     else:
