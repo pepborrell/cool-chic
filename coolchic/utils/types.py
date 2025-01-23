@@ -291,6 +291,7 @@ class HyperNetConfig(BaseModel):
 class HypernetRunConfig(BaseModel):
     n_samples: int
     n_epochs: int
+    batch_size: int = 1
     workdir: Path | None = None
     lmbda: float = 1e-3
     hypernet_cfg: HyperNetConfig

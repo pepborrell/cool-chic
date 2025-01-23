@@ -1,5 +1,6 @@
 n_samples: 10
 n_epochs: 1
+batch_size: 1
 workdir: null
 disable_wandb: True
 lmbda: 1e-3

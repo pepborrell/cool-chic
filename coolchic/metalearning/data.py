@@ -14,12 +14,34 @@ PATCH_SIZE = (PATCH_HEIGHT, PATCH_WIDTH)
 
 
 class OpenImagesDataset(Dataset):
-    def __init__(self, n_images: int = 1000) -> None:
+    def __init__(
+        self,
+        n_images: int = 1000,
+        train: bool = True,
+        add_batch_dim: bool = False,
+        check_downloaded: bool = True,
+    ) -> None:
         self.n_images = n_images
+        self.train = train
+        self.n_train = min(int(n_images * 0.8), 32)
         self.img_ids = get_image_list(n_images)
+        self.train_ids = self.img_ids[: self.n_train]
+        self.test_ids = self.img_ids[self.n_train :]
+
+        self.add_batch_dim = add_batch_dim
+
+        if check_downloaded:
+            img_ids = self.train_ids if self.train else self.test_ids
+            for img_id in img_ids:
+                save_path = get_image_save_path(img_id)
+                if not save_path.exists():
+                    raise FileNotFoundError(
+                        f"Image {img_id} not found in {save_path}. "
+                        "Please download the data first."
+                    )
 
     def __len__(self) -> int:
-        return self.n_images
+        return self.n_train if self.train else self.n_images - self.n_train
 
     @staticmethod
     def extract_random_patch(img: torch.Tensor) -> torch.Tensor:
@@ -34,7 +56,8 @@ class OpenImagesDataset(Dataset):
         return img[..., i : i + PATCH_HEIGHT, j : j + PATCH_WIDTH]
 
     def _getitem_one(self, index: int) -> torch.Tensor:
-        img_path = self.img_ids[index]
+        img_ids = self.train_ids if self.train else self.test_ids
+        img_path = img_ids[index]
         # Check if we have it downloaded.
         save_path = get_image_save_path(img_path)
         if save_path.exists():
@@ -47,7 +70,12 @@ class OpenImagesDataset(Dataset):
         patch = self.extract_random_patch(img)
         patch_correct = load_frame_data_from_tensor(patch).data
         assert isinstance(patch_correct, torch.Tensor)
-        return patch_correct
+
+        # load_frame_data_from_tensor returns a tensor with shape (1, 3, 256, 256).
+        # Remove the batch dimension if desired, it will be added by the dataloader.
+        if self.add_batch_dim:
+            return patch_correct
+        return patch_correct.squeeze(0)
 
     def _getitem_slice(self, indices: slice) -> torch.Tensor:
         patches = []

@@ -3,9 +3,7 @@ import os
 from pathlib import Path
 
 import torch
-import tqdm
 import yaml
-from torch import nn
 
 import wandb
 from coolchic.enc.component.coolchic import CoolChicEncoderOutput
@@ -30,7 +28,7 @@ def get_workdir_hypernet(config: HypernetRunConfig, config_path: Path) -> Path:
     return workdir
 
 
-def get_mlp_rate(net: CoolchicWholeNet | nn.DataParallel[CoolchicWholeNet]) -> float:
+def get_mlp_rate(net: CoolchicWholeNet) -> float:
     rate_mlp = 0.0
     rate_per_module = net.cc_encoder.get_network_rate()
     for _, module_rate in rate_per_module.items():  # pyright: ignore
@@ -40,8 +38,8 @@ def get_mlp_rate(net: CoolchicWholeNet | nn.DataParallel[CoolchicWholeNet]) -> f
 
 
 def evaluate_wholenet(
-    net: CoolchicWholeNet | nn.DataParallel[CoolchicWholeNet],
-    test_data,
+    net: CoolchicWholeNet,
+    test_data: torch.utils.data.Dataset,
     lmbda: float,
     device: POSSIBLE_DEVICE,
 ) -> dict[str, float]:
@@ -78,9 +76,15 @@ def evaluate_wholenet(
     }
 
 
+def print_gpu_info():
+    print(f"Number of GPUs available: {torch.cuda.device_count()}")
+    for i in range(torch.cuda.device_count()):
+        print(f"GPU {i}: {torch.cuda.get_device_name(i)}")
+
+
 def train(
-    train_data: list[torch.Tensor],
-    test_data: list[torch.Tensor],
+    train_data: torch.utils.data.DataLoader | torch.utils.data.Dataset,
+    test_data: torch.utils.data.Dataset,
     config: HyperNetConfig,
     n_epochs: int,
     lmbda: float,
@@ -90,7 +94,7 @@ def train(
 ):
     wholenet = CoolchicWholeNet(config)
     if torch.cuda.is_available():
-        wholenet = nn.DataParallel(wholenet)  # Wrap model in DataParallel
+        print_gpu_info()
         wholenet = wholenet.cuda()
     else:
         wholenet.to(device)
@@ -99,44 +103,49 @@ def train(
         optimizer, n_epochs, eta_min=1e-5
     )
 
+    train_losses = []
+
     wholenet.freeze_resnet()
     for epoch in range(n_epochs):
-        train_losses = []
         if epoch > 5:
             wholenet.unfreeze_resnet()
-        for i, img in enumerate(train_data):
-            img = img.to(device)
-            raw_out, rate, add_data = wholenet.forward(img)
+        batch_n = 0
+        for img_batch in train_data:
+            img_batch = img_batch.to(device)
+            raw_out, rate, add_data = wholenet.forward(img_batch)
             out_forward = CoolChicEncoderOutput(
                 raw_out=raw_out, rate=rate, additional_data=add_data
             )
             loss_function_output = loss_function(
                 out_forward.raw_out,
                 out_forward.rate,
-                img,
+                img_batch,
                 lmbda=lmbda,
                 rate_mlp_bit=0.0,
                 compute_logs=True,
             )
-            optimizer.zero_grad()
+            # Logging training numbers.
             assert isinstance(
                 loss_function_output.loss, torch.Tensor
             ), "Loss is not a tensor"
-            loss_function_output.loss.backward()
-            optimizer.step()
-            # Logging training numbers.
             train_losses.append(
                 {
                     "epoch": epoch,
-                    "iteration": i,
+                    "batch": batch_n,
                     "train_loss": loss_function_output.loss.item(),
                     "train_mse": loss_function_output.mse,
                     "train_total_rate_bpp": loss_function_output.total_rate_bpp,
                     "train_psnr_db": loss_function_output.psnr_db,
                 }
             )
+            total_loss = loss_function_output.loss
+            optimizer.zero_grad()
+            total_loss.backward()
+            optimizer.step()
 
-            if i % 20 == 0:
+            batch_n += 1
+
+            if batch_n % 20 == 0:
                 # Average train losses.
                 train_losses_avg = {
                     "train_loss": torch.mean(
@@ -158,11 +167,16 @@ def train(
                 )
                 print(eval_results)
                 wandb.log(
-                    {"epoch": epoch, "iteration": i, **train_losses_avg, **eval_results}
+                    {
+                        "epoch": epoch,
+                        "batch": batch_n,
+                        **train_losses_avg,
+                        **eval_results,
+                    }
                 )
 
                 # Save model
-                save_path = workdir / f"epoch_{epoch}_it_{i}.pt"
+                save_path = workdir / f"epoch_{epoch}_batch_{batch_n}.pt"
                 torch.save(wholenet.state_dict(), save_path)
 
         scheduler.step()
@@ -188,18 +202,11 @@ def main():
     print(f'{"Device":<20}: {device}')
 
     # Load data
-    all_data = OpenImagesDataset(run_cfg.n_samples)
-    n_train = int(len(all_data) * 0.8)
-
-    print("Downloading training data...")
-    train_data = []
-    for i in tqdm.tqdm(range(n_train)):
-        train_data.append(all_data[i])
-
-    print("Downloading test data...")
-    test_data = []
-    for i in tqdm.tqdm(range(n_train, len(all_data))):
-        test_data.append(all_data[i])
+    train_data = OpenImagesDataset(run_cfg.n_samples, train=True)
+    train_data_loader = torch.utils.data.DataLoader(
+        train_data, batch_size=run_cfg.batch_size, shuffle=False
+    )
+    test_data = OpenImagesDataset(run_cfg.n_samples, train=False)
 
     ##### LOGGING #####
     # Setting up all logging using wandb.
@@ -213,7 +220,7 @@ def main():
 
     # Train
     _ = train(
-        train_data,
+        train_data_loader,
         test_data,
         config=run_cfg.hypernet_cfg,
         n_epochs=run_cfg.n_epochs,
