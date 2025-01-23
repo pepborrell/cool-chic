@@ -8,6 +8,7 @@ from torchvision.models import ResNet18_Weights, ResNet50_Weights, resnet18, res
 from coolchic.enc.component.coolchic import CoolChicEncoder, CoolChicEncoderParameter
 from coolchic.enc.utils.parsecli import get_coolchic_param_from_args
 from coolchic.hypernet.common import ResidualBlockDown, build_mlp
+from coolchic.utils.nn import get_num_of_params
 from coolchic.utils.types import HyperNetConfig
 
 
@@ -377,6 +378,8 @@ class CoolchicHyperNet(nn.Module):
             hypernet_n_layers=self.config.upsampling.n_layers,
         )
 
+        self.print_n_params_submodule()
+
     def forward(
         self, img: torch.Tensor
     ) -> tuple[
@@ -397,6 +400,27 @@ class CoolchicHyperNet(nn.Module):
             self.arm_hn.shape_outputs(arm_weights),
             self.upsampling_hn.shape_output(upsampling_weights),
         )
+
+    def print_n_params_submodule(self):
+        total_params = get_num_of_params(self)
+
+        def format_param_str(subm_name: str, n_params: int) -> str:
+            return f"{subm_name}: {n_params}, {100*n_params/total_params:.2f}%"
+
+        output_str = (
+            "NUMBER OF PARAMETERS:\n" f"Total number of parameters: {total_params}"
+        )
+
+        output_str += format_param_str("latent", get_num_of_params(self.latent_hn))
+        output_str += format_param_str("backbone", get_num_of_params(self.hn_backbone))
+        output_str += format_param_str(
+            "synthesis", get_num_of_params(self.synthesis_hn)
+        )
+        output_str += format_param_str("arm", get_num_of_params(self.arm_hn))
+        output_str += format_param_str(
+            "upsampling", get_num_of_params(self.upsampling_hn)
+        )
+        print(output_str)
 
 
 class CoolchicWholeNet(nn.Module):
