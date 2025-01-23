@@ -207,14 +207,9 @@ def main():
 
     # Load data
     train_data = OpenImagesDataset(
-        run_cfg.n_samples,
-        patch_size=run_cfg.hypernet_cfg.patch_size,
-        train=True,
-        check_downloaded=False,
+        run_cfg.n_samples, patch_size=run_cfg.hypernet_cfg.patch_size, train=True
     )
-    test_data = OpenImagesDataset(
-        run_cfg.n_samples, patch_size=None, train=False, check_downloaded=False
-    )
+    test_data = OpenImagesDataset(run_cfg.n_samples, patch_size=None, train=False)
     train_data_loader = torch.utils.data.DataLoader(
         train_data, batch_size=run_cfg.batch_size, shuffle=False
     )
