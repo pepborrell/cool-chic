@@ -53,8 +53,8 @@ class OpenImagesDataset(Dataset):
         if h < patch_height or w < patch_width:
             # Work with the full image if it is too small.
             return img
-        # Set random seed for reproducibility.
-        torch.manual_seed(1999)
+        # Set random seed for reproducibility. Random seed is based on the image content.
+        torch.manual_seed(torch.sum(img).item())
         i = torch.randint(0, h - patch_height, (1,)).item()
         j = torch.randint(0, w - patch_width, (1,)).item()
         return img[..., i : i + patch_height, j : j + patch_width]
