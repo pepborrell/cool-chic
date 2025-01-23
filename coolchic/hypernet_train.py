@@ -181,7 +181,7 @@ def train(
 
                 # Save model
                 save_path = workdir / f"epoch_{epoch}_batch_{batch_n}.pt"
-                torch.save(wholenet.state_dict(), save_path)
+                torch.save(wholenet.hypernet.state_dict(), save_path)
 
         scheduler.step()
 
