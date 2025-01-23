@@ -405,10 +405,10 @@ class CoolchicHyperNet(nn.Module):
         total_params = get_num_of_params(self)
 
         def format_param_str(subm_name: str, n_params: int) -> str:
-            return f"{subm_name}: {n_params}, {100*n_params/total_params:.2f}%"
+            return f"{subm_name}: {n_params}, {100*n_params/total_params:.2f}%\n"
 
         output_str = (
-            "NUMBER OF PARAMETERS:\n" f"Total number of parameters: {total_params}"
+            "NUMBER OF PARAMETERS:\n" f"Total number of parameters: {total_params}\n"
         )
 
         output_str += format_param_str("latent", get_num_of_params(self.latent_hn))
