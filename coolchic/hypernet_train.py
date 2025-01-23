@@ -202,11 +202,13 @@ def main():
     print(f'{"Device":<20}: {device}')
 
     # Load data
-    train_data = OpenImagesDataset(run_cfg.n_samples, train=True)
+    train_data = OpenImagesDataset(
+        run_cfg.n_samples, patch_size=run_cfg.hypernet_cfg.patch_size, train=True
+    )
     train_data_loader = torch.utils.data.DataLoader(
         train_data, batch_size=run_cfg.batch_size, shuffle=False
     )
-    test_data = OpenImagesDataset(run_cfg.n_samples, train=False)
+    test_data = OpenImagesDataset(run_cfg.n_samples, patch_size=None, train=False)
     test_data_loader = torch.utils.data.DataLoader(
         test_data, batch_size=1, shuffle=False
     )

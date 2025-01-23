@@ -282,6 +282,8 @@ class HyperNetConfig(BaseModel):
     upsampling: HyperNetParams = HyperNetParams(hidden_dim=256, n_layers=1)
     backbone_arch: Literal["resnet18", "resnet50"] = "resnet18"
 
+    patch_size: tuple[int, int] = (256, 256)
+
     @computed_field
     @property
     def n_latents(self) -> int:

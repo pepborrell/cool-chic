@@ -9,14 +9,12 @@ from coolchic.metalearning.training_data import (
     get_image_save_path,
 )
 
-PATCH_WIDTH = PATCH_HEIGHT = 256
-PATCH_SIZE = (PATCH_HEIGHT, PATCH_WIDTH)
-
 
 class OpenImagesDataset(Dataset):
     def __init__(
         self,
-        n_images: int = 1000,
+        n_images: int,
+        patch_size: tuple[int, int] | None,
         train: bool = True,
         add_batch_dim: bool = False,
         check_downloaded: bool = True,
@@ -28,6 +26,7 @@ class OpenImagesDataset(Dataset):
         self.train_ids = self.img_ids[: self.n_train]
         self.test_ids = self.img_ids[self.n_train :]
 
+        self.patch_size = patch_size
         self.add_batch_dim = add_batch_dim
 
         if check_downloaded:
@@ -44,16 +43,21 @@ class OpenImagesDataset(Dataset):
         return self.n_train if self.train else self.n_images - self.n_train
 
     @staticmethod
-    def extract_random_patch(img: torch.Tensor) -> torch.Tensor:
+    def extract_random_patch(
+        img: torch.Tensor, patch_size: tuple[int, int] | None
+    ) -> torch.Tensor:
+        if patch_size is None:
+            return img
         h, w = img.shape[-2:]
-        # Set random seed for reproducibility.
-        torch.manual_seed(1999)
-        if h < PATCH_HEIGHT or w < PATCH_WIDTH:
+        patch_height, patch_width = patch_size
+        if h < patch_height or w < patch_width:
             # Work with the full image if it is too small.
             return img
-        i = torch.randint(0, h - PATCH_HEIGHT, (1,)).item()
-        j = torch.randint(0, w - PATCH_WIDTH, (1,)).item()
-        return img[..., i : i + PATCH_HEIGHT, j : j + PATCH_WIDTH]
+        # Set random seed for reproducibility.
+        torch.manual_seed(1999)
+        i = torch.randint(0, h - patch_height, (1,)).item()
+        j = torch.randint(0, w - patch_width, (1,)).item()
+        return img[..., i : i + patch_height, j : j + patch_width]
 
     def _getitem_one(self, index: int) -> torch.Tensor:
         img_ids = self.train_ids if self.train else self.test_ids
@@ -67,7 +71,7 @@ class OpenImagesDataset(Dataset):
             )
         else:
             img = download_image_to_tensor(img_path)
-        patch = self.extract_random_patch(img)
+        patch = self.extract_random_patch(img, self.patch_size)
         patch_correct = load_frame_data_from_tensor(patch).data
         assert isinstance(patch_correct, torch.Tensor)
 
