@@ -39,7 +39,7 @@ def get_mlp_rate(net: CoolchicWholeNet) -> float:
 
 def evaluate_wholenet(
     net: CoolchicWholeNet,
-    test_data: torch.utils.data.Dataset,
+    test_data: torch.utils.data.DataLoader,
     lmbda: float,
     device: POSSIBLE_DEVICE,
 ) -> dict[str, float]:
@@ -83,8 +83,8 @@ def print_gpu_info():
 
 
 def train(
-    train_data: torch.utils.data.DataLoader | torch.utils.data.Dataset,
-    test_data: torch.utils.data.Dataset,
+    train_data: torch.utils.data.DataLoader,
+    test_data: torch.utils.data.DataLoader,
     config: HyperNetConfig,
     n_epochs: int,
     lmbda: float,
@@ -207,6 +207,9 @@ def main():
         train_data, batch_size=run_cfg.batch_size, shuffle=False
     )
     test_data = OpenImagesDataset(run_cfg.n_samples, train=False)
+    test_data_loader = torch.utils.data.DataLoader(
+        test_data, batch_size=1, shuffle=False
+    )
 
     ##### LOGGING #####
     # Setting up all logging using wandb.
@@ -221,7 +224,7 @@ def main():
     # Train
     _ = train(
         train_data_loader,
-        test_data,
+        test_data_loader,
         config=run_cfg.hypernet_cfg,
         n_epochs=run_cfg.n_epochs,
         lmbda=run_cfg.lmbda,
