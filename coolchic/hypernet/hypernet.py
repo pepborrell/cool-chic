@@ -435,12 +435,25 @@ class CoolchicWholeNet(nn.Module):
         self.hypernet = CoolchicHyperNet(config)
         self.cc_encoder = CoolChicEncoder(param=coolchic_encoder_parameter)
 
-    def forward(
-        self, img: torch.Tensor
-    ) -> tuple[torch.Tensor, torch.Tensor, dict[str, Any]]:
+    def image_to_coolchic(
+        self, img: torch.Tensor, stop_grads: bool = False
+    ) -> CoolChicEncoder:
         latent_weights, synthesis_weights, arm_weights, upsampling_weights = (
-            self.hypernet(img)
+            self.hypernet.forward(img)
         )
+        # Make them leaves in the graph.
+        if stop_grads:
+            latent_weights = [nn.Parameter(lat) for lat in latent_weights]
+            synthesis_weights = OrderedDict(
+                {k: nn.Parameter(v) for k, v in synthesis_weights.items()}
+            )
+            arm_weights = OrderedDict(
+                {k: nn.Parameter(v) for k, v in arm_weights.items()}
+            )
+            upsampling_weights = OrderedDict(
+                {k: nn.Parameter(v) for k, v in upsampling_weights.items()}
+            )
+
         # Replacing weights.
         self.cc_encoder.synthesis.set_hypernet_weights(synthesis_weights)
         self.cc_encoder.arm.set_hypernet_weights(arm_weights)
@@ -452,8 +465,13 @@ class CoolchicWholeNet(nn.Module):
         ]
         self.cc_encoder.latent_grids = nn.ParameterList(latent_weights)
 
-        # TODO: get these parameters from input.
-        return self.cc_encoder.forward(
+        return self.cc_encoder
+
+    def forward(
+        self, img: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor, dict[str, Any]]:
+        return self.image_to_coolchic(img).forward(
+            # TODO: get these parameters from input.
             quantizer_noise_type="kumaraswamy",
             quantizer_type="softround",
             soft_round_temperature=torch.tensor(0.3),

@@ -135,7 +135,10 @@ def select_param_from_name(obj: nn.Module, name: str) -> tuple[torch.Tensor, nn.
     return obj, obj_parent
 
 
-def set_hypernet_weights(obj, all_weights: OrderedDict[str, torch.Tensor]):
+def set_hypernet_weights(
+    obj,
+    all_weights: OrderedDict[str, torch.Tensor] | OrderedDict[str, torch.nn.Parameter],
+):
     """Set the weights coming from the hypernetwork.
     The weights are copied so that all gradients can flow through them.
     """

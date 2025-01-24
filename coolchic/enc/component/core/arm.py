@@ -233,7 +233,11 @@ class Arm(nn.Module):
             if isinstance(layer, ArmLinear):
                 layer.initialize_parameters()
 
-    def set_hypernet_weights(self, all_weights: OrderedDict[str, torch.Tensor]):
+    def set_hypernet_weights(
+        self,
+        all_weights: OrderedDict[str, torch.Tensor]
+        | OrderedDict[str, torch.nn.Parameter],
+    ):
         set_hypernet_weights(self, all_weights)
 
 

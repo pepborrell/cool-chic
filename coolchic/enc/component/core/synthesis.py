@@ -244,6 +244,8 @@ class Synthesis(nn.Module):
                 layer.initialize_parameters()
 
     def set_hypernet_weights(
-        self, all_weights: OrderedDict[str, torch.Tensor | torch.nn.Parameter]
+        self,
+        all_weights: OrderedDict[str, torch.Tensor]
+        | OrderedDict[str, torch.nn.Parameter],
     ):
         set_hypernet_weights(self, all_weights)

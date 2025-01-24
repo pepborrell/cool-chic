@@ -529,5 +529,9 @@ class Upsampling(nn.Module):
         for i in range(len(self.conv2ds)):
             self.conv2ds[i].initialize_parameters()
 
-    def set_hypernet_weights(self, all_weights: OrderedDict[str, torch.Tensor]):
+    def set_hypernet_weights(
+        self,
+        all_weights: OrderedDict[str, torch.Tensor]
+        | OrderedDict[str, torch.nn.Parameter],
+    ):
         set_hypernet_weights(self, all_weights)
