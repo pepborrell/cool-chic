@@ -4,6 +4,7 @@ from pathlib import Path
 
 import torch
 import yaml
+from tqdm import tqdm
 
 import wandb
 from coolchic.enc.component.coolchic import CoolChicEncoderOutput
@@ -111,10 +112,11 @@ def train(
 
     wholenet.freeze_resnet()
     for epoch in range(n_epochs):
+        print(f"Epoch {epoch}")
         if epoch > 5:
             wholenet.unfreeze_resnet()
         batch_n = 0
-        for img_batch in train_data:
+        for img_batch in tqdm(train_data):
             img_batch = img_batch.to(device)
             raw_out, rate, add_data = wholenet.forward(img_batch)
             out_forward = CoolChicEncoderOutput(
