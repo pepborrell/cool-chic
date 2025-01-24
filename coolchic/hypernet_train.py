@@ -67,6 +67,9 @@ def evaluate_wholenet(
         avg_loss = torch.mean(loss_tensor).item()
         std_loss = torch.std(loss_tensor).item()
         avg_mse = torch.mean(torch.tensor([loss.mse for loss in all_losses])).item()
+        avg_psnr_db = torch.mean(
+            torch.tensor([loss.psnr_db for loss in all_losses])
+        ).item()
         avg_total_rate_bpp = torch.mean(
             torch.tensor([loss.total_rate_bpp for loss in all_losses])
         ).item()
@@ -75,6 +78,7 @@ def evaluate_wholenet(
     return {
         "test_loss": avg_loss,
         "test_mse": avg_mse,
+        "test_psnr_db": avg_psnr_db,
         "test_total_rate_bpp": avg_total_rate_bpp,
         "std_test_loss": std_loss,
     }
@@ -158,6 +162,9 @@ def train(
                     ),
                     "train_mse": torch.mean(
                         torch.tensor([loss["train_mse"] for loss in train_losses])
+                    ),
+                    "train_psnr_db": torch.mean(
+                        torch.tensor([loss["train_psnr_db"] for loss in train_losses])
                     ),
                     "train_total_rate_bpp": torch.mean(
                         torch.tensor(
