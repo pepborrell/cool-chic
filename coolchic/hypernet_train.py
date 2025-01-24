@@ -151,7 +151,7 @@ def train(
 
             batch_n += 1
 
-            if batch_n % 100 == 0:
+            if batch_n % 500 == 0:
                 # Average train losses.
                 train_losses_avg = {
                     "train_loss": torch.mean(
