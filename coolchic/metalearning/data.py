@@ -21,7 +21,8 @@ class OpenImagesDataset(Dataset):
     ) -> None:
         self.n_images = n_images
         self.train = train
-        self.n_train = min(int(n_images * 0.8), 32)
+        n_test = min(32, int(n_images * 0.2))  # At most 32 test images.
+        self.n_train = n_images - n_test
         self.img_ids = get_image_list(n_images)
         self.train_ids = self.img_ids[: self.n_train]
         self.test_ids = self.img_ids[self.n_train :]
