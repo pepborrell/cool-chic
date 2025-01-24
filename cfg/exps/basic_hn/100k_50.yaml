@@ -5,7 +5,7 @@ patch_size: [256, 256]
 workdir: null
 disable_wandb: False
 lmbda: 1e-3
-user_tag: hypernet-make-it-work
+user_tag: hypernet-long-training
 
 hypernet_cfg:
   synthesis:
