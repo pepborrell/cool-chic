@@ -27,7 +27,7 @@ from coolchic.enc.utils.parsecli import (
 )
 from coolchic.metalearning.data import OpenImagesDataset
 from coolchic.utils.paths import COOLCHIC_REPO_ROOT
-from coolchic.utils.types import RunConfig, UserConfig
+from coolchic.utils.types import RunConfig, UserConfig, load_config
 
 """
 This file has been simplified to only train one image and remove most complexity introduced by the VideoEncoder class.
@@ -126,8 +126,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     config_path = Path(args.config)
-    with open(config_path, "r") as stream:
-        user_config = UserConfig(**yaml.safe_load(stream))
+    user_config = load_config(config_path, UserConfig)
 
     if args.openimages_id is not None:
         assert isinstance(user_config.input, list)

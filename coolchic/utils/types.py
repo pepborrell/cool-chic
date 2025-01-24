@@ -2,7 +2,7 @@ import itertools
 import random
 from datetime import datetime
 from pathlib import Path
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, Type, TypeVar
 
 import yaml
 from pydantic import BaseModel, BeforeValidator, Field, computed_field
@@ -300,3 +300,11 @@ class HypernetRunConfig(BaseModel):
     disable_wandb: bool = False
     unique_id: str = get_run_uid()
     user_tag: str | None
+
+
+T = TypeVar("T", bound=BaseModel)
+
+
+def load_config(config_path: Path, config_class: Type[T]) -> T:
+    with open(config_path, "r") as stream:
+        return config_class(**yaml.safe_load(stream))

@@ -3,7 +3,6 @@ import os
 from pathlib import Path
 
 import torch
-import yaml
 from tqdm import tqdm
 
 import wandb
@@ -13,7 +12,7 @@ from coolchic.enc.utils.misc import POSSIBLE_DEVICE, get_best_device
 from coolchic.hypernet.hypernet import CoolchicWholeNet
 from coolchic.metalearning.data import OpenImagesDataset
 from coolchic.utils.paths import COOLCHIC_REPO_ROOT
-from coolchic.utils.types import HyperNetConfig, HypernetRunConfig
+from coolchic.utils.types import HyperNetConfig, HypernetRunConfig, load_config
 
 
 def get_workdir_hypernet(config: HypernetRunConfig, config_path: Path) -> Path:
@@ -199,8 +198,7 @@ def main():
     args = parser.parse_args()
 
     config_path = Path(args.config)
-    with open(config_path, "r") as stream:
-        run_cfg = HypernetRunConfig(**yaml.safe_load(stream))
+    run_cfg = load_config(config_path, HypernetRunConfig)
     workdir = get_workdir_hypernet(run_cfg, config_path)
 
     # Automatic device detection

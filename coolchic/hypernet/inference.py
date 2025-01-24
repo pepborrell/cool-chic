@@ -3,13 +3,12 @@ from pathlib import Path
 
 import torch
 import torchvision
-import yaml
 
 from coolchic.enc.io.io import load_frame_data_from_tensor
 from coolchic.enc.training.loss import LossFunctionOutput, loss_function
 from coolchic.hypernet.hypernet import CoolchicWholeNet
 from coolchic.utils.paths import DATA_DIR
-from coolchic.utils.types import HypernetRunConfig
+from coolchic.utils.types import HypernetRunConfig, load_config
 
 
 def load_hypernet(weights_path: Path, config: HypernetRunConfig) -> CoolchicWholeNet:
@@ -68,8 +67,7 @@ if __name__ == "__main__":
     parser.add_argument("--config", type=Path)
     args = parser.parse_args()
 
-    with open(args.config, "r") as stream:
-        run_cfg = HypernetRunConfig(**yaml.safe_load(stream))
+    run_cfg = load_config(args.config, HypernetRunConfig)
     # Loading weights.
     model = load_hypernet(args.weights_path, run_cfg)
     if args.img_num is not None:
