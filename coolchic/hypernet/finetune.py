@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import matplotlib.pyplot as plt
+import pandas as pd
 import torch
 from torchvision.extension import os
 
@@ -8,6 +10,7 @@ from coolchic.enc.component.coolchic import CoolChicEncoder, CoolChicEncoderPara
 from coolchic.enc.component.video import VideoEncoder
 from coolchic.enc.io.io import load_frame_data_from_file
 from coolchic.enc.training.presets import TrainerPhase, Warmup
+from coolchic.enc.training.test import FrameEncoderLogs
 from coolchic.enc.training.train import train as coolchic_train
 from coolchic.enc.utils.codingstructure import CodingStructure
 from coolchic.enc.utils.manager import FrameEncoderManager
@@ -16,12 +19,16 @@ from coolchic.enc.utils.parsecli import (
     get_coolchic_param_from_args,
 )
 from coolchic.encode_simpler import build_frame_encoder
+from coolchic.eval.hypernet import plot_hypernet_rd
+from coolchic.eval.results import SummaryEncodingMetrics
 from coolchic.hypernet.inference import load_hypernet
 from coolchic.utils.paths import DATA_DIR
 from coolchic.utils.types import HypernetRunConfig, PresetConfig, load_config
 
 
-def main(img_num: int, preset_config: PresetConfig, from_scratch: bool = False) -> None:
+def main(
+    img_num: int, preset_config: PresetConfig, from_scratch: bool = False
+) -> list[FrameEncoderLogs]:
     # 1: Get image
     img_path = DATA_DIR / "kodak" / f"kodim{img_num:02d}.png"
     frame_data = load_frame_data_from_file(str(img_path), 0)
@@ -29,7 +36,7 @@ def main(img_num: int, preset_config: PresetConfig, from_scratch: bool = False) 
     assert isinstance(img, torch.Tensor)  # To make pyright happy.
 
     # 2: Get coolchic representation from hypernet
-    weights_path = Path("epoch_54_it_520.pt")
+    weights_path = Path("epoch_4_batch_99500.pt")
     config_path = Path("cfg/exps/basic_hn/100k.yaml")
     config = load_config(config_path, HypernetRunConfig)
     hnet = load_hypernet(weights_path, config)
@@ -73,6 +80,7 @@ def main(img_num: int, preset_config: PresetConfig, from_scratch: bool = False) 
     os.environ["WANDB_MODE"] = "disabled"
     wandb.init()
     assert training_phase.end_lr is not None  # To make pyright happy.
+    validation_logs = []  # We'll record the validation logs here.
     frame_enc = coolchic_train(
         frame_encoder=frame_enc,
         frame=frame,
@@ -88,6 +96,19 @@ def main(img_num: int, preset_config: PresetConfig, from_scratch: bool = False) 
         quantizer_noise_type=training_phase.quantizer_noise_type,
         softround_temperature=training_phase.softround_temperature,
         noise_parameter=training_phase.noise_parameter,
+        val_logs=validation_logs,
+    )
+    return validation_logs
+
+
+def log_to_results(logs: FrameEncoderLogs, seq_name: str) -> SummaryEncodingMetrics:
+    assert logs.total_rate_bpp is not None  # To make pyright happy.
+    assert logs.psnr_db is not None  # To make pyright happy.
+    return SummaryEncodingMetrics(
+        seq_name=seq_name,
+        rate_bpp=logs.total_rate_bpp,
+        psnr_db=logs.psnr_db,
+        lmbda=logs.encoding_iterations_cnt,
     )
 
 
@@ -100,7 +121,7 @@ if __name__ == "__main__":
         schedule_lr=True,
         max_itr=5000,
         freq_valid=10,
-        patience=1000,
+        patience=100,
         optimized_module=["all"],
         quantizer_type="softround",
         quantizer_noise_type="gaussian",
@@ -111,5 +132,20 @@ if __name__ == "__main__":
     training_preset = PresetConfig(
         preset_name="", warmup=Warmup(), all_phases=[training_phase]
     )
-    main(1, training_preset)
+    # main(1, training_preset)
     # main(1, training_preset, from_scratch=True)
+
+    all_results = []
+    for i in range(1, 25):
+        logs = main(i, training_preset)
+        results = pd.DataFrame(
+            [log_to_results(log, f"kodim{i:02d}").model_dump() for log in logs]
+        )
+        all_results.append(results)
+
+    all_results_df = pd.concat(all_results)
+    all_results_df.to_csv("finetuning_results.csv")
+
+    for i in range(1, 25):
+        plot_hypernet_rd(f"kodim{i:02d}", all_results_df)
+    plt.show()
