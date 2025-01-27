@@ -480,6 +480,15 @@ class CoolchicWholeNet(nn.Module):
             flag_additional_outputs=False,
         )
 
+    def get_mlp_rate(self) -> float:
+        # Get MLP rate.
+        rate_mlp = 0.0
+        rate_per_module = self.cc_encoder.get_network_rate()
+        for _, module_rate in rate_per_module.items():
+            for _, param_rate in module_rate.items():  # weight, bias
+                rate_mlp += param_rate
+        return rate_mlp
+
     def freeze_resnet(self):
         for param in self.hypernet.hn_backbone.parameters():
             param.requires_grad = False
