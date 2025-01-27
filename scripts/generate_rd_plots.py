@@ -4,12 +4,12 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from tqdm import tqdm
 
-from coolchic.eval.bd_rate import (
+from coolchic.eval.plotting import gen_rd_iterations
+from coolchic.eval.results import (
     SummaryEncodingMetrics,
     full_run_summary,
     parse_result_summary,
 )
-from coolchic.eval.plotting import gen_rd_iterations
 
 all_runs = Path("results/exps/copied/only_latents/")
 all_runs = Path("results/exps/copied/only_latents/")

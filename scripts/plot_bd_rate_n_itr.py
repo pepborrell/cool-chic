@@ -7,9 +7,9 @@ from tqdm import tqdm
 from coolchic.eval.bd_rate import (
     avg_bd_rate_summary_paths,
     bd_rates_from_paths,
-    full_run_summary,
 )
 from coolchic.eval.plotting import plot_bd_rate_n_itr, plot_bd_rate_total_itr
+from coolchic.eval.results import full_run_summary
 
 # all_runs = Path("results/exps/copied/n_it-grid/")
 all_runs = Path("results/exps/copied/only_latents/")
