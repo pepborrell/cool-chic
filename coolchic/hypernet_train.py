@@ -11,6 +11,7 @@ from coolchic.enc.training.loss import LossFunctionOutput, loss_function
 from coolchic.enc.utils.misc import POSSIBLE_DEVICE, get_best_device
 from coolchic.hypernet.hypernet import CoolchicWholeNet
 from coolchic.metalearning.data import OpenImagesDataset
+from coolchic.utils.nn import _linear_schedule
 from coolchic.utils.paths import COOLCHIC_REPO_ROOT
 from coolchic.utils.types import HyperNetConfig, HypernetRunConfig, load_config
 
@@ -101,6 +102,8 @@ def train(
     workdir: Path,
     device: POSSIBLE_DEVICE,
     start_lr: float = 1e-3,
+    softround_temperature: tuple[float, float] = (0.3, 0.3),
+    noise_parameter: tuple[float, float] = (0.25, 0.25),
 ):
     wholenet = CoolchicWholeNet(config)
     if torch.cuda.is_available():
@@ -112,8 +115,10 @@ def train(
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
         optimizer, n_epochs, eta_min=1e-5
     )
+    total_iterations = len(train_data) * n_epochs
 
     train_losses = []
+    samples_seen = 0
 
     wholenet.freeze_resnet()
     for epoch in range(n_epochs):
@@ -123,7 +128,17 @@ def train(
         batch_n = 0
         for img_batch in tqdm(train_data):
             img_batch = img_batch.to(device)
-            raw_out, rate, add_data = wholenet.forward(img_batch)
+            cur_softround_t = _linear_schedule(
+                *softround_temperature, samples_seen, total_iterations
+            )
+            cur_noise_param = _linear_schedule(
+                *noise_parameter, samples_seen, total_iterations
+            )
+            raw_out, rate, add_data = wholenet.forward(
+                img_batch,
+                softround_temperature=cur_softround_t,
+                noise_parameter=cur_noise_param,
+            )
             out_forward = CoolChicEncoderOutput(
                 raw_out=raw_out, rate=rate, additional_data=add_data
             )
@@ -155,6 +170,7 @@ def train(
             optimizer.step()
 
             batch_n += 1
+            samples_seen += len(img_batch)
 
             if batch_n % 500 == 0:
                 # Average train losses.
@@ -245,6 +261,8 @@ def main():
         lmbda=run_cfg.lmbda,
         workdir=workdir,
         device=device,
+        softround_temperature=run_cfg.softround_temperature,
+        noise_parameter=run_cfg.noise_parameter,
     )
 
 

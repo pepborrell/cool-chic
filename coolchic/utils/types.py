@@ -296,6 +296,8 @@ class HypernetRunConfig(BaseModel):
     batch_size: int = 1
     workdir: Path | None = None
     lmbda: float = 1e-3
+    softround_temperature: tuple[float, float]
+    noise_parameter: tuple[float, float]
     hypernet_cfg: HyperNetConfig
     disable_wandb: bool = False
     unique_id: str = get_run_uid()

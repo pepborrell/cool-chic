@@ -476,13 +476,13 @@ class CoolchicWholeNet(nn.Module):
         img: torch.Tensor,
         quantizer_noise_type: POSSIBLE_QUANTIZATION_NOISE_TYPE = "gaussian",
         quantizer_type: POSSIBLE_QUANTIZER_TYPE = "softround",
-        soft_round_temperature: float = 0.3,
+        softround_temperature: float = 0.3,
         noise_parameter: float = 0.25,
     ) -> tuple[torch.Tensor, torch.Tensor, dict[str, Any]]:
         return self.image_to_coolchic(img).forward(
             quantizer_noise_type=quantizer_noise_type,
             quantizer_type=quantizer_type,
-            soft_round_temperature=torch.tensor(soft_round_temperature),
+            soft_round_temperature=torch.tensor(softround_temperature),
             noise_parameter=torch.tensor(noise_parameter),
             AC_MAX_VAL=-1,
             flag_additional_outputs=False,
