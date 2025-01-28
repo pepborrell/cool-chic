@@ -2,12 +2,13 @@
 #SBATCH --mail-type=FAIL # mail configuration: NONE, BEGIN, END, FAIL, REQUEUE, ALL
 #SBATCH --output=/itet-stor/jborrell/net_scratch/jobs/%j.out # where to store the output (%j is the JOBID), subdirectory "jobs" must exist
 #SBATCH --error=/itet-stor/jborrell/net_scratch/jobs/%j.err # where to store error messages
-#SBATCH --mem-per-gpu=24G
+#SBATCH --mem-per-gpu=24GB
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=4
 #SBATCH --gres=gpu:1
-# only run on tikgpu04: gpu is titan rtx and not xp.
 #SBATCH --exclude=tikgpu10,tikgpu[02-03],tikgpu08,artongpu[01-07],hardin01,lbbgpu01
+# only run on tikgpu04: gpu is titan rtx and not xp.
+# out #SBATCH --exclude=tikgpu10,tikgpu[02-03],tikgpu08,artongpu[01-07],hardin01,lbbgpu01
 # nonono #SBATCH --exclude=tikgpu10,tikgpu[02-03],tikgpu[05-09],artongpu[01-07],hardin01,lbbgpu01
 
 ETH_USERNAME=jborrell
