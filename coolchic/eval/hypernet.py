@@ -25,6 +25,14 @@ def plot_hypernet_rd(kodim_name: str, results: pd.DataFrame):
     all_df = all_df.loc[all_df["seq_name"] == kodim_name]
 
     fig, ax = plt.subplots()
-    sns.lineplot(all_df, x="rate_bpp", y="psnr_db", hue="anchor", markers=None, ax=ax)
+    sns.lineplot(
+        all_df,
+        x="rate_bpp",
+        y="psnr_db",
+        hue="anchor",
+        marker="o",
+        markeredgecolor="none",
+        ax=ax,
+    )
     ax.set_title(f"RD curve for {kodim_name}")
     return fig, ax
