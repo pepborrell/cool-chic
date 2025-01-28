@@ -6,6 +6,10 @@ from torch import nn
 from torchvision.models import ResNet18_Weights, ResNet50_Weights, resnet18, resnet50
 
 from coolchic.enc.component.coolchic import CoolChicEncoder, CoolChicEncoderParameter
+from coolchic.enc.component.core.quantizer import (
+    POSSIBLE_QUANTIZATION_NOISE_TYPE,
+    POSSIBLE_QUANTIZER_TYPE,
+)
 from coolchic.enc.utils.parsecli import get_coolchic_param_from_args
 from coolchic.hypernet.common import ResidualBlockDown, build_mlp
 from coolchic.utils.nn import get_num_of_params
@@ -468,14 +472,18 @@ class CoolchicWholeNet(nn.Module):
         return self.cc_encoder
 
     def forward(
-        self, img: torch.Tensor
+        self,
+        img: torch.Tensor,
+        quantizer_noise_type: POSSIBLE_QUANTIZATION_NOISE_TYPE = "kumaraswamy",
+        quantizer_type: POSSIBLE_QUANTIZER_TYPE = "softround",
+        soft_round_temperature: float = 0.3,
+        noise_parameter: float = 1.0,
     ) -> tuple[torch.Tensor, torch.Tensor, dict[str, Any]]:
         return self.image_to_coolchic(img).forward(
-            # TODO: get these parameters from input.
-            quantizer_noise_type="kumaraswamy",
-            quantizer_type="softround",
-            soft_round_temperature=torch.tensor(0.3),
-            noise_parameter=torch.tensor(1.0),
+            quantizer_noise_type=quantizer_noise_type,
+            quantizer_type=quantizer_type,
+            soft_round_temperature=torch.tensor(soft_round_temperature),
+            noise_parameter=torch.tensor(noise_parameter),
             AC_MAX_VAL=-1,
             flag_additional_outputs=False,
         )
@@ -484,7 +492,7 @@ class CoolchicWholeNet(nn.Module):
         # Get MLP rate.
         rate_mlp = 0.0
         rate_per_module = self.cc_encoder.get_network_rate()
-        for _, module_rate in rate_per_module.items():
+        for _, module_rate in rate_per_module.items():  # pyright: ignore
             for _, param_rate in module_rate.items():  # weight, bias
                 rate_mlp += param_rate
         return rate_mlp

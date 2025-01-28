@@ -44,7 +44,9 @@ def get_image_from_hypernet(
     # Forward pass.
     net.eval()
     with torch.no_grad():
-        out_img, out_rate, _ = net.forward(img)
+        out_img, out_rate, _ = net.forward(
+            img, quantizer_noise_type="none", quantizer_type="hardround"
+        )
         rate_mlp = net.get_mlp_rate()
         loss_out = loss_function(
             out_img, out_rate, img, lmbda=0.0, rate_mlp_bit=rate_mlp, compute_logs=True
@@ -58,7 +60,7 @@ def img_eval(
     img_path: Path, model: CoolchicWholeNet
 ) -> tuple[dict[str, str | float], str]:
     out_img, loss_out = get_image_from_hypernet(model, img_path)
-    save_path = img_path.with_suffix(f".out{img_path.suffix}")
+    save_path = img_path.with_suffix(f".out{img_path.suffix}").parts[-1]
     torchvision.utils.save_image(out_img, save_path)
     return {  # pyright: ignore
         "seq_name": img_path.stem,
@@ -102,6 +104,7 @@ if __name__ == "__main__":
         print(f"Saved to {save_path}")
     else:
         df = eval_on_all_kodak(model)
+        df["anchor"] = "hypernet"
         df.to_csv("kodak_results.csv")
         for kodim_name in [f"kodim{i:02d}" for i in range(1, 25)]:
             plot_hypernet_rd(kodim_name, df)
