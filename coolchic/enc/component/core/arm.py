@@ -13,6 +13,8 @@ import torch
 import torch.nn.functional as F
 from torch import Tensor, index_select, nn
 
+from coolchic.hypernet.common import set_hypernet_weights
+
 
 class ArmLinear(nn.Module):
     """Create a Linear layer of the Auto-Regressive Module (ARM). This is a
@@ -230,6 +232,13 @@ class Arm(nn.Module):
         for layer in self.mlp.children():
             if isinstance(layer, ArmLinear):
                 layer.initialize_parameters()
+
+    def set_hypernet_weights(
+        self,
+        all_weights: OrderedDict[str, torch.Tensor]
+        | OrderedDict[str, torch.nn.Parameter],
+    ):
+        set_hypernet_weights(self, all_weights)
 
 
 def _get_neighbor(x: Tensor, mask_size: int, non_zero_pixel_ctx_idx: Tensor) -> Tensor:

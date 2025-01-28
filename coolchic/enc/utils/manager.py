@@ -8,8 +8,8 @@
 
 from dataclasses import dataclass, field, fields
 
-from enc.training.presets import Preset
-from utils.types import PresetConfig
+from coolchic.enc.training.presets import Preset
+from coolchic.utils.types import PresetConfig
 
 
 @dataclass

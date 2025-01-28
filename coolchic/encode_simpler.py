@@ -27,7 +27,7 @@ from coolchic.enc.utils.parsecli import (
 )
 from coolchic.metalearning.data import OpenImagesDataset
 from coolchic.utils.paths import COOLCHIC_REPO_ROOT
-from coolchic.utils.types import RunConfig, UserConfig
+from coolchic.utils.types import RunConfig, UserConfig, load_config
 
 """
 This file has been simplified to only train one image and remove most complexity introduced by the VideoEncoder class.
@@ -55,7 +55,7 @@ def build_frame_encoder(param: CoolChicEncoderParameter, frame: Frame):
     )
 
 
-def get_workdir(config: RunConfig) -> Path:
+def get_workdir(config: RunConfig, config_path: Path) -> Path:
     workdir = (
         config.workdir
         if config.workdir is not None
@@ -126,8 +126,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     config_path = Path(args.config)
-    with open(config_path, "r") as stream:
-        user_config = UserConfig(**yaml.safe_load(stream))
+    user_config = load_config(config_path, UserConfig)
 
     if args.openimages_id is not None:
         assert isinstance(user_config.input, list)
@@ -137,7 +136,7 @@ if __name__ == "__main__":
 
     # One user config generates one or more runs, depending on the parameters specified.
     for config in user_config.get_run_configs():
-        workdir = get_workdir(config)
+        workdir = get_workdir(config, config_path)
         path_video_encoder = workdir / "video_encoder.pt"
 
         if config.load_models and os.path.exists(path_video_encoder):

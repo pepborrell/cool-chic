@@ -13,7 +13,7 @@ from pathlib import Path
 
 import yaml
 from utils.paths import COOLCHIC_REPO_ROOT
-from utils.types import UserConfig
+from utils.types import UserConfig, load_config
 
 import wandb
 from coolchic.enc.component.coolchic import CoolChicEncoderParameter
@@ -62,8 +62,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     config_path = Path(args.config)
-    with open(config_path, "r") as stream:
-        user_config = UserConfig(**yaml.safe_load(stream))
+    user_config = load_config(config_path, UserConfig)
 
     if args.openimages_id is not None:
         assert isinstance(user_config.input, list)

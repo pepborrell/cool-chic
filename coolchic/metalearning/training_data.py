@@ -1,3 +1,4 @@
+import argparse
 import os
 import random
 import re
@@ -16,6 +17,9 @@ from coolchic.utils.paths import DATA_DIR
 # Based on the code in https://github.com/openimages/dataset/blob/main/downloader.py
 BUCKET_NAME = "open-images-dataset"
 REGEX = r"(test|train|validation|challenge2018)/([a-fA-F0-9]*)"
+
+# Defining path to download images.
+OPENIMAGES_DOWNLOAD_PATH = DATA_DIR / "metalearning" / "openimages"
 
 
 def check_and_homogenize_one_image(image: str) -> tuple[str, str]:
@@ -77,7 +81,7 @@ def download_all_images(
     progress_bar.close()
 
 
-def image_to_tensor(image_path: str) -> torch.Tensor:
+def download_image_to_tensor(image_path: str) -> torch.Tensor:
     s3_client = boto3.client(
         "s3", config=botocore.config.Config(signature_version=botocore.UNSIGNED)
     )
@@ -96,7 +100,9 @@ def image_to_tensor(image_path: str) -> torch.Tensor:
 def select_images(image_csv: Path, n_images: int = 100) -> list[str]:
     # We select a subset of N images from the first 100N images in the list.
     random.seed(42)  # Images will always be the same.
-    cand_pool_size = 100 * n_images
+    cand_pool_size = min(
+        100 * n_images, int(1.7 * 10**6)
+    )  # 1.7M images in the dataset.
     indices = set(random.sample(range(1, cand_pool_size), n_images))
     selected_lines = []
     with open(image_csv, "r") as file:
@@ -134,12 +140,27 @@ def get_image_list(n_images: int = 100) -> list[str]:
     return img_list
 
 
+def get_image_save_path(image_name: str) -> Path:
+    return OPENIMAGES_DOWNLOAD_PATH / f"{image_name.split('/')[1]}.jpg"
+
+
 def select_download_all_images(n_images: int = 100) -> list[Path]:
     """Downloads a subset of images from the Open Images dataset."""
-    download_path = DATA_DIR / "metalearning" / "images"
-    download_path.mkdir(parents=True, exist_ok=True)
+    OPENIMAGES_DOWNLOAD_PATH.mkdir(parents=True, exist_ok=True)
     img_list = get_image_list(n_images=n_images)
     download_all_images(
-        download_folder=download_path, input_image_list=img_list, num_processes=4
+        download_folder=OPENIMAGES_DOWNLOAD_PATH,
+        input_image_list=img_list,
+        num_processes=4,
     )
-    return [download_path / f"{img_name.split('/')[1]}.jpg" for img_name in img_list]
+    return [get_image_save_path(img_name) for img_name in img_list]
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--n_images", type=int, required=True, help="Number of images to download."
+    )
+    args = parser.parse_args()
+
+    select_download_all_images(n_images=args.n_images)

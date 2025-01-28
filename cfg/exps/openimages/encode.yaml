@@ -1,7 +1,7 @@
 input: openimages
 output: null
 workdir: null
-disable_wandb: False
+disable_wandb: True
 load_models: False
 lmbda: 1e-3
 user_tag: gen-openimages

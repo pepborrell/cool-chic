@@ -1,0 +1,27 @@
+n_samples: 10000
+n_epochs: 50
+lmbda: 1e-3
+patch_size: [256, 256]
+workdir: null
+disable_wandb: False
+user_tag: hypernet-make-it-work
+
+hypernet_cfg:
+  synthesis:
+    hidden_dim: 1024
+    n_layers: 3
+  arm:
+    hidden_dim: 1024
+    n_layers: 3
+  upsampling:
+    hidden_dim: 256
+    n_layers: 1
+  backbone_arch: resnet50
+
+  dec_cfg:
+    config_name: hop
+    arm: 16,2
+    layers_synthesis: 48-1-linear-relu,X-1-linear-none,X-3-residual-relu,X-3-residual-none
+    n_ft_per_res: 1,1,1,1,1,1,1
+    ups_k_size: 8
+    ups_preconcat_k_size: 7

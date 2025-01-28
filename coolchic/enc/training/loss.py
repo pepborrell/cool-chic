@@ -12,8 +12,9 @@ from dataclasses import dataclass, field
 from typing import Optional, Union
 
 import torch
-from enc.utils.codingstructure import DictTensorYUV
 from torch import Tensor
+
+from coolchic.enc.utils.codingstructure import DictTensorYUV
 
 
 @dataclass(kw_only=True)

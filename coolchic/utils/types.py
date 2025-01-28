@@ -2,12 +2,13 @@ import itertools
 import random
 from datetime import datetime
 from pathlib import Path
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, Type, TypeVar
 
 import yaml
-from enc.training.presets import TrainerPhase, Warmup, WarmupPhase
-from pydantic import BaseModel, BeforeValidator, Field
-from utils.paths import COOLCHIC_REPO_ROOT
+from pydantic import BaseModel, BeforeValidator, Field, computed_field
+
+from coolchic.enc.training.presets import TrainerPhase, Warmup, WarmupPhase
+from coolchic.utils.paths import COOLCHIC_REPO_ROOT
 
 PRESET_NAMES = Literal["c3x", "debug"]
 preset_configs_dir = COOLCHIC_REPO_ROOT / "preset_cfg"
@@ -160,6 +161,50 @@ class DecoderConfig(BaseModel):
         ),
     )
 
+    @computed_field
+    @property
+    def dim_arm(self) -> int:
+        assert len(self.arm.split(",")) == 2, (
+            f"--arm format should be X,Y." f" Found {self.arm}"
+        )
+        return int(self.arm.split(",")[0])
+
+    @computed_field
+    @property
+    def n_hidden_layers_arm(self) -> int:
+        assert len(self.arm.split(",")) == 2, (
+            f"--arm format should be X,Y." f" Found {self.arm}"
+        )
+        return int(self.arm.split(",")[1])
+
+    @computed_field
+    @property
+    def parsed_layers_synthesis(self) -> list[str]:
+        # Parsing the synthesis layers.
+        parsed_layers_synthesis = [
+            x for x in self.layers_synthesis.split(",") if x != ""
+        ]
+        # NOTE: We replace the X in the number of channels by the number of output channels,
+        # which will always be 3, as we are working with RGB images.
+        parsed_layers_synthesis = [
+            lay.replace("X", str(3)) for lay in parsed_layers_synthesis
+        ]
+        assert parsed_layers_synthesis, (
+            "Synthesis should have at least one layer, found nothing.\n"
+            "Try something like 32-1-linear-relu,X-1-linear-none,"
+            "X-3-residual-relu,X-3-residual-none"
+        )
+        return parsed_layers_synthesis
+
+    @computed_field
+    @property
+    def parsed_n_ft_per_res(self) -> list[int]:
+        parsed_n_ft_per_res = [int(x) for x in self.n_ft_per_res.split(",") if x != ""]
+        assert set(parsed_n_ft_per_res) == {
+            1
+        }, f"--n_ft_per_res should only contain 1. Found {self.n_ft_per_res}"
+        return parsed_n_ft_per_res
+
 
 def single_element_to_list(elem: Any) -> list[Any]:
     if not isinstance(elem, list):
@@ -222,3 +267,46 @@ class UserConfig(BaseModel):
             cur_config.unique_id = get_run_uid(len(configs))
             configs.append(cur_config)
         return configs
+
+
+class HyperNetParams(BaseModel):
+    hidden_dim: int
+    n_layers: int
+
+
+class HyperNetConfig(BaseModel):
+    dec_cfg: DecoderConfig
+
+    synthesis: HyperNetParams = HyperNetParams(hidden_dim=1024, n_layers=3)
+    arm: HyperNetParams = HyperNetParams(hidden_dim=1024, n_layers=3)
+    upsampling: HyperNetParams = HyperNetParams(hidden_dim=256, n_layers=1)
+    backbone_arch: Literal["resnet18", "resnet50"] = "resnet18"
+
+    patch_size: tuple[int, int] = (256, 256)
+
+    @computed_field
+    @property
+    def n_latents(self) -> int:
+        return len(self.dec_cfg.parsed_n_ft_per_res)
+
+
+class HypernetRunConfig(BaseModel):
+    n_samples: int
+    n_epochs: int
+    batch_size: int = 1
+    workdir: Path | None = None
+    lmbda: float = 1e-3
+    softround_temperature: tuple[float, float]
+    noise_parameter: tuple[float, float]
+    hypernet_cfg: HyperNetConfig
+    disable_wandb: bool = False
+    unique_id: str = get_run_uid()
+    user_tag: str | None
+
+
+T = TypeVar("T", bound=BaseModel)
+
+
+def load_config(config_path: Path, config_class: Type[T]) -> T:
+    with open(config_path, "r") as stream:
+        return config_class(**yaml.safe_load(stream))

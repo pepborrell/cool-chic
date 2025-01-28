@@ -13,16 +13,17 @@ from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 
 import torch
 import torch.nn.functional as F
-from enc.component.frame import FrameEncoder, FrameEncoderOutput
-from enc.training.loss import (
+from torch import Tensor
+
+from coolchic.enc.component.frame import FrameEncoder, FrameEncoderOutput
+from coolchic.enc.training.loss import (
     LossFunctionOutput,
     _compute_mse,
     loss_function,
 )
-from enc.utils.codingstructure import Frame, convert_420_to_444
-from enc.utils.manager import FrameEncoderManager
-from enc.utils.misc import DescriptorCoolChic
-from torch import Tensor
+from coolchic.enc.utils.codingstructure import Frame, convert_420_to_444
+from coolchic.enc.utils.manager import FrameEncoderManager
+from coolchic.enc.utils.misc import DescriptorCoolChic
 
 
 @dataclass

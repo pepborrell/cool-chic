@@ -68,6 +68,7 @@ def train(
     quantizer_noise_type: POSSIBLE_QUANTIZATION_NOISE_TYPE = "kumaraswamy",
     softround_temperature: Tuple[float, float] = (0.3, 0.2),
     noise_parameter: Tuple[float, float] = (2.0, 1.0),
+    val_logs: list | None = None,
 ) -> FrameEncoder:
     """Train a ``FrameEncoder`` and return the updated module. This function is
     supposed to be called any time we want to optimize the parameters of a
@@ -333,6 +334,10 @@ def train(
 
             # Log to wandb.
             wandb.log({**asdict(encoder_logs), **additional_data})
+
+            # If logging vector is provided, append the logs.
+            if val_logs is not None:
+                val_logs.append(encoder_logs)
 
             # Update soft rounding temperature and noise_parameter
             cur_softround_temperature = _linear_schedule(

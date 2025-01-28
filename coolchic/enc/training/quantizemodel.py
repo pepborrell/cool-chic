@@ -11,11 +11,13 @@ import time
 from typing import Optional, OrderedDict
 
 import torch
-from enc.component.frame import FrameEncoder
-from enc.training.loss import loss_function
-from enc.utils.codingstructure import Frame
-from enc.utils.manager import FrameEncoderManager
-from enc.utils.misc import (
+from torch import Tensor
+
+from coolchic.enc.component.frame import FrameEncoder
+from coolchic.enc.training.loss import loss_function
+from coolchic.enc.utils.codingstructure import Frame
+from coolchic.enc.utils.manager import FrameEncoderManager
+from coolchic.enc.utils.misc import (
     MAX_AC_MAX_VAL,
     POSSIBLE_EXP_GOL_COUNT,
     POSSIBLE_Q_STEP,
@@ -23,7 +25,6 @@ from enc.utils.misc import (
     exp_golomb_nbins,
     get_q_step_from_parameter_name,
 )
-from torch import Tensor
 
 
 def _quantize_parameters(

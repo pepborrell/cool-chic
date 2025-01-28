@@ -11,12 +11,12 @@ import copy
 import time
 from typing import List
 
-from enc.component.frame import FrameEncoder
-from enc.training.test import test
-from enc.training.train import train
-from enc.utils.codingstructure import Frame
-from enc.utils.manager import FrameEncoderManager
-from enc.utils.misc import POSSIBLE_DEVICE, mem_info
+from coolchic.enc.component.frame import FrameEncoder
+from coolchic.enc.training.test import test
+from coolchic.enc.training.train import train
+from coolchic.enc.utils.codingstructure import Frame
+from coolchic.enc.utils.manager import FrameEncoderManager
+from coolchic.enc.utils.misc import POSSIBLE_DEVICE, mem_info
 
 
 def warmup(

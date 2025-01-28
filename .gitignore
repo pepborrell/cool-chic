@@ -5,9 +5,11 @@ venv/
 *.pyc
 *.pt
 *.png
+*.jpg
 *.out
 wandb/
 results/exps/
+data/**/*.csv
 
 docs/build/
 .DS_Store

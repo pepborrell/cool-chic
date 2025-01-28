@@ -19,7 +19,7 @@ from enc.utils.parsecli import (
 )
 from utils.get_best_models import get_best_model
 from utils.paths import COOLCHIC_REPO_ROOT
-from utils.types import RunConfig, UserConfig
+from utils.types import RunConfig, UserConfig, load_config
 
 import wandb
 
@@ -131,9 +131,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     assert args.config.exists(), f"Config file {args.config} does not exist."
-
-    with open(args.config, "r") as stream:
-        user_config = UserConfig(**yaml.safe_load(stream))
+    user_config = load_config(args.config, UserConfig)
 
     # One user config generates one or more runs, depending on the parameters specified.
     all_run_configs = user_config.get_run_configs()
