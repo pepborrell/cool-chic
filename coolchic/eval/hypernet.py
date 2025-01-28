@@ -13,7 +13,7 @@ def compare_kodak_res(results: pd.DataFrame) -> pd.DataFrame:
         df["anchor"] = anchor
         res_sums.append(df)
 
-    results["anchor"] = "hypernet"
+    assert "anchor" in results.columns, "Anchor column not found in results"
     res_sums.append(results)
     all_df = pd.concat(res_sums)
 
@@ -25,6 +25,6 @@ def plot_hypernet_rd(kodim_name: str, results: pd.DataFrame):
     all_df = all_df.loc[all_df["seq_name"] == kodim_name]
 
     fig, ax = plt.subplots()
-    sns.lineplot(all_df, x="rate_bpp", y="psnr_db", hue="anchor", marker="o", ax=ax)
+    sns.lineplot(all_df, x="rate_bpp", y="psnr_db", hue="anchor", markers=None, ax=ax)
     ax.set_title(f"RD curve for {kodim_name}")
     return fig, ax

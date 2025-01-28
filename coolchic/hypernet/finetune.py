@@ -34,6 +34,8 @@ def main(
     frame_data = load_frame_data_from_file(str(img_path), 0)
     img = frame_data.data
     assert isinstance(img, torch.Tensor)  # To make pyright happy.
+    device = get_best_device()
+    img = img.to(device)
 
     # 2: Get coolchic representation from hypernet
     weights_path = Path("epoch_4_batch_99500.pt")
@@ -72,8 +74,6 @@ def main(
     frame.refs_data = video_encoder.get_ref_data(frame)
 
     # 4: Train like in coolchic
-    # Automatic device detection
-    device = get_best_device()
     frame.to_device(device)
     frame_enc.to_device(device)
     # Deactivate wandb
@@ -112,6 +112,18 @@ def log_to_results(logs: FrameEncoderLogs, seq_name: str) -> SummaryEncodingMetr
     )
 
 
+def finetune_all_kodak(preset: PresetConfig, from_scratch: bool) -> pd.DataFrame:
+    all_finetuned = []
+    for i in range(1, 25):
+        finetuned = main(i, preset, from_scratch)
+        all_finetuned.append(
+            pd.DataFrame(
+                [log_to_results(log, f"kodim{i:02d}").model_dump() for log in finetuned]
+            )
+        )
+    return pd.concat(all_finetuned)
+
+
 # 5: Get metrics at different points of training (post-dec rate as well)
 if __name__ == "__main__":
     # Configuring how training happens.
@@ -132,20 +144,18 @@ if __name__ == "__main__":
     training_preset = PresetConfig(
         preset_name="", warmup=Warmup(), all_phases=[training_phase]
     )
-    # main(1, training_preset)
-    # main(1, training_preset, from_scratch=True)
 
-    all_results = []
-    for i in range(1, 25):
-        logs = main(i, training_preset)
-        results = pd.DataFrame(
-            [log_to_results(log, f"kodim{i:02d}").model_dump() for log in logs]
-        )
-        all_results.append(results)
+    finetuned = finetune_all_kodak(training_preset, from_scratch=False)
+    from_scratch = finetune_all_kodak(training_preset, from_scratch=True)
+    finetuned["anchor"] = "hnet-finetuning"
+    from_scratch["anchor"] = "train-from-scratch"
 
-    all_results_df = pd.concat(all_results)
-    all_results_df.to_csv("finetuning_results.csv")
+    all_results = pd.concat([finetuned, from_scratch])
+    all_results.to_csv("finetuning_results.csv")
 
-    for i in range(1, 25):
-        plot_hypernet_rd(f"kodim{i:02d}", all_results_df)
-    plt.show()
+    # only plot if not on server.
+    if get_best_device() == "cpu":
+        all_results = pd.read_csv("finetuning_results.csv")
+        for i in range(1, 25):
+            plot_hypernet_rd(f"kodim{i:02d}", all_results)
+        plt.show()
