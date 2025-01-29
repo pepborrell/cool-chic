@@ -144,10 +144,15 @@ def get_image_save_path(image_name: str) -> Path:
     return OPENIMAGES_DOWNLOAD_PATH / f"{image_name.split('/')[1]}.jpg"
 
 
+def filter_list_if_downloaded(img_list: list[str]) -> list[str]:
+    return [img for img in img_list if not get_image_save_path(img).exists()]
+
+
 def select_download_all_images(n_images: int = 100) -> list[Path]:
     """Downloads a subset of images from the Open Images dataset."""
     OPENIMAGES_DOWNLOAD_PATH.mkdir(parents=True, exist_ok=True)
     img_list = get_image_list(n_images=n_images)
+    img_list = filter_list_if_downloaded(img_list)
     download_all_images(
         download_folder=OPENIMAGES_DOWNLOAD_PATH,
         input_image_list=img_list,
