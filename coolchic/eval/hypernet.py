@@ -33,6 +33,7 @@ def plot_hypernet_rd(kodim_name: str, results: pd.DataFrame):
         marker="o",
         markeredgecolor="none",
         ax=ax,
+        sort=False,
     )
     ax.set_title(f"RD curve for {kodim_name}")
     return fig, ax
