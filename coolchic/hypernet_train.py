@@ -104,6 +104,7 @@ def train(
     start_lr: float = 1e-3,
     softround_temperature: tuple[float, float] = (0.3, 0.3),
     noise_parameter: tuple[float, float] = (0.25, 0.25),
+    unfreeze_backbone_samples: int | None = None,
 ):
     wholenet = CoolchicWholeNet(config)
     if torch.cuda.is_available():
@@ -123,8 +124,6 @@ def train(
     wholenet.freeze_resnet()
     for epoch in range(n_epochs):
         print(f"Epoch {epoch}")
-        if epoch > 5:
-            wholenet.unfreeze_resnet()
         batch_n = 0
         for img_batch in tqdm(train_data):
             img_batch = img_batch.to(device)
@@ -208,6 +207,14 @@ def train(
                 # Save model
                 save_path = workdir / f"epoch_{epoch}_batch_{batch_n}.pt"
                 torch.save(wholenet.hypernet.state_dict(), save_path)
+
+                # Unfreeze backbone if needed
+                if (
+                    unfreeze_backbone_samples is not None
+                    and samples_seen > unfreeze_backbone_samples
+                ):
+                    wholenet.unfreeze_resnet()
+                    print("Unfreezing backbone")
 
         scheduler.step()
 

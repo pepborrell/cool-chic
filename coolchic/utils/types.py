@@ -298,6 +298,7 @@ class HypernetRunConfig(BaseModel):
     lmbda: float = 1e-3
     softround_temperature: tuple[float, float]
     noise_parameter: tuple[float, float]
+    unfreeze_backbone: int | None
     hypernet_cfg: HyperNetConfig
     disable_wandb: bool = False
     unique_id: str = get_run_uid()
