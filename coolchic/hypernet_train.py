@@ -155,6 +155,7 @@ def train(
             train_losses.append(
                 {
                     "epoch": epoch,
+                    "samples_seen": samples_seen,
                     "batch": batch_n,
                     "train_loss": loss_function_output.loss.item(),
                     "train_mse": loss_function_output.mse,
@@ -168,7 +169,7 @@ def train(
             optimizer.step()
 
             batch_n += 1
-            samples_seen += len(img_batch)
+            samples_seen += 1
 
             if batch_n % 500 == 0:
                 # Average train losses.
