@@ -3,7 +3,6 @@ import os
 from pathlib import Path
 
 import torch
-from tqdm import tqdm
 
 import wandb
 from coolchic.enc.component.coolchic import CoolChicEncoderOutput
@@ -125,7 +124,7 @@ def train(
     for epoch in range(n_epochs):
         print(f"Epoch {epoch}")
         batch_n = 0
-        for img_batch in tqdm(train_data):
+        for img_batch in train_data:
             img_batch = img_batch.to(device)
             cur_softround_t = _linear_schedule(
                 *softround_temperature, samples_seen, total_iterations
