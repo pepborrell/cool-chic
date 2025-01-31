@@ -36,7 +36,7 @@ class OpenImagesDataset(Dataset):
             return img
         h, w = img.shape[-2:]
         patch_height, patch_width = patch_size
-        if h < patch_height or w < patch_width:
+        if h <= patch_height or w <= patch_width:
             # Work with the full image if it is too small.
             return img
         # Set random seed for reproducibility. Random seed is based on the image content.
