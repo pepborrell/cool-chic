@@ -81,31 +81,66 @@ def eval_on_all_kodak(model: CoolchicWholeNet):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--weights_path", type=Path)
-    parser.add_argument("--img_num", type=int, default=None)
-    parser.add_argument("--img_path", type=Path, default=None)
-    parser.add_argument("--config", type=Path)
+    parser = argparse.ArgumentParser(description="Evaluate a hypernet's performance.")
+    # Comma-separated list of weight paths.
+    parser.add_argument(
+        "--weight_paths",
+        type=str,
+        required=True,
+        help="Comma-separated list of weight paths. "
+        "Only one path is allowed when evaluating a single image.",
+    )
+    parser.add_argument(
+        "--img_num",
+        type=int,
+        default=None,
+        help="Evaluate a single Kodak image by number.",
+    )
+    parser.add_argument(
+        "--img_path", type=Path, default=None, help="Evaluate a single image by path."
+    )
+    parser.add_argument(
+        "--config", type=Path, required=True, help="Path to the hypernet config."
+    )
     args = parser.parse_args()
 
     run_cfg = load_config(args.config, HypernetRunConfig)
-    # Loading weights.
-    model = load_hypernet(args.weights_path, run_cfg)
-    if args.img_path is not None:
-        compressed, loss = get_image_from_hypernet(model, args.img_path)
-        print(
-            f"Rate: {loss.total_rate_bpp:2f} bpp, MSE: {loss.mse:2f}, PSNR: {loss.psnr_db}"
-        )
-        torchvision.utils.save_image(compressed, args.img_path.with_suffix(".out.png"))
-    elif args.img_num is not None:
-        img_path = DATA_DIR / "kodak" / f"kodim{args.img_num:02d}.png"
-        image_data, save_path = img_eval(args.img_num, model)
-        print(f"{k}: {v}" for k, v in image_data.items())
-        print(f"Saved to {save_path}")
+    w_paths = [Path(p) for p in args.weight_paths.split(",")]
+    assert all(p.exists() for p in w_paths), "One or more weight paths do not exist."
+
+    if args.img_path is not None or args.img_num is not None:
+        assert (
+            len(w_paths) == 1
+        ), "Only one weight path is allowed when evaluating a single image."
+        model = load_hypernet(w_paths[0], run_cfg)
+
+        if args.img_path is not None:
+            compressed, loss = get_image_from_hypernet(model, args.img_path)
+            print(
+                f"Rate: {loss.total_rate_bpp:2f} bpp, MSE: {loss.mse:2f}, PSNR: {loss.psnr_db}"
+            )
+            torchvision.utils.save_image(
+                compressed, args.img_path.with_suffix(".out.png")
+            )
+        else:
+            # img_num is not None.
+            img_path = DATA_DIR / "kodak" / f"kodim{args.img_num:02d}.png"
+            image_data, save_path = img_eval(args.img_num, model)
+            print(f"{k}: {v}" for k, v in image_data.items())
+            print(f"Saved to {save_path}")
     else:
-        df = eval_on_all_kodak(model)
-        df["anchor"] = "hypernet"
-        df.to_csv("kodak_results.csv")
+        # Evaluate on all Kodak images.
+        dfs = []
+        # More than one model path allowed.
+        for i, weight_path in enumerate(w_paths):
+            print(f"Loading model {i + 1}/{len(w_paths)}")
+            model = load_hypernet(weight_path, run_cfg)
+            df = eval_on_all_kodak(model)
+            df["anchor"] = "hypernet" if len(w_paths) == 1 else weight_path.stem
+            dfs.append(df)
+
+        whole_df = pd.concat(dfs)
+        whole_df.to_csv("kodak_results.csv")
         for kodim_name in [f"kodim{i:02d}" for i in range(1, 25)]:
-            plot_hypernet_rd(kodim_name, df)
+            plot_hypernet_rd(kodim_name, whole_df)
         plt.show()
