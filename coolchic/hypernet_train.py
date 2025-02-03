@@ -204,9 +204,10 @@ def train(
                     }
                 )
 
-                # Save model
-                save_path = workdir / f"epoch_{epoch}_batch_{batch_n}.pt"
-                torch.save(wholenet.hypernet.state_dict(), save_path)
+                # Save model, but only every 10k batches.
+                if batch_n % 10000 == 0:
+                    save_path = workdir / f"epoch_{epoch}_batch_{batch_n}.pt"
+                    torch.save(wholenet.hypernet.state_dict(), save_path)
 
                 # Unfreeze backbone if needed
                 if (
