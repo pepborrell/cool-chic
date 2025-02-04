@@ -393,11 +393,12 @@ class CoolchicHyperNet(nn.Module):
         OrderedDict[str, torch.Tensor],
     ]:
         """This strings together all hypernetwork components."""
-        latent_weights = self.latent_hn(img)
-        features = self.hn_backbone(img)
-        synthesis_weights = self.synthesis_hn(features)
-        arm_weights = self.arm_hn(features)
-        upsampling_weights = self.upsampling_hn(features)
+        latent_weights = self.latent_hn.forward(img)
+        features = self.hn_backbone.forward(img)
+        synthesis_weights = self.synthesis_hn.forward(features)
+        arm_weights = self.arm_hn.forward(features)
+        upsampling_weights = self.upsampling_hn.forward(features)
+
         return (
             latent_weights,
             self.synthesis_hn.shape_outputs(synthesis_weights),

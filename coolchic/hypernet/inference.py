@@ -125,8 +125,9 @@ if __name__ == "__main__":
         else:
             # img_num is not None.
             img_path = DATA_DIR / "kodak" / f"kodim{args.img_num:02d}.png"
-            image_data, save_path = img_eval(args.img_num, model)
-            print(f"{k}: {v}" for k, v in image_data.items())
+            image_data, save_path = img_eval(img_path, model)
+            print("Evaluation results:")
+            [print(f"{k}: {v}") for k, v in image_data.items()]
             print(f"Saved to {save_path}")
     else:
         # Evaluate on all Kodak images.

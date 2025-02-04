@@ -31,21 +31,29 @@ class ConvNextBlock(nn.Module):
     def __init__(self, n_channels: int) -> None:
         super().__init__()
         self.n_channels = n_channels
+        ### ALL LAYERS ###
         self.dw_conv = nn.Conv2d(
             self.n_channels,
             self.n_channels,
             kernel_size=7,
             groups=self.n_channels,
             padding="same",
+            bias=True,
         )
         self.conv1 = nn.Conv2d(
-            self.n_channels, self.n_channels, kernel_size=1, padding=0
+            self.n_channels, self.n_channels, kernel_size=1, padding=0, bias=False
         )
         self.conv2 = nn.Conv2d(
-            self.n_channels, self.n_channels, kernel_size=1, padding=0
+            self.n_channels, self.n_channels, kernel_size=1, padding=0, bias=False
         )
         self.layer_norm = nn.GroupNorm(num_groups=1, num_channels=self.n_channels)
         self.gelu = nn.GELU()
+
+        ### INITIALIZATION ###
+        nn.init.kaiming_normal_(self.dw_conv.weight, mode="fan_in")
+        nn.init.kaiming_normal_(self.conv1.weight, mode="fan_in")
+        # Last layer is initialized to zero, so that the block is an identity function by default.
+        nn.init.zeros_(self.conv2.weight)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         z = self.dw_conv(x)
