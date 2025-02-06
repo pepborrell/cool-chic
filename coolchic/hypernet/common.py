@@ -10,6 +10,7 @@ def build_mlp(
     n_hidden_layers: int,
     hidden_size: int,
     activation: nn.Module = nn.ReLU(),
+    output_activation: nn.Module | None = None,
 ) -> nn.Module:
     """Builds an MLP with n_hidden_layers hidden layers."""
     layers_list = nn.ModuleList()
@@ -24,6 +25,8 @@ def build_mlp(
 
     # Add output layer.
     layers_list.append(nn.Linear(hidden_size, output_size))
+    if output_activation is not None:
+        layers_list.append(output_activation)
     return nn.Sequential(*layers_list)
 
 
