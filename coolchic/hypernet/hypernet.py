@@ -401,27 +401,27 @@ class CoolchicHyperNet(nn.Module):
         arm_weights = self.arm_hn.forward(features)
         upsampling_weights = self.upsampling_hn.forward(features)
 
-        # TODO: remove these lines.
-        def print_stats(x: list[torch.Tensor] | torch.Tensor) -> None:
-            def print_tensor_stats(x: torch.Tensor) -> None:
-                print(f"{x.mean()=}, {x.std()=}, {x.min()=}, {x.max()=}")
-
-            if isinstance(x, list):
-                for v in x:
-                    print_tensor_stats(v)
-            else:
-                print_tensor_stats(x)
-
-        print("latent")
-        print_stats(latent_weights)
-        print("features")
-        print_stats(features)
-        print("synthesis")
-        print_stats(synthesis_weights)
-        print("arm")
-        print_stats(arm_weights)
-        print("upsampling")
-        print_stats(upsampling_weights)
+        # # TODO: remove these lines.
+        # def print_stats(x: list[torch.Tensor] | torch.Tensor) -> None:
+        #     def print_tensor_stats(x: torch.Tensor) -> None:
+        #         print(f"{x.mean()=}, {x.std()=}, {x.min()=}, {x.max()=}")
+        #
+        #     if isinstance(x, list):
+        #         for v in x:
+        #             print_tensor_stats(v)
+        #     else:
+        #         print_tensor_stats(x)
+        #
+        # print("latent")
+        # print_stats(latent_weights)
+        # print("features")
+        # print_stats(features)
+        # print("synthesis")
+        # print_stats(synthesis_weights)
+        # print("arm")
+        # print_stats(arm_weights)
+        # print("upsampling")
+        # print_stats(upsampling_weights)
 
         return (
             latent_weights,
