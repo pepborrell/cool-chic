@@ -166,6 +166,8 @@ def train(
             total_loss = loss_function_output.loss
             optimizer.zero_grad()
             total_loss.backward()
+            # Clip gradients to avoid exploding gradients.
+            torch.nn.utils.clip_grad_norm_(wholenet.parameters(), 1.0)
             optimizer.step()
 
             batch_n += 1
