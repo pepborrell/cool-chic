@@ -269,6 +269,7 @@ def main():
         config=run_cfg.hypernet_cfg,
         n_epochs=run_cfg.n_epochs,
         lmbda=run_cfg.lmbda,
+        start_lr=run_cfg.start_lr,
         workdir=workdir,
         device=device,
         softround_temperature=run_cfg.softround_temperature,
