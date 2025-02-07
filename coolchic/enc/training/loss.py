@@ -44,7 +44,7 @@ class LossFunctionOutput:
 
     def __post_init__(self):
         if self.mse is not None:
-            self.psnr_db = -10.0 * math.log10(self.mse)
+            self.psnr_db = -10.0 * math.log10(self.mse + 1e-10)  # 1e-10 to avoid log(0)
 
         if self.rate_nn_bpp is not None and self.rate_latent_bpp is not None:
             self.total_rate_bpp = self.rate_nn_bpp + self.rate_latent_bpp
