@@ -287,6 +287,7 @@ class UpsamplingHyperNet(nn.Module):
             output_size=self.n_output_features,
             n_hidden_layers=hypernet_n_layers,
             hidden_size=self.hidden_size,
+            output_activation=nn.Tanh(),
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
