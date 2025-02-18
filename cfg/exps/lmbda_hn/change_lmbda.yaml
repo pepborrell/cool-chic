@@ -8,7 +8,7 @@ unfreeze_backbone: 20000 # After 20k samples, training is stable.
 workdir: null
 disable_wandb: False
 lmbda: random
-user_tag: schedule_hypernet
+user_tag: change_lmbda
 
 hypernet_cfg:
   synthesis:
