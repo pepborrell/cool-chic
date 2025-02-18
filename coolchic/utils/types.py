@@ -295,7 +295,7 @@ class HypernetRunConfig(BaseModel):
     n_epochs: int
     batch_size: int = 1
     workdir: Path | None = None
-    lmbda: float = 1e-3
+    lmbda: float | Literal["random"] = 1e-3
     softround_temperature: tuple[float, float]
     noise_parameter: tuple[float, float]
     start_lr: float = 1e-3

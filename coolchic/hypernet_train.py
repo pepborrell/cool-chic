@@ -1,6 +1,7 @@
 import argparse
 import os
 from pathlib import Path
+from typing import Iterable
 
 import torch
 
@@ -12,6 +13,7 @@ from coolchic.hypernet.hypernet import CoolchicWholeNet
 from coolchic.metalearning.data import OpenImagesDataset
 from coolchic.utils.nn import _linear_schedule
 from coolchic.utils.paths import COOLCHIC_REPO_ROOT
+from coolchic.utils.structs import ConstantIterable
 from coolchic.utils.types import HyperNetConfig, HypernetRunConfig, load_config
 
 
@@ -97,7 +99,7 @@ def train(
     test_data: torch.utils.data.DataLoader,
     config: HyperNetConfig,
     n_epochs: int,
-    lmbda: float,
+    lmbdas: Iterable[float],
     workdir: Path,
     device: POSSIBLE_DEVICE,
     start_lr: float = 1e-3,
@@ -124,7 +126,7 @@ def train(
     for epoch in range(n_epochs):
         print(f"Epoch {epoch}")
         batch_n = 0
-        for img_batch in train_data:
+        for img_batch, lmbda in zip(train_data, lmbdas):
             img_batch = img_batch.to(device)
             cur_softround_t = _linear_schedule(
                 *softround_temperature, samples_seen, total_iterations
@@ -252,6 +254,18 @@ def main():
         test_data, batch_size=1, shuffle=False
     )
 
+    # Lambda definition logic.
+    if isinstance(run_cfg.lmbda, float):
+        lmbdas = ConstantIterable(run_cfg.lmbda)
+    elif run_cfg.lmbda == "random":
+        # In coolchic experiments, we ran these lambda values: [0.0001, 0.0004, 0.001, 0.004, 0.02].
+        lmbda_min, lmbda_max = 0.0001, 0.02
+        lmbdas = (
+            torch.rand(run_cfg.n_samples) * (lmbda_max - lmbda_min) + lmbda_min
+        ).tolist()
+    else:
+        raise ValueError(f"Invalid lambda value: {run_cfg.lmbda}")
+
     ##### LOGGING #####
     # Setting up all logging using wandb.
     if run_cfg.disable_wandb:
@@ -268,7 +282,7 @@ def main():
         test_data_loader,
         config=run_cfg.hypernet_cfg,
         n_epochs=run_cfg.n_epochs,
-        lmbda=run_cfg.lmbda,
+        lmbdas=lmbdas,
         start_lr=run_cfg.start_lr,
         workdir=workdir,
         device=device,
