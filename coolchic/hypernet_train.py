@@ -51,7 +51,10 @@ def evaluate_wholenet(
         for test_img in test_data:
             test_img = test_img.to(device)
             raw_out, rate, add_data = net.forward(
-                test_img, quantizer_noise_type="none", quantizer_type="hardround"
+                test_img,
+                quantizer_noise_type="none",
+                quantizer_type="hardround",
+                lmbda=torch.Tensor([lmbda]).to(device),
             )
             test_out = CoolChicEncoderOutput(
                 raw_out=raw_out, rate=rate, additional_data=add_data
