@@ -362,6 +362,9 @@ class CoolchicHyperNet(nn.Module):
         self.hn_backbone, backbone_n_features = get_backbone(
             pretrained=True, arch=config.backbone_arch
         )
+        if self.config.lmbda_as_feature:
+            backbone_n_features += 1
+
         self.synthesis_hn = SynthesisHyperNet(
             n_latents=self.config.n_latents,
             layers_dim=self.config.dec_cfg.parsed_layers_synthesis,
@@ -388,7 +391,7 @@ class CoolchicHyperNet(nn.Module):
         self.print_n_params_submodule()
 
     def forward(
-        self, img: torch.Tensor
+        self, img: torch.Tensor, lmbda: torch.Tensor | None = None
     ) -> tuple[
         list[torch.Tensor],
         OrderedDict[str, torch.Tensor],
@@ -398,31 +401,12 @@ class CoolchicHyperNet(nn.Module):
         """This strings together all hypernetwork components."""
         latent_weights = self.latent_hn.forward(img)
         features = self.hn_backbone.forward(img)
+        if self.config.lmbda_as_feature:
+            assert lmbda is not None
+            features = torch.cat([features, lmbda.unsqueeze(0)], dim=1)
         synthesis_weights = self.synthesis_hn.forward(features)
         arm_weights = self.arm_hn.forward(features)
         upsampling_weights = self.upsampling_hn.forward(features)
-
-        # # TODO: remove these lines.
-        # def print_stats(x: list[torch.Tensor] | torch.Tensor) -> None:
-        #     def print_tensor_stats(x: torch.Tensor) -> None:
-        #         print(f"{x.mean()=}, {x.std()=}, {x.min()=}, {x.max()=}")
-        #
-        #     if isinstance(x, list):
-        #         for v in x:
-        #             print_tensor_stats(v)
-        #     else:
-        #         print_tensor_stats(x)
-        #
-        # print("latent")
-        # print_stats(latent_weights)
-        # print("features")
-        # print_stats(features)
-        # print("synthesis")
-        # print_stats(synthesis_weights)
-        # print("arm")
-        # print_stats(arm_weights)
-        # print("upsampling")
-        # print_stats(upsampling_weights)
 
         return (
             latent_weights,
@@ -466,10 +450,13 @@ class CoolchicWholeNet(nn.Module):
         self.cc_encoder = CoolChicEncoder(param=coolchic_encoder_parameter)
 
     def image_to_coolchic(
-        self, img: torch.Tensor, stop_grads: bool = False
+        self,
+        img: torch.Tensor,
+        stop_grads: bool = False,
+        lmbda: torch.Tensor | None = None,
     ) -> CoolChicEncoder:
         latent_weights, synthesis_weights, arm_weights, upsampling_weights = (
-            self.hypernet.forward(img)
+            self.hypernet.forward(img, lmbda=lmbda)
         )
         # Make them leaves in the graph.
         if stop_grads:
@@ -504,8 +491,9 @@ class CoolchicWholeNet(nn.Module):
         quantizer_type: POSSIBLE_QUANTIZER_TYPE = "softround",
         softround_temperature: float = 0.3,
         noise_parameter: float = 0.25,
+        lmbda: torch.Tensor | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor, dict[str, Any]]:
-        return self.image_to_coolchic(img).forward(
+        return self.image_to_coolchic(img, lmbda=lmbda).forward(
             quantizer_noise_type=quantizer_noise_type,
             quantizer_type=quantizer_type,
             soft_round_temperature=torch.tensor(softround_temperature),

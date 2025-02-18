@@ -138,6 +138,7 @@ def train(
                 img_batch,
                 softround_temperature=cur_softround_t,
                 noise_parameter=cur_noise_param,
+                lmbda=torch.Tensor(lmbda),
             )
             out_forward = CoolChicEncoderOutput(
                 raw_out=raw_out, rate=rate, additional_data=add_data
