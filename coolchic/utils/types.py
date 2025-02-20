@@ -279,7 +279,6 @@ class HyperNetConfig(BaseModel):
 
     synthesis: HyperNetParams = HyperNetParams(hidden_dim=1024, n_layers=3)
     arm: HyperNetParams = HyperNetParams(hidden_dim=1024, n_layers=3)
-    upsampling: HyperNetParams = HyperNetParams(hidden_dim=256, n_layers=1)
     backbone_arch: Literal["resnet18", "resnet50"] = "resnet18"
 
     patch_size: tuple[int, int] = (256, 256)
