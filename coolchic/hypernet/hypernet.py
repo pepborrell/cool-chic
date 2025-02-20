@@ -379,14 +379,6 @@ class CoolchicHyperNet(nn.Module):
             hypernet_hidden_dim=self.config.arm.hidden_dim,
             hypernet_n_layers=self.config.arm.n_layers,
         )
-        self.upsampling_hn = UpsamplingHyperNet(
-            n_latents=self.config.n_latents,
-            ups_k_size=self.config.dec_cfg.ups_k_size,
-            ups_preconcat_k_size=self.config.dec_cfg.ups_preconcat_k_size,
-            n_input_features=backbone_n_features,
-            hypernet_hidden_dim=self.config.upsampling.hidden_dim,
-            hypernet_n_layers=self.config.upsampling.n_layers,
-        )
 
         self.print_n_params_submodule()
 
@@ -394,7 +386,6 @@ class CoolchicHyperNet(nn.Module):
         self, img: torch.Tensor, lmbda: torch.Tensor | None = None
     ) -> tuple[
         list[torch.Tensor],
-        OrderedDict[str, torch.Tensor],
         OrderedDict[str, torch.Tensor],
         OrderedDict[str, torch.Tensor],
     ]:
@@ -406,13 +397,11 @@ class CoolchicHyperNet(nn.Module):
             features = torch.cat([features, lmbda.unsqueeze(0)], dim=1)
         synthesis_weights = self.synthesis_hn.forward(features)
         arm_weights = self.arm_hn.forward(features)
-        upsampling_weights = self.upsampling_hn.forward(features)
 
         return (
             latent_weights,
             self.synthesis_hn.shape_outputs(synthesis_weights),
             self.arm_hn.shape_outputs(arm_weights),
-            self.upsampling_hn.shape_output(upsampling_weights),
         )
 
     def print_n_params_submodule(self):
@@ -431,9 +420,6 @@ class CoolchicHyperNet(nn.Module):
             "synthesis", get_num_of_params(self.synthesis_hn)
         )
         output_str += format_param_str("arm", get_num_of_params(self.arm_hn))
-        output_str += format_param_str(
-            "upsampling", get_num_of_params(self.upsampling_hn)
-        )
         print(output_str)
 
 
@@ -455,8 +441,8 @@ class CoolchicWholeNet(nn.Module):
         stop_grads: bool = False,
         lmbda: torch.Tensor | None = None,
     ) -> CoolChicEncoder:
-        latent_weights, synthesis_weights, arm_weights, upsampling_weights = (
-            self.hypernet.forward(img, lmbda=lmbda)
+        latent_weights, synthesis_weights, arm_weights = self.hypernet.forward(
+            img, lmbda=lmbda
         )
         # Make them leaves in the graph.
         if stop_grads:
@@ -467,14 +453,12 @@ class CoolchicWholeNet(nn.Module):
             arm_weights = OrderedDict(
                 {k: nn.Parameter(v) for k, v in arm_weights.items()}
             )
-            upsampling_weights = OrderedDict(
-                {k: nn.Parameter(v) for k, v in upsampling_weights.items()}
-            )
 
         # Replacing weights.
         self.cc_encoder.synthesis.set_hypernet_weights(synthesis_weights)
         self.cc_encoder.arm.set_hypernet_weights(arm_weights)
-        self.cc_encoder.upsampling.set_hypernet_weights(upsampling_weights)
+        # Set upsampling as a bicubic upsampling filter.
+        self.cc_encoder.upsampling.reinitialize_parameters()
 
         # Replace latents, they are not exactly like a module's weights.
         self.cc_encoder.size_per_latent = [
