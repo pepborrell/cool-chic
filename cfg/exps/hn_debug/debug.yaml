@@ -1,6 +1,9 @@
 n_samples: 10
 n_epochs: 1
 batch_size: 1
+softround_temperature: [0.3, 0.3]
+noise_parameter: [0.25, 0.25]
+unfreeze_backbone: 0
 workdir: null
 disable_wandb: True
 lmbda: 1e-3
