@@ -56,12 +56,7 @@ def get_backbone(
     if input_channels != 3:
         # Replace the first layer with a new one. For cases where the input is not RGB images.
         model.conv1 = nn.Conv2d(
-            input_channels,
-            model.inplanes,
-            kernel_size=7,
-            stride=2,
-            padding=3,
-            bias=False,
+            input_channels, 64, kernel_size=7, stride=2, padding=3, bias=False
         )
     # We want to extract the features, so we remove the final fc layer.
     model = torch.nn.Sequential(*list(model.children())[:-1], nn.Flatten(start_dim=1))
@@ -157,7 +152,7 @@ class SynthesisHyperNet(nn.Module):
             weight = weight.view(layer.out_ft, layer.in_ft, layer.k_size, layer.k_size)
             bias = bias.view(layer.out_ft)
             # Adding to the dictionary
-            layer_name = f"layers.{2*layer_num}"  # Multiply by 2 because of the non-linearity layers.
+            layer_name = f"layers.{2 * layer_num}"  # Multiply by 2 because of the non-linearity layers.
             formatted_weights[f"{layer_name}.weight"] = weight
             formatted_weights[f"{layer_name}.bias"] = bias
 
@@ -236,7 +231,7 @@ class ArmHyperNet(nn.Module):
             bias = bias.view(self.dim_arm)
 
             # Adding to the dictionary
-            layer_name = f"mlp.{2*layer}"  # Multiplying by 2 because we have activations interleaved.
+            layer_name = f"mlp.{2 * layer}"  # Multiplying by 2 because we have activations interleaved.
             formatted_weights[f"{layer_name}.weight"] = weight
             formatted_weights[f"{layer_name}.bias"] = bias
 
@@ -253,8 +248,8 @@ class ArmHyperNet(nn.Module):
         weight = weight.view(2, self.dim_arm)
         bias = bias.view(2)
 
-        formatted_weights[f"mlp.{2*self.n_hidden_layers}.weight"] = weight
-        formatted_weights[f"mlp.{2*self.n_hidden_layers}.bias"] = bias
+        formatted_weights[f"mlp.{2 * self.n_hidden_layers}.weight"] = weight
+        formatted_weights[f"mlp.{2 * self.n_hidden_layers}.bias"] = bias
 
         return formatted_weights
 
@@ -412,7 +407,7 @@ class CoolchicHyperNet(nn.Module):
         latent_weights = self.latent_hn.forward(img)
         img_features = self.hn_backbone.forward(img)
         latent_features = self.latent_backbone.forward(
-            upsample_latents(latent_weights, mode="bicubic")
+            upsample_latents(latent_weights, mode="bicubic").detach()
         )
         features = torch.cat([img_features, latent_features], dim=1)
         if self.config.lmbda_as_feature:
@@ -431,10 +426,10 @@ class CoolchicHyperNet(nn.Module):
         total_params = get_num_of_params(self)
 
         def format_param_str(subm_name: str, n_params: int) -> str:
-            return f"{subm_name}: {n_params}, {100*n_params/total_params:.2f}%\n"
+            return f"{subm_name}: {n_params}, {100 * n_params / total_params:.2f}%\n"
 
         output_str = (
-            "NUMBER OF PARAMETERS:\n" f"Total number of parameters: {total_params}\n"
+            f"NUMBER OF PARAMETERS:\nTotal number of parameters: {total_params}\n"
         )
 
         output_str += format_param_str("latent", get_num_of_params(self.latent_hn))
