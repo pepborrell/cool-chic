@@ -52,8 +52,6 @@ def get_backbone(
     elif arch == "resnet50":
         model = resnet50(weights=ResNet50_Weights.DEFAULT if pretrained else None)
         n_output_features = 2048
-    # We want to extract the features, so we remove the final fc layer.
-    model = torch.nn.Sequential(*list(model.children())[:-1], nn.Flatten(start_dim=1))
 
     if input_channels != 3:
         # Replace the first layer with a new one. For cases where the input is not RGB images.
@@ -65,6 +63,9 @@ def get_backbone(
             padding=3,
             bias=False,
         )
+    # We want to extract the features, so we remove the final fc layer.
+    model = torch.nn.Sequential(*list(model.children())[:-1], nn.Flatten(start_dim=1))
+
     return model, n_output_features
 
 
