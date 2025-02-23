@@ -177,7 +177,7 @@ def upsample_latents(
     assert all(lat.ndim == 4 for lat in latents), "All latents must be 4D tensors."
     return torch.cat(
         [
-            torch.nn.functional.upsample(lat, scale_factor=2**i, mode=mode)
+            torch.nn.functional.interpolate(lat, scale_factor=2**i, mode=mode)
             for i, lat in enumerate(latents)
         ],
         dim=1,
