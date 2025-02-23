@@ -11,7 +11,7 @@ from coolchic.enc.component.core.quantizer import (
     POSSIBLE_QUANTIZER_TYPE,
 )
 from coolchic.enc.utils.parsecli import get_coolchic_param_from_args
-from coolchic.hypernet.common import ResidualBlockDown, build_mlp
+from coolchic.hypernet.common import ResidualBlockDown, build_mlp, upsample_latents
 from coolchic.utils.nn import get_num_of_params
 from coolchic.utils.types import HyperNetConfig
 
@@ -42,7 +42,9 @@ class LatentHyperNet(nn.Module):
 
 
 def get_backbone(
-    pretrained: bool = True, arch: Literal["resnet18", "resnet50"] = "resnet18"
+    pretrained: bool = True,
+    arch: Literal["resnet18", "resnet50"] = "resnet18",
+    input_channels: int = 3,
 ) -> tuple[nn.Module, int]:
     if arch == "resnet18":
         model = resnet18(weights=ResNet18_Weights.DEFAULT if pretrained else None)
@@ -52,6 +54,17 @@ def get_backbone(
         n_output_features = 2048
     # We want to extract the features, so we remove the final fc layer.
     model = torch.nn.Sequential(*list(model.children())[:-1], nn.Flatten(start_dim=1))
+
+    if input_channels != 3:
+        # Replace the first layer with a new one. For cases where the input is not RGB images.
+        model.conv1 = nn.Conv2d(
+            input_channels,
+            model.inplanes,
+            kernel_size=7,
+            stride=2,
+            padding=3,
+            bias=False,
+        )
     return model, n_output_features
 
 
@@ -362,20 +375,25 @@ class CoolchicHyperNet(nn.Module):
         self.hn_backbone, backbone_n_features = get_backbone(
             pretrained=True, arch=config.backbone_arch
         )
+        self.latent_backbone, _ = get_backbone(
+            pretrained=True,
+            arch=config.backbone_arch,
+            input_channels=self.config.n_latents,
+        )
         if self.config.lmbda_as_feature:
             backbone_n_features += 1
 
         self.synthesis_hn = SynthesisHyperNet(
             n_latents=self.config.n_latents,
             layers_dim=self.config.dec_cfg.parsed_layers_synthesis,
-            n_input_features=backbone_n_features,
+            n_input_features=2 * backbone_n_features,
             hypernet_hidden_dim=self.config.synthesis.hidden_dim,
             hypernet_n_layers=self.config.synthesis.n_layers,
         )
         self.arm_hn = ArmHyperNet(
             dim_arm=self.config.dec_cfg.dim_arm,
             n_hidden_layers=self.config.dec_cfg.n_hidden_layers_arm,
-            n_input_features=backbone_n_features,
+            n_input_features=2 * backbone_n_features,
             hypernet_hidden_dim=self.config.arm.hidden_dim,
             hypernet_n_layers=self.config.arm.n_layers,
         )
@@ -391,7 +409,11 @@ class CoolchicHyperNet(nn.Module):
     ]:
         """This strings together all hypernetwork components."""
         latent_weights = self.latent_hn.forward(img)
-        features = self.hn_backbone.forward(img)
+        img_features = self.hn_backbone.forward(img)
+        latent_features = self.latent_backbone.forward(
+            upsample_latents(latent_weights, mode="bicubic")
+        )
+        features = torch.cat([img_features, latent_features], dim=1)
         if self.config.lmbda_as_feature:
             assert lmbda is not None
             features = torch.cat([features, lmbda.unsqueeze(0)], dim=1)
