@@ -407,7 +407,11 @@ class CoolchicHyperNet(nn.Module):
         latent_weights = self.latent_hn.forward(img)
         img_features = self.hn_backbone.forward(img)
         latent_features = self.latent_backbone.forward(
-            upsample_latents(latent_weights, mode="bicubic").detach()
+            upsample_latents(
+                latent_weights,
+                mode="bicubic",
+                img_size=(img.shape[-2], img.shape[-1]),
+            ).detach()
         )
         features = torch.cat([img_features, latent_features], dim=1)
         if self.config.lmbda_as_feature:

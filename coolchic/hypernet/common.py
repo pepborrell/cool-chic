@@ -173,12 +173,13 @@ def set_hypernet_weights(
 def upsample_latents(
     latents: list[torch.Tensor],
     mode: Literal["nearest", "linear", "bilinear", "bicubic"],
+    img_size: tuple[int, int],
 ):
     assert all(lat.ndim == 4 for lat in latents), "All latents must be 4D tensors."
     return torch.cat(
         [
-            torch.nn.functional.interpolate(lat, scale_factor=2**i, mode=mode)
-            for i, lat in enumerate(latents)
+            torch.nn.functional.interpolate(lat, size=img_size, mode=mode)
+            for lat in latents
         ],
         dim=1,
     )
