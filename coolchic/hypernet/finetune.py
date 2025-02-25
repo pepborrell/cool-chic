@@ -24,10 +24,15 @@ from coolchic.eval.results import SummaryEncodingMetrics
 from coolchic.hypernet.inference import load_hypernet
 from coolchic.utils.paths import DATA_DIR
 from coolchic.utils.types import HypernetRunConfig, PresetConfig, load_config
+from scripts.gen_kodim_config import argparse
 
 
 def main(
-    img_num: int, preset_config: PresetConfig, from_scratch: bool = False
+    img_num: int,
+    preset_config: PresetConfig,
+    weights_path: Path,
+    config: Path,
+    from_scratch: bool = False,
 ) -> list[FrameEncoderLogs]:
     # 1: Get image
     img_path = DATA_DIR / "kodak" / f"kodim{img_num:02d}.png"
@@ -38,22 +43,20 @@ def main(
     img = img.to(device)
 
     # 2: Get coolchic representation from hypernet
-    weights_path = Path("epoch_4_batch_99500.pt")
-    config_path = Path("cfg/exps/basic_hn/100k.yaml")
-    config = load_config(config_path, HypernetRunConfig)
-    hnet = load_hypernet(weights_path, config)
+    cfg = load_config(config, HypernetRunConfig)
+    hnet = load_hypernet(weights_path, cfg)
     cc_encoder = hnet.image_to_coolchic(img, stop_grads=True)
     hnet.zero_grad()
 
     # 3: Fully fledged coolchic representation to go to training
     coding_structure = CodingStructure(intra_period=0)
-    assert isinstance(config.lmbda, float)  # To make pyright happy.
+    assert isinstance(cfg.lmbda, float)  # To make pyright happy.
     frame_encoder_manager = FrameEncoderManager(
         preset_config=preset_config,
-        lmbda=config.lmbda,
+        lmbda=cfg.lmbda,
     )
     coolchic_encoder_parameter = CoolChicEncoderParameter(
-        **get_coolchic_param_from_args(config.hypernet_cfg.dec_cfg)
+        **get_coolchic_param_from_args(cfg.hypernet_cfg.dec_cfg)
     )
     video_encoder = VideoEncoder(
         coding_structure=coding_structure,
@@ -113,10 +116,18 @@ def log_to_results(logs: FrameEncoderLogs, seq_name: str) -> SummaryEncodingMetr
     )
 
 
-def finetune_all_kodak(preset: PresetConfig, from_scratch: bool) -> pd.DataFrame:
+def finetune_all_kodak(
+    preset: PresetConfig, from_scratch: bool, weights_path: Path, config: Path
+) -> pd.DataFrame:
     all_finetuned = []
     for i in range(1, 25):
-        finetuned = main(i, preset, from_scratch)
+        finetuned = main(
+            i,
+            preset,
+            weights_path=weights_path,
+            config=config,
+            from_scratch=from_scratch,
+        )
         all_finetuned.append(
             pd.DataFrame(
                 [log_to_results(log, f"kodim{i:02d}").model_dump() for log in finetuned]
@@ -127,6 +138,18 @@ def finetune_all_kodak(preset: PresetConfig, from_scratch: bool) -> pd.DataFrame
 
 # 5: Get metrics at different points of training (post-dec rate as well)
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Finetune a hypernet's output, compare it with training from scratch."
+    )
+    # Comma-separated list of weight paths.
+    parser.add_argument(
+        "--weight_path", type=Path, required=True, help="Path to the hypernet weights."
+    )
+    parser.add_argument(
+        "--config", type=Path, required=True, help="Path to the hypernet config."
+    )
+    args = parser.parse_args()
+
     # Configuring how training happens.
     training_phase = TrainerPhase(
         lr=1e-3,
@@ -146,8 +169,18 @@ if __name__ == "__main__":
         preset_name="", warmup=Warmup(), all_phases=[training_phase]
     )
 
-    finetuned = finetune_all_kodak(training_preset, from_scratch=False)
-    from_scratch = finetune_all_kodak(training_preset, from_scratch=True)
+    finetuned = finetune_all_kodak(
+        training_preset,
+        weights_path=args.weight_path,
+        config=args.config,
+        from_scratch=False,
+    )
+    from_scratch = finetune_all_kodak(
+        training_preset,
+        weights_path=args.weight_path,
+        config=args.config,
+        from_scratch=True,
+    )
     finetuned["anchor"] = "hnet-finetuning"
     from_scratch["anchor"] = "train-from-scratch"
 
