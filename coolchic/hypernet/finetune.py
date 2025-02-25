@@ -19,7 +19,7 @@ from coolchic.enc.utils.parsecli import (
     get_coolchic_param_from_args,
 )
 from coolchic.encode_simpler import build_frame_encoder
-from coolchic.eval.hypernet import plot_hypernet_rd
+from coolchic.eval.hypernet import find_crossing_iteration, plot_hypernet_rd
 from coolchic.eval.results import SummaryEncodingMetrics
 from coolchic.hypernet.inference import load_hypernet
 from coolchic.utils.paths import DATA_DIR
@@ -47,6 +47,7 @@ def main(
 
     # 3: Fully fledged coolchic representation to go to training
     coding_structure = CodingStructure(intra_period=0)
+    assert isinstance(config.lmbda, float)  # To make pyright happy.
     frame_encoder_manager = FrameEncoderManager(
         preset_config=preset_config,
         lmbda=config.lmbda,
@@ -158,4 +159,13 @@ if __name__ == "__main__":
         all_results = pd.read_csv("finetuning_results.csv")
         for i in range(1, 25):
             plot_hypernet_rd(f"kodim{i:02d}", all_results)
+            hn_crossing = find_crossing_iteration(
+                f"kodim{i:02d}", all_results, "hnet-finetuning"
+            )
+            scratch_crossing = find_crossing_iteration(
+                f"kodim{i:02d}", all_results, "train-from-scratch"
+            )
+            print(
+                f"kodim{i:02d}, crossing iterations: hnet-finetuning: {hn_crossing}, train-from-scratch: {scratch_crossing}"
+            )
         plt.show()
