@@ -1,3 +1,4 @@
+import argparse
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -24,7 +25,6 @@ from coolchic.eval.results import SummaryEncodingMetrics
 from coolchic.hypernet.inference import load_hypernet
 from coolchic.utils.paths import DATA_DIR
 from coolchic.utils.types import HypernetRunConfig, PresetConfig, load_config
-from scripts.gen_kodim_config import argparse
 
 
 def main(
