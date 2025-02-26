@@ -45,8 +45,9 @@ def main(
     # 2: Get coolchic representation from hypernet
     cfg = load_config(config, HypernetRunConfig)
     hnet = load_hypernet(weights_path, cfg)
-    cc_encoder = hnet.image_to_coolchic(img, stop_grads=True)
-    hnet.zero_grad()
+    hnet.eval()
+    with torch.no_grad():
+        cc_encoder = hnet.image_to_coolchic(img, stop_grads=True)
 
     # 3: Fully fledged coolchic representation to go to training
     coding_structure = CodingStructure(intra_period=0)
