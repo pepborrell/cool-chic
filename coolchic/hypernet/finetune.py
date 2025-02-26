@@ -9,11 +9,12 @@ from torchvision.extension import os
 import wandb
 from coolchic.enc.component.coolchic import CoolChicEncoder, CoolChicEncoderParameter
 from coolchic.enc.component.video import VideoEncoder
+from coolchic.enc.io.format.png import read_png
 from coolchic.enc.io.io import load_frame_data_from_file
 from coolchic.enc.training.presets import TrainerPhase, Warmup
 from coolchic.enc.training.test import FrameEncoderLogs
 from coolchic.enc.training.train import train as coolchic_train
-from coolchic.enc.utils.codingstructure import CodingStructure
+from coolchic.enc.utils.codingstructure import CodingStructure, FrameData
 from coolchic.enc.utils.manager import FrameEncoderManager
 from coolchic.enc.utils.misc import get_best_device
 from coolchic.enc.utils.parsecli import (
@@ -22,63 +23,82 @@ from coolchic.enc.utils.parsecli import (
 from coolchic.encode_simpler import build_frame_encoder
 from coolchic.eval.hypernet import find_crossing_iteration, plot_hypernet_rd
 from coolchic.eval.results import SummaryEncodingMetrics
+from coolchic.hypernet.hypernet import CoolchicWholeNet
 from coolchic.hypernet.inference import load_hypernet
 from coolchic.utils.paths import DATA_DIR
-from coolchic.utils.types import HypernetRunConfig, PresetConfig, load_config
+from coolchic.utils.types import (
+    DecoderConfig,
+    HypernetRunConfig,
+    PresetConfig,
+    load_config,
+)
 
 
-def main(
-    img_num: int,
+def log_to_results(logs: FrameEncoderLogs, seq_name: str) -> SummaryEncodingMetrics:
+    assert logs.total_rate_bpp is not None  # To make pyright happy.
+    assert logs.psnr_db is not None  # To make pyright happy.
+    return SummaryEncodingMetrics(
+        seq_name=seq_name,
+        rate_bpp=logs.total_rate_bpp,
+        psnr_db=logs.psnr_db,
+        lmbda=logs.encoding_iterations_cnt,
+    )
+
+
+def get_coolchic_structs(
+    lmbda: float,
     preset_config: PresetConfig,
-    weights_path: Path,
-    config: Path,
-    from_scratch: bool = False,
-) -> list[FrameEncoderLogs]:
-    # 1: Get image
-    img_path = DATA_DIR / "kodak" / f"kodim{img_num:02d}.png"
-    frame_data = load_frame_data_from_file(str(img_path), 0)
-    img = frame_data.data
-    assert isinstance(img, torch.Tensor)  # To make pyright happy.
-    device = get_best_device()
-    img = img.to(device)
-
-    # 2: Get coolchic representation from hypernet
-    cfg = load_config(config, HypernetRunConfig)
-    hnet = load_hypernet(weights_path, cfg)
-    hnet.eval()
-    with torch.no_grad():
-        cc_encoder = hnet.image_to_coolchic(img, stop_grads=True)
-
-    # 3: Fully fledged coolchic representation to go to training
+    dec_cfg: DecoderConfig,
+    cc_encoder: CoolChicEncoder,
+    frame_data: FrameData,
+):
+    # Fully fledged coolchic representation to go to training
     coding_structure = CodingStructure(intra_period=0)
-    assert isinstance(cfg.lmbda, float)  # To make pyright happy.
     frame_encoder_manager = FrameEncoderManager(
-        preset_config=preset_config,
-        lmbda=cfg.lmbda,
+        preset_config=preset_config, lmbda=lmbda
     )
     coolchic_encoder_parameter = CoolChicEncoderParameter(
-        **get_coolchic_param_from_args(cfg.hypernet_cfg.dec_cfg)
-    )
-    video_encoder = VideoEncoder(
-        coding_structure=coding_structure,
-        shared_coolchic_parameter=coolchic_encoder_parameter,
-        shared_frame_encoder_manager=frame_encoder_manager,
+        **get_coolchic_param_from_args(dec_cfg)
     )
     frame = coding_structure.get_frame_from_coding_order(0)
     assert frame is not None  # To make pyright happy.
     frame.data = frame_data
     coolchic_encoder_parameter.set_image_size(frame.data.img_size)
     frame_enc = build_frame_encoder(coolchic_encoder_parameter, frame)
-
-    if from_scratch:
-        cc_encoder = CoolChicEncoder(coolchic_encoder_parameter)
     frame_enc.coolchic_encoder = cc_encoder
 
     # We need the video encoder for this one operation.
     # TODO: can we do this without the video encoder and drop it completely?
+    video_encoder = VideoEncoder(
+        coding_structure=coding_structure,
+        shared_coolchic_parameter=coolchic_encoder_parameter,
+        shared_frame_encoder_manager=frame_encoder_manager,
+    )
     frame.refs_data = video_encoder.get_ref_data(frame)
 
-    # 4: Train like in coolchic
+    return frame, frame_encoder_manager, frame_enc
+
+
+def finetune_coolchic(
+    img_path: Path,
+    preset_config: PresetConfig,
+    cc_encoder: CoolChicEncoder,
+    lmbda: float,
+    dec_cfg: DecoderConfig,
+) -> list[FrameEncoderLogs]:
+    # Get image
+    frame_data = load_frame_data_from_file(str(img_path), 0)
+    img = frame_data.data
+    assert isinstance(img, torch.Tensor)  # To make pyright happy.
+    device = get_best_device()
+    img = img.to(device)
+
+    # Some auxiliary data structures.
+    frame, frame_encoder_manager, frame_enc = get_coolchic_structs(
+        lmbda, preset_config, dec_cfg, cc_encoder, frame_data
+    )
+
+    # Train like in coolchic
     frame.to_device(device)
     frame_enc.to_device(device)
     # Deactivate wandb
@@ -106,27 +126,53 @@ def main(
     return validation_logs
 
 
-def log_to_results(logs: FrameEncoderLogs, seq_name: str) -> SummaryEncodingMetrics:
-    assert logs.total_rate_bpp is not None  # To make pyright happy.
-    assert logs.psnr_db is not None  # To make pyright happy.
-    return SummaryEncodingMetrics(
-        seq_name=seq_name,
-        rate_bpp=logs.total_rate_bpp,
-        psnr_db=logs.psnr_db,
-        lmbda=logs.encoding_iterations_cnt,
+def finetune_one_kodak(
+    img_num: int,
+    preset_config: PresetConfig,
+    hypernet: CoolchicWholeNet,
+    dec_cfg: DecoderConfig,
+    lmbda: float,
+    from_scratch: bool = False,
+) -> list[FrameEncoderLogs]:
+    img_path = DATA_DIR / "kodak" / f"kodim{img_num:02d}.png"
+    if from_scratch:
+        # No need to load hypernet.
+        coolchic_encoder_parameter = CoolChicEncoderParameter(
+            **get_coolchic_param_from_args(dec_cfg)
+        )
+        cc_encoder = CoolChicEncoder(coolchic_encoder_parameter)
+    else:
+        # Get coolchic representation from hypernet
+        img, _ = read_png(str(img_path))
+        with torch.no_grad():
+            cc_encoder = hypernet.image_to_coolchic(img, stop_grads=True)
+
+    return finetune_coolchic(
+        img_path=DATA_DIR / "kodak" / f"kodim{img_num:02d}.png",
+        preset_config=preset_config,
+        cc_encoder=cc_encoder,
+        lmbda=lmbda,
+        dec_cfg=dec_cfg,
     )
 
 
 def finetune_all_kodak(
-    preset: PresetConfig, from_scratch: bool, weights_path: Path, config: Path
+    preset: PresetConfig, from_scratch: bool, weights_path: Path, config_path: Path
 ) -> pd.DataFrame:
+    # Load config and hypernet.
+    cfg = load_config(config_path, HypernetRunConfig)
+    assert isinstance(cfg.lmbda, float)  # To make pyright happy.
+    hnet = load_hypernet(weights_path, cfg)
+    hnet.eval()
+
     all_finetuned = []
     for i in range(1, 25):
-        finetuned = main(
+        finetuned = finetune_one_kodak(
             i,
             preset,
-            weights_path=weights_path,
-            config=config,
+            hypernet=hnet,
+            dec_cfg=cfg.hypernet_cfg.dec_cfg,
+            lmbda=cfg.lmbda,
             from_scratch=from_scratch,
         )
         all_finetuned.append(
@@ -137,7 +183,6 @@ def finetune_all_kodak(
     return pd.concat(all_finetuned)
 
 
-# 5: Get metrics at different points of training (post-dec rate as well)
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Finetune a hypernet's output, compare it with training from scratch."
@@ -149,6 +194,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "--config", type=Path, required=True, help="Path to the hypernet config."
     )
+    parser.add_argument(
+        "--n_iterations", type=int, default=100, help="Number of iterations to train."
+    )
     args = parser.parse_args()
 
     # Configuring how training happens.
@@ -156,7 +204,7 @@ if __name__ == "__main__":
         lr=1e-3,
         end_lr=1e-5,
         schedule_lr=True,
-        max_itr=5000,
+        max_itr=args.n_iterations,
         freq_valid=10,
         patience=100,
         optimized_module=["all"],
@@ -170,23 +218,23 @@ if __name__ == "__main__":
         preset_name="", warmup=Warmup(), all_phases=[training_phase]
     )
 
-    finetuned = finetune_all_kodak(
-        training_preset,
-        weights_path=args.weight_path,
-        config=args.config,
-        from_scratch=False,
-    )
-    from_scratch = finetune_all_kodak(
-        training_preset,
-        weights_path=args.weight_path,
-        config=args.config,
-        from_scratch=True,
-    )
-    finetuned["anchor"] = "hnet-finetuning"
-    from_scratch["anchor"] = "train-from-scratch"
-
-    all_results = pd.concat([finetuned, from_scratch])
-    all_results.to_csv("finetuning_results.csv")
+    # finetuned = finetune_all_kodak(
+    #     training_preset,
+    #     weights_path=args.weight_path,
+    #     config_path=args.config,
+    #     from_scratch=False,
+    # )
+    # from_scratch = finetune_all_kodak(
+    #     training_preset,
+    #     weights_path=args.weight_path,
+    #     config_path=args.config,
+    #     from_scratch=True,
+    # )
+    # finetuned["anchor"] = "hnet-finetuning"
+    # from_scratch["anchor"] = "train-from-scratch"
+    #
+    # all_results = pd.concat([finetuned, from_scratch])
+    # all_results.to_csv("finetuning_results.csv")
 
     # only plot if not on server.
     if get_best_device() == "cpu":
