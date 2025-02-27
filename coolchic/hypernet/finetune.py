@@ -218,23 +218,23 @@ if __name__ == "__main__":
         preset_name="", warmup=Warmup(), all_phases=[training_phase]
     )
 
-    # finetuned = finetune_all_kodak(
-    #     training_preset,
-    #     weights_path=args.weight_path,
-    #     config_path=args.config,
-    #     from_scratch=False,
-    # )
-    # from_scratch = finetune_all_kodak(
-    #     training_preset,
-    #     weights_path=args.weight_path,
-    #     config_path=args.config,
-    #     from_scratch=True,
-    # )
-    # finetuned["anchor"] = "hnet-finetuning"
-    # from_scratch["anchor"] = "train-from-scratch"
-    #
-    # all_results = pd.concat([finetuned, from_scratch])
-    # all_results.to_csv("finetuning_results.csv")
+    finetuned = finetune_all_kodak(
+        training_preset,
+        weights_path=args.weight_path,
+        config_path=args.config,
+        from_scratch=False,
+    )
+    from_scratch = finetune_all_kodak(
+        training_preset,
+        weights_path=args.weight_path,
+        config_path=args.config,
+        from_scratch=True,
+    )
+    finetuned["anchor"] = "hnet-finetuning"
+    from_scratch["anchor"] = "train-from-scratch"
+
+    all_results = pd.concat([finetuned, from_scratch])
+    all_results.to_csv("finetuning_results.csv")
 
     # only plot if not on server.
     if get_best_device() == "cpu":
