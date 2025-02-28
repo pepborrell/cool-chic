@@ -14,7 +14,7 @@ import torch
 import torch.nn.functional as F
 from torch import Tensor, nn
 
-from coolchic.hypernet.common import set_hypernet_weights
+from coolchic.full_hypernet.common import set_hypernet_weights
 
 
 class SynthesisConv2d(nn.Module):

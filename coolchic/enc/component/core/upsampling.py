@@ -15,7 +15,7 @@ import torch.nn.utils.parametrize as parametrize
 from einops import rearrange
 from torch import Tensor, nn
 
-from coolchic.hypernet.common import set_hypernet_weights
+from coolchic.full_hypernet.common import set_hypernet_weights
 
 
 class _Parameterization_Symmetric_1d(nn.Module):

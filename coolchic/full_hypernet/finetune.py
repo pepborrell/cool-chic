@@ -23,8 +23,8 @@ from coolchic.enc.utils.parsecli import (
 from coolchic.encode_simpler import build_frame_encoder
 from coolchic.eval.hypernet import find_crossing_iteration, plot_hypernet_rd
 from coolchic.eval.results import SummaryEncodingMetrics
-from coolchic.hypernet.hypernet import CoolchicWholeNet
-from coolchic.hypernet.inference import load_hypernet
+from coolchic.full_hypernet.hypernet import CoolchicWholeNet
+from coolchic.full_hypernet.inference import load_hypernet
 from coolchic.utils.paths import DATA_DIR
 from coolchic.utils.types import (
     DecoderConfig,
