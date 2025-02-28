@@ -46,6 +46,10 @@ class LatentDecoder(CoolChicEncoder):
             flag_additional_outputs=flag_additional_outputs,
         )
 
+    def get_flops(self) -> None:
+        """Changed the forward method's signature, so we need to redefine this method."""
+        print("Ignoring get_flops")
+
 
 class DeltaWholeNet(nn.Module):
     def __init__(self, config: HyperNetConfig):
@@ -88,3 +92,11 @@ class DeltaWholeNet(nn.Module):
             for _, param_rate in module_rate.items():  # weight, bias
                 rate_mlp += param_rate
         return rate_mlp
+
+    def freeze_resnet(self) -> None:
+        """Not implemented."""
+        pass
+
+    def unfreeze_resnet(self) -> None:
+        """Not implemented."""
+        pass
