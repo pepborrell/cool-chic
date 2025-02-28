@@ -10,7 +10,7 @@ from tqdm import tqdm
 from coolchic.enc.io.io import load_frame_data_from_tensor
 from coolchic.enc.training.loss import LossFunctionOutput, loss_function
 from coolchic.eval.hypernet import plot_hypernet_rd
-from coolchic.full_hypernet.hypernet import CoolchicWholeNet
+from coolchic.hypernet.hypernet import CoolchicWholeNet
 from coolchic.utils.paths import DATA_DIR
 from coolchic.utils.types import HypernetRunConfig, load_config
 

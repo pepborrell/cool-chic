@@ -11,7 +11,7 @@ from coolchic.enc.component.core.quantizer import (
     POSSIBLE_QUANTIZER_TYPE,
 )
 from coolchic.enc.utils.parsecli import get_coolchic_param_from_args
-from coolchic.full_hypernet.common import ResidualBlockDown, build_mlp, upsample_latents
+from coolchic.hypernet.common import ResidualBlockDown, build_mlp, upsample_latents
 from coolchic.utils.nn import get_num_of_params
 from coolchic.utils.types import HyperNetConfig
 
