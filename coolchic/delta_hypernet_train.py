@@ -9,7 +9,7 @@ import wandb
 from coolchic.enc.component.coolchic import CoolChicEncoderOutput
 from coolchic.enc.training.loss import LossFunctionOutput, loss_function
 from coolchic.enc.utils.misc import POSSIBLE_DEVICE, get_best_device
-from coolchic.hypernet.delta_hypernet import DeltaWholeNet
+from coolchic.hypernet.hypernet import DeltaWholeNet
 from coolchic.hypernet.inference import eval_on_all_kodak
 from coolchic.metalearning.data import OpenImagesDataset
 from coolchic.utils.nn import _linear_schedule
