@@ -23,7 +23,7 @@ from coolchic.enc.utils.parsecli import (
 from coolchic.encode_simpler import build_frame_encoder
 from coolchic.eval.hypernet import find_crossing_iteration, plot_hypernet_rd
 from coolchic.eval.results import SummaryEncodingMetrics
-from coolchic.hypernet.hypernet import CoolchicWholeNet
+from coolchic.hypernet.hypernet import CoolchicWholeNet, WholeNet
 from coolchic.hypernet.inference import load_hypernet
 from coolchic.utils.paths import DATA_DIR
 from coolchic.utils.types import (
@@ -129,7 +129,7 @@ def finetune_coolchic(
 def finetune_one_kodak(
     img_num: int,
     preset_config: PresetConfig,
-    hypernet: CoolchicWholeNet,
+    hypernet: WholeNet,
     dec_cfg: DecoderConfig,
     lmbda: float,
     from_scratch: bool = False,
@@ -162,7 +162,7 @@ def finetune_all_kodak(
     # Load config and hypernet.
     cfg = load_config(config_path, HypernetRunConfig)
     assert isinstance(cfg.lmbda, float)  # To make pyright happy.
-    hnet = load_hypernet(weights_path, cfg)
+    hnet = load_hypernet(weights_path, cfg, CoolchicWholeNet)
     hnet.eval()
 
     all_finetuned = []
