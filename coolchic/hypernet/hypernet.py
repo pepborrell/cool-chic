@@ -1,3 +1,4 @@
+import abc
 from typing import Any, Literal, OrderedDict
 
 import torch
@@ -445,7 +446,33 @@ class CoolchicHyperNet(nn.Module):
         print(output_str)
 
 
-class CoolchicWholeNet(nn.Module):
+# Abstract WholeNet class, to indicate that the class is a whole network.
+class WholeNet(nn.Module, abc.ABC):
+    @abc.abstractmethod
+    def forward(
+        self,
+        img: torch.Tensor,
+        quantizer_noise_type: POSSIBLE_QUANTIZATION_NOISE_TYPE = "gaussian",
+        quantizer_type: POSSIBLE_QUANTIZER_TYPE = "softround",
+        softround_temperature: float = 0.3,
+        noise_parameter: float = 0.25,
+    ) -> tuple[torch.Tensor, torch.Tensor, dict[str, Any]]:
+        pass
+
+    @abc.abstractmethod
+    def get_mlp_rate(self) -> float:
+        pass
+
+    @abc.abstractmethod
+    def freeze_resnet(self):
+        pass
+
+    @abc.abstractmethod
+    def unfreeze_resnet(self):
+        pass
+
+
+class CoolchicWholeNet(WholeNet):
     def __init__(self, config: HyperNetConfig):
         super().__init__()
         self.config = config

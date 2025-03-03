@@ -9,7 +9,7 @@ from coolchic.enc.component.core.quantizer import (
     POSSIBLE_QUANTIZER_TYPE,
 )
 from coolchic.enc.utils.parsecli import get_coolchic_param_from_args
-from coolchic.hypernet.hypernet import LatentHyperNet
+from coolchic.hypernet.hypernet import LatentHyperNet, WholeNet
 from coolchic.utils.types import HyperNetConfig
 
 
@@ -51,7 +51,7 @@ class LatentDecoder(CoolChicEncoder):
         print("Ignoring get_flops")
 
 
-class DeltaWholeNet(nn.Module):
+class DeltaWholeNet(WholeNet):
     def __init__(self, config: HyperNetConfig):
         super().__init__()
         self.config = config
