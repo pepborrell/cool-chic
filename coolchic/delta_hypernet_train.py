@@ -10,6 +10,7 @@ from coolchic.enc.component.coolchic import CoolChicEncoderOutput
 from coolchic.enc.training.loss import LossFunctionOutput, loss_function
 from coolchic.enc.utils.misc import POSSIBLE_DEVICE, get_best_device
 from coolchic.hypernet.delta_hypernet import DeltaWholeNet
+from coolchic.hypernet.hypernet import CoolchicWholeNet
 from coolchic.metalearning.data import OpenImagesDataset
 from coolchic.utils.nn import _linear_schedule
 from coolchic.utils.paths import COOLCHIC_REPO_ROOT
@@ -30,9 +31,9 @@ def get_workdir_hypernet(config: HypernetRunConfig, config_path: Path) -> Path:
     return workdir
 
 
-def get_mlp_rate(net: DeltaWholeNet) -> float:
+def get_mlp_rate(net: CoolchicWholeNet) -> float:
     rate_mlp = 0.0
-    rate_per_module = net.mean_decoder.get_network_rate()
+    rate_per_module = net.cc_encoder.get_network_rate()
     for _, module_rate in rate_per_module.items():  # pyright: ignore
         for _, param_rate in module_rate.items():  # weight, bias
             rate_mlp += param_rate
@@ -54,6 +55,7 @@ def evaluate_wholenet(
                 test_img,
                 quantizer_noise_type="none",
                 quantizer_type="hardround",
+                lmbda=torch.Tensor([lmbda]).to(device),
             )
             test_out = CoolChicEncoderOutput(
                 raw_out=raw_out, rate=rate, additional_data=add_data
@@ -117,7 +119,7 @@ def train(
         wholenet.to(device)
     optimizer = torch.optim.Adam(wholenet.parameters(), lr=start_lr)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-        optimizer, n_epochs, eta_min=1e-5
+        optimizer, n_epochs, eta_min=1e-6
     )
     total_iterations = len(train_data) * n_epochs
 

@@ -87,7 +87,7 @@ class DeltaWholeNet(nn.Module):
     def get_mlp_rate(self) -> float:
         # Get MLP rate.
         rate_mlp = 0.0
-        rate_per_module = self.cc_encoder.get_network_rate()
+        rate_per_module = self.mean_decoder.get_network_rate()
         for _, module_rate in rate_per_module.items():  # pyright: ignore
             for _, param_rate in module_rate.items():  # weight, bias
                 rate_mlp += param_rate
