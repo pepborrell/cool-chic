@@ -10,6 +10,7 @@ from coolchic.enc.component.coolchic import CoolChicEncoderOutput
 from coolchic.enc.training.loss import LossFunctionOutput, loss_function
 from coolchic.enc.utils.misc import POSSIBLE_DEVICE, get_best_device
 from coolchic.hypernet.delta_hypernet import DeltaWholeNet
+from coolchic.hypernet.inference import eval_on_all_kodak
 from coolchic.metalearning.data import OpenImagesDataset
 from coolchic.utils.nn import _linear_schedule
 from coolchic.utils.paths import COOLCHIC_REPO_ROOT
@@ -276,10 +277,10 @@ def main():
     else:
         os.environ["WANDB_MODE"] = "online"
     # Start wandb logging.
-    wandb.init(project="coolchic-runs", config=run_cfg.model_dump())
+    wandb_run = wandb.init(project="coolchic-runs", config=run_cfg.model_dump())
 
     # Train
-    _ = train(
+    net = train(
         train_data_loader,
         test_data_loader,
         config=run_cfg.hypernet_cfg,
@@ -291,6 +292,12 @@ def main():
         softround_temperature=run_cfg.softround_temperature,
         noise_parameter=run_cfg.noise_parameter,
     )
+
+    # Eval on kodak at end of training.
+    kodak_df = eval_on_all_kodak(net)
+    kodak_df["anchor"] = "hypernet"
+    kodak_df.to_csv(workdir / "kodak_results.csv")
+    wandb_run.log({"kodak_results": wandb.Table(dataframe=kodak_df)})
 
 
 if __name__ == "__main__":
