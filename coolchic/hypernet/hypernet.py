@@ -591,6 +591,66 @@ class LatentDecoder(CoolChicEncoder):
         print("Ignoring get_flops")
 
 
+class ResidualHyperNet(nn.Module):
+    def __init__(self, config: HyperNetConfig) -> None:
+        super().__init__()
+        self.config = config
+
+        # Instantiate all the hypernetworks.
+        self.hn_backbone, backbone_n_features = get_backbone(
+            pretrained=True, arch=config.backbone_arch
+        )
+        self.latent_backbone, _ = get_backbone(
+            pretrained=True,
+            arch=config.backbone_arch,
+            input_channels=self.config.n_latents,
+        )
+
+        self.synthesis_hn = SynthesisHyperNet(
+            n_latents=self.config.n_latents,
+            layers_dim=self.config.dec_cfg.parsed_layers_synthesis,
+            n_input_features=2 * backbone_n_features,
+            hypernet_hidden_dim=self.config.synthesis.hidden_dim,
+            hypernet_n_layers=self.config.synthesis.n_layers,
+        )
+
+        self.print_n_params_submodule()
+
+    def forward(
+        self, img: torch.Tensor, latents: list[torch.Tensor]
+    ) -> OrderedDict[str, torch.Tensor]:
+        """This strings together all hypernetwork components."""
+        img_features = self.hn_backbone.forward(img)
+        latent_features = self.latent_backbone.forward(
+            upsample_latents(
+                latents, mode="bicubic", img_size=(img.shape[-2], img.shape[-1])
+            ).detach()
+        )
+        features = torch.cat([img_features, latent_features], dim=1)
+        synthesis_weights = self.synthesis_hn.forward(features)
+
+        return self.synthesis_hn.shape_outputs(synthesis_weights)
+
+    def print_n_params_submodule(self):
+        total_params = get_num_of_params(self)
+
+        def format_param_str(subm_name: str, n_params: int) -> str:
+            return f"{subm_name}: {n_params}, {100 * n_params / total_params:.2f}%\n"
+
+        output_str = (
+            f"NUMBER OF PARAMETERS:\nTotal number of parameters: {total_params}\n"
+        )
+
+        output_str += format_param_str("backbone", get_num_of_params(self.hn_backbone))
+        output_str += format_param_str(
+            "latent_backbone", get_num_of_params(self.latent_backbone)
+        )
+        output_str += format_param_str(
+            "synthesis", get_num_of_params(self.synthesis_hn)
+        )
+        print(output_str)
+
+
 class DeltaWholeNet(WholeNet):
     def __init__(self, config: HyperNetConfig):
         super().__init__()
@@ -600,9 +660,10 @@ class DeltaWholeNet(WholeNet):
         )
         coolchic_encoder_parameter.set_image_size(config.patch_size)
 
-        self.hypernet = None
         self.encoder = LatentHyperNet(n_latents=self.config.n_latents)
         self.mean_decoder = LatentDecoder(param=coolchic_encoder_parameter)
+        self.residual_hypernet = ResidualHyperNet(config=config)
+        self.residual_decoder = LatentDecoder(param=coolchic_encoder_parameter)
 
     def forward(
         self,
@@ -613,8 +674,9 @@ class DeltaWholeNet(WholeNet):
         noise_parameter: float = 0.25,
     ) -> tuple[torch.Tensor, torch.Tensor, dict[str, Any]]:
         latents = self.encoder.forward(img)
-
-        return self.mean_decoder.forward(
+        residual_net_weights = self.residual_hypernet.forward(img, latents)
+        self.residual_decoder.synthesis.set_hypernet_weights(residual_net_weights)
+        residual_out, _, _ = self.residual_decoder.forward(
             latents=latents,
             quantizer_noise_type=quantizer_noise_type,
             quantizer_type=quantizer_type,
@@ -623,6 +685,17 @@ class DeltaWholeNet(WholeNet):
             AC_MAX_VAL=-1,
             flag_additional_outputs=False,
         )
+
+        raw_out, rate, add_info = self.mean_decoder.forward(
+            latents=latents,
+            quantizer_noise_type=quantizer_noise_type,
+            quantizer_type=quantizer_type,
+            soft_round_temperature=torch.tensor(softround_temperature),
+            noise_parameter=torch.tensor(noise_parameter),
+            AC_MAX_VAL=-1,
+            flag_additional_outputs=False,
+        )
+        return raw_out + residual_out, rate, add_info
 
     def get_mlp_rate(self) -> float:
         # Get MLP rate.
@@ -633,10 +706,17 @@ class DeltaWholeNet(WholeNet):
                 rate_mlp += param_rate
         return rate_mlp
 
-    def freeze_resnet(self) -> None:
-        """Not implemented."""
-        pass
+    def freeze_resnet(self):
+        for param in self.residual_hypernet.hn_backbone.parameters():
+            param.requires_grad = False
+        for name, param in self.residual_hypernet.latent_backbone.named_parameters():
+            if "conv1" in name:
+                param.requires_grad = True
+            else:
+                param.requires_grad = False
 
-    def unfreeze_resnet(self) -> None:
-        """Not implemented."""
-        pass
+    def unfreeze_resnet(self):
+        for param in self.residual_hypernet.hn_backbone.parameters():
+            param.requires_grad = True
+        for param in self.residual_hypernet.latent_backbone.parameters():
+            param.requires_grad = True
