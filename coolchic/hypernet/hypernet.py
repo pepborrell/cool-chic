@@ -665,6 +665,8 @@ class DeltaWholeNet(WholeNet):
         self.residual_hypernet = ResidualHyperNet(config=config)
         self.residual_decoder = LatentDecoder(param=coolchic_encoder_parameter)
 
+        self.use_residual = True
+
     def forward(
         self,
         img: torch.Tensor,
@@ -674,17 +676,20 @@ class DeltaWholeNet(WholeNet):
         noise_parameter: float = 0.25,
     ) -> tuple[torch.Tensor, torch.Tensor, dict[str, Any]]:
         latents = self.encoder.forward(img)
-        residual_net_weights = self.residual_hypernet.forward(img, latents)
-        self.residual_decoder.synthesis.set_hypernet_weights(residual_net_weights)
-        residual_out, _, _ = self.residual_decoder.forward(
-            latents=latents,
-            quantizer_noise_type=quantizer_noise_type,
-            quantizer_type=quantizer_type,
-            soft_round_temperature=torch.tensor(softround_temperature),
-            noise_parameter=torch.tensor(noise_parameter),
-            AC_MAX_VAL=-1,
-            flag_additional_outputs=False,
-        )
+        if self.use_residual:
+            residual_net_weights = self.residual_hypernet.forward(img, latents)
+            self.residual_decoder.synthesis.set_hypernet_weights(residual_net_weights)
+            residual_out, _, _ = self.residual_decoder.forward(
+                latents=latents,
+                quantizer_noise_type=quantizer_noise_type,
+                quantizer_type=quantizer_type,
+                soft_round_temperature=torch.tensor(softround_temperature),
+                noise_parameter=torch.tensor(noise_parameter),
+                AC_MAX_VAL=-1,
+                flag_additional_outputs=False,
+            )
+        else:
+            residual_out = 0
 
         raw_out, rate, add_info = self.mean_decoder.forward(
             latents=latents,
@@ -714,9 +719,13 @@ class DeltaWholeNet(WholeNet):
                 param.requires_grad = True
             else:
                 param.requires_grad = False
+        # Deactivate residual hypernet.
+        self.use_residual = False
 
     def unfreeze_resnet(self):
         for param in self.residual_hypernet.hn_backbone.parameters():
             param.requires_grad = True
         for param in self.residual_hypernet.latent_backbone.parameters():
             param.requires_grad = True
+        # Activate residual hypernet.
+        self.use_residual = True
