@@ -9,7 +9,7 @@ workdir: null
 disable_wandb: False
 lmbda: 1e-3
 start_lr: 1e-3
-user_tag: no-cchic-replication
+user_tag: residual-synthesis
 
 hypernet_cfg:
   synthesis:
