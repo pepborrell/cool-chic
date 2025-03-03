@@ -32,7 +32,7 @@ def get_workdir_hypernet(config: HypernetRunConfig, config_path: Path) -> Path:
 
 def get_mlp_rate(net: DeltaWholeNet) -> float:
     rate_mlp = 0.0
-    rate_per_module = net.cc_encoder.get_network_rate()
+    rate_per_module = net.mean_decoder.get_network_rate()
     for _, module_rate in rate_per_module.items():  # pyright: ignore
         for _, param_rate in module_rate.items():  # weight, bias
             rate_mlp += param_rate
