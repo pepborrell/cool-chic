@@ -8,6 +8,7 @@ unfreeze_backbone: 50000
 workdir: null
 disable_wandb: False
 lmbda: 1e-3
+start_lr: 1e-3
 user_tag: delta-hn
 
 hypernet_cfg:
