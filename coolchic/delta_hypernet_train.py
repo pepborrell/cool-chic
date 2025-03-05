@@ -115,7 +115,7 @@ def train(
         print_gpu_info()
         wholenet = wholenet.cuda()
     else:
-        wholenet.to(device)
+        wholenet = wholenet.to(device)
     optimizer = torch.optim.Adam(wholenet.parameters(), lr=start_lr)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
         optimizer, n_epochs, eta_min=1e-6

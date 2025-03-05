@@ -21,7 +21,7 @@ def load_hypernet(
     # Either CoolchicWholeNet or DeltaWholeNet.
     net = wholenet_cls(config=config.hypernet_cfg)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    net.to(device)
+    net = net.to(device)
     # Loading weights.
     weights = torch.load(weights_path, map_location=device, weights_only=True)
 
@@ -51,6 +51,7 @@ def get_image_from_hypernet(
     )
     img = load_frame_data_from_tensor(img).data
     assert isinstance(img, torch.Tensor)  # To make pyright happy.
+    img = img.to(net.device)
 
     # Forward pass.
     net.eval()
