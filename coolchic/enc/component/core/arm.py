@@ -100,6 +100,38 @@ class ArmLinear(nn.Module):
             return F.linear(x, self.weight, bias=self.bias)
 
 
+class ArmLinearDelta(ArmLinear):
+    def __init__(self, in_channels: int, out_channels: int, residual: bool = False):
+        super().__init__(in_channels, out_channels, residual)
+        self.delta_weight: torch.Tensor = torch.zeros_like(self.weight)
+
+    def forward(self, x: Tensor) -> Tensor:
+        """Perform the forward pass of this layer.
+        Uses the deltas when doing the forward pass.
+
+        Args:
+            x: Input tensor of shape :math:`[B, C_{in}]`.
+
+        Returns:
+            Tensor with shape :math:`[B, C_{out}]`.
+        """
+
+        if self.residual:
+            return F.linear(x, self.weight + self.delta_weight, bias=self.bias) + x
+
+        # Not residual
+        else:
+            return F.linear(x, self.weight + self.delta_weight, bias=self.bias)
+
+    def set_delta(self, delta: torch.Tensor) -> None:
+        """Set the delta of the weight.
+
+        Args:
+            delta: Delta to be set.
+        """
+        self.delta_weight = delta
+
+
 class Arm(nn.Module):
     """Instantiate an autoregressive probability module, modelling the
     conditional distribution :math:`p_{\\psi}(\\hat{y}_i \\mid
@@ -160,7 +192,7 @@ class Arm(nn.Module):
 
         # Construct the hidden layer(s)
         for i in range(n_hidden_layers_arm):
-            layers_list.append(ArmLinear(dim_arm, dim_arm, residual=True))
+            layers_list.append(ArmLinearDelta(dim_arm, dim_arm, residual=True))
             layers_list.append(nn.ReLU())
 
         # Construct the output layer. It always has 2 outputs (mu and scale)
@@ -239,6 +271,16 @@ class Arm(nn.Module):
         | OrderedDict[str, torch.nn.Parameter],
     ):
         set_hypernet_weights(self, all_weights)
+
+    def add_delta(self, delta: list[Tensor]) -> None:
+        pointer = 0
+        for layer in self.mlp:
+            if isinstance(layer, ArmLinearDelta):
+                layer.set_delta(delta[pointer])
+                pointer += 1
+        assert pointer == len(delta), (
+            "Not all delta were used. " f"Used {pointer} out of {len(delta)}."
+        )
 
 
 def _get_neighbor(x: Tensor, mask_size: int, non_zero_pixel_ctx_idx: Tensor) -> Tensor:

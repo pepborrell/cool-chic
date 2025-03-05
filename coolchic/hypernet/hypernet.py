@@ -580,6 +580,7 @@ class LatentDecoder(CoolChicEncoder):
         self,
         latents: list[torch.Tensor],
         synth_delta: list[torch.Tensor],
+        arm_delta: list[torch.Tensor],
         quantizer_noise_type: POSSIBLE_QUANTIZATION_NOISE_TYPE = "kumaraswamy",
         quantizer_type: POSSIBLE_QUANTIZER_TYPE = "softround",
         soft_round_temperature: torch.Tensor | None = torch.tensor(0.3),
@@ -592,6 +593,7 @@ class LatentDecoder(CoolChicEncoder):
         self.latent_grids = nn.ParameterList(latents)
         # This makes synthesis happen with deltas added to the filters.
         self.synthesis.add_delta(synth_delta)
+        self.arm.add_delta(arm_delta)
 
         # Forward pass (latents are in the class already).
         return super().forward(
@@ -633,14 +635,19 @@ class DeltaWholeNet(WholeNet):
     ) -> tuple[torch.Tensor, torch.Tensor, dict[str, Any]]:
         latents = self.encoder.forward(img)
         if self.use_delta:
-            _, synth_delta, _ = self.hypernet.forward(img, lmbda=None)
-            delta_list = [delta for delta in synth_delta.values()]
+            _, s_delta_dict, arm_delta_dict = self.hypernet.forward(img, lmbda=None)
+            synth_deltas = [delta for delta in s_delta_dict.values()]
+            arm_deltas = [delta for delta in arm_delta_dict.values()]
         else:
-            delta_list = [torch.tensor(0)] * len(self.hypernet.synthesis_hn.layer_info)
+            synth_deltas = [torch.tensor(0)] * len(
+                self.hypernet.synthesis_hn.layer_info
+            )
+            arm_deltas = [torch.tensor(0)] * self.hypernet.arm_hn.n_hidden_layers
 
         return self.mean_decoder.forward(
             latents=latents,
-            synth_delta=delta_list,
+            synth_delta=synth_deltas,
+            arm_delta=arm_deltas,
             quantizer_noise_type=quantizer_noise_type,
             quantizer_type=quantizer_type,
             soft_round_temperature=torch.tensor(softround_temperature),
