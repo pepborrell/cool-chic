@@ -105,10 +105,10 @@ def train(
     lmbdas: Iterable[float],
     workdir: Path,
     device: POSSIBLE_DEVICE,
+    unfreeze_backbone_samples: int,
     start_lr: float = 1e-3,
     softround_temperature: tuple[float, float] = (0.3, 0.3),
     noise_parameter: tuple[float, float] = (0.25, 0.25),
-    unfreeze_backbone_samples: int | None = None,
 ):
     wholenet = CoolchicWholeNet(config)
     if torch.cuda.is_available():
@@ -287,6 +287,7 @@ def main():
         config=run_cfg.hypernet_cfg,
         n_epochs=run_cfg.n_epochs,
         lmbdas=lmbdas,
+        unfreeze_backbone_samples=run_cfg.unfreeze_backbone,
         start_lr=run_cfg.start_lr,
         workdir=workdir,
         device=device,
