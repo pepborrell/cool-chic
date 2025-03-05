@@ -272,6 +272,9 @@ class UserConfig(BaseModel):
 class HyperNetParams(BaseModel):
     hidden_dim: int
     n_layers: int
+    # Whether or not the hypernet should output bias values
+    # (as well as matrices or conv kernels).
+    biases: bool = True
 
 
 class HyperNetConfig(BaseModel):
