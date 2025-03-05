@@ -103,7 +103,9 @@ class ArmLinear(nn.Module):
 class ArmLinearDelta(ArmLinear):
     def __init__(self, in_channels: int, out_channels: int, residual: bool = False):
         super().__init__(in_channels, out_channels, residual)
-        self.delta_weight: torch.Tensor = torch.zeros_like(self.weight)
+        self.delta_weight: torch.Tensor = torch.zeros_like(
+            self.weight, requires_grad=False
+        ).to(self.weight.device)
 
     def forward(self, x: Tensor) -> Tensor:
         """Perform the forward pass of this layer.

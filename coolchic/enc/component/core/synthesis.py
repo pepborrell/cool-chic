@@ -127,7 +127,7 @@ class SynthesisConv2dDelta(SynthesisConv2d):
         super().__init__(in_channels, out_channels, kernel_size, residual)
         self.delta_weight: torch.Tensor = torch.zeros(
             (out_channels, in_channels, kernel_size, kernel_size), requires_grad=False
-        )
+        ).to(self.weight.device)
 
     def forward(self, x: Tensor) -> Tensor:
         """Perform the forward pass of this layer.
