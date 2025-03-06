@@ -84,7 +84,7 @@ class SynthesisHyperNet(nn.Module):
         n_input_features: int,
         hypernet_hidden_dim: int,
         hypernet_n_layers: int,
-        biases: bool = True,
+        biases: bool,
     ) -> None:
         super().__init__()
         self.n_input_features = n_input_features
@@ -159,15 +159,13 @@ class SynthesisHyperNet(nn.Module):
             # Adding weight.
             weight = layer_params[
                 :, : layer.out_ft * layer.in_ft * layer.k_size * layer.k_size
-            ]
-            weight = weight.view(layer.out_ft, layer.in_ft, layer.k_size, layer.k_size)
+            ].view(layer.out_ft, layer.in_ft, layer.k_size, layer.k_size)
             # Adding to the dictionary
             formatted_weights[f"{layer_name}.weight"] = weight
 
             # Adding bias, if needed.
             if layer.bias:
-                bias = layer_params[:, -layer.out_ft :]
-                bias = bias.view(layer.out_ft)
+                bias = layer_params[:, -layer.out_ft :].view(layer.out_ft)
                 formatted_weights[f"{layer_name}.bias"] = bias
 
             weight_count += n_params
@@ -185,6 +183,7 @@ class ArmHyperNet(nn.Module):
         n_input_features: int,
         hypernet_hidden_dim: int,
         hypernet_n_layers: int,
+        biases: bool,
     ) -> None:
         """
         Args:
@@ -198,8 +197,9 @@ class ArmHyperNet(nn.Module):
 
         self.dim_arm = dim_arm
         self.n_hidden_layers = n_hidden_layers
+        self.biases = biases
         # For hop config, this will be 544 parameters.
-        self.n_output_features = self.n_params_arm()
+        self.n_output_features = self.n_params_arm(biases=self.biases)
 
         # The layers we need: an MLP with hypernet_n_layers hidden layers.
         self.hidden_size = hypernet_hidden_dim
@@ -212,14 +212,22 @@ class ArmHyperNet(nn.Module):
             output_activation=nn.Tanh(),
         )
 
-    def n_params_arm(self) -> int:
+    def n_params_arm(self, biases: bool) -> int:
         """Calculates the number of parameters needed for the arm network.
         An arm network is an MLP with n_hidden_layers of size dim_arm->dim_arm.
         The output layer outputs 2 values (mu and sigma)."""
+        n_params_interm_layer = (
+            self.dim_arm * self.dim_arm + self.dim_arm
+            if biases
+            else self.dim_arm * self.dim_arm
+        )
+        bias_outp_layer = 2 if biases else 0
+
         return (
-            (self.dim_arm * self.dim_arm + self.dim_arm) * self.n_hidden_layers
+            n_params_interm_layer * self.n_hidden_layers
+            # Output layer.
             + self.dim_arm * 2
-            + 2
+            + bias_outp_layer
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -234,36 +242,34 @@ class ArmHyperNet(nn.Module):
         formatted_weights = OrderedDict()
         for layer in range(self.n_hidden_layers):
             # Select weights for the current layer.
-            n_params = self.dim_arm * self.dim_arm + self.dim_arm
+            n_params = self.dim_arm * self.dim_arm
+            n_params += self.dim_arm if self.biases else 0
             layer_params = x[weight_count : weight_count + n_params]
-            weight, bias = (
-                layer_params[: -self.dim_arm],
-                layer_params[-self.dim_arm :],
-            )
-            # Reshaping
-            weight = weight.view(self.dim_arm, self.dim_arm)
-            bias = bias.view(self.dim_arm)
-
-            # Adding to the dictionary
             layer_name = f"mlp.{2 * layer}"  # Multiplying by 2 because we have activations interleaved.
+
+            # Adding weight.
+            weight = layer_params[: self.dim_arm**2].view(self.dim_arm, self.dim_arm)
+            # Adding to the dictionary
             formatted_weights[f"{layer_name}.weight"] = weight
-            formatted_weights[f"{layer_name}.bias"] = bias
+
+            # Adding bias, if needed.
+            if self.biases:
+                bias = layer_params[self.dim_arm**2 :].view(self.dim_arm)
+                formatted_weights[f"{layer_name}.bias"] = bias
 
             weight_count += n_params
 
         # Output layer
-        n_params = self.dim_arm * 2 + 2
+        n_params = self.dim_arm * 2
+        n_params += 2 if self.biases else 0
         layer_params = x[weight_count : weight_count + n_params]
-        weight, bias = (
-            layer_params[:-2],
-            layer_params[-2:],
-        )
-        # Reshaping
-        weight = weight.view(2, self.dim_arm)
-        bias = bias.view(2)
-
+        # Adding weight.
+        weight = layer_params[: self.dim_arm * 2].view(2, self.dim_arm)
         formatted_weights[f"mlp.{2 * self.n_hidden_layers}.weight"] = weight
-        formatted_weights[f"mlp.{2 * self.n_hidden_layers}.bias"] = bias
+        # Adding bias, if needed.
+        if self.biases:
+            bias = layer_params[self.dim_arm * 2 :].view(2)
+            formatted_weights[f"mlp.{2 * self.n_hidden_layers}.bias"] = bias
 
         return formatted_weights
 
@@ -407,6 +413,7 @@ class CoolchicHyperNet(nn.Module):
             n_input_features=2 * backbone_n_features,
             hypernet_hidden_dim=self.config.arm.hidden_dim,
             hypernet_n_layers=self.config.arm.n_layers,
+            biases=self.config.arm.biases,
         )
 
         self.print_n_params_submodule()
