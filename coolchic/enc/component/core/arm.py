@@ -103,9 +103,7 @@ class ArmLinear(nn.Module):
 class ArmLinearDelta(ArmLinear):
     def __init__(self, in_channels: int, out_channels: int, residual: bool = False):
         super().__init__(in_channels, out_channels, residual)
-        self.delta_weight: torch.Tensor = torch.zeros_like(
-            self.weight, requires_grad=False
-        ).to(self.weight.device)
+        self.delta_weight: torch.Tensor | None = None
 
     def forward(self, x: Tensor) -> Tensor:
         """Perform the forward pass of this layer.
@@ -117,13 +115,18 @@ class ArmLinearDelta(ArmLinear):
         Returns:
             Tensor with shape :math:`[B, C_{out}]`.
         """
-
+        # Define weight conditional on whether delta is present.
+        weight = (
+            self.weight
+            if self.delta_weight is None
+            else self.weight + self.delta_weight
+        )
         if self.residual:
-            return F.linear(x, self.weight + self.delta_weight, bias=self.bias) + x
+            return F.linear(x, weight, bias=self.bias) + x
 
         # Not residual
         else:
-            return F.linear(x, self.weight + self.delta_weight, bias=self.bias)
+            return F.linear(x, weight, bias=self.bias)
 
     def set_delta(self, delta: torch.Tensor) -> None:
         """Set the delta of the weight.

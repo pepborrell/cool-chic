@@ -125,9 +125,7 @@ class SynthesisConv2dDelta(SynthesisConv2d):
         residual: bool = False,
     ):
         super().__init__(in_channels, out_channels, kernel_size, residual)
-        self.delta_weight: torch.Tensor = torch.zeros(
-            (out_channels, in_channels, kernel_size, kernel_size), requires_grad=False
-        ).to(self.weight.device)
+        self.delta_weight: torch.Tensor | None = None
 
     def forward(self, x: Tensor) -> Tensor:
         """Perform the forward pass of this layer.
@@ -140,9 +138,12 @@ class SynthesisConv2dDelta(SynthesisConv2d):
             Output tensor of shape :math:`[B, C_{out}, H, W]`.
         """
         padded_x = F.pad(x, (self.pad, self.pad, self.pad, self.pad), mode="replicate")
-        y = F.conv2d(
-            padded_x, self.weight + self.delta_weight, self.bias, groups=self.groups
-        )
+        if self.delta_weight is None:
+            y = F.conv2d(padded_x, self.weight, self.bias, groups=self.groups)
+        else:
+            y = F.conv2d(
+                padded_x, self.weight + self.delta_weight, self.bias, groups=self.groups
+            )
 
         if self.residual:
             return y + x
