@@ -15,6 +15,7 @@ hypernet_cfg:
   synthesis:
     hidden_dim: 1024
     n_layers: 3
+    biases: False
   arm:
     hidden_dim: 1024
     n_layers: 3
