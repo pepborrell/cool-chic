@@ -51,7 +51,8 @@ def get_image_from_hypernet(
     )
     img = load_frame_data_from_tensor(img).data
     assert isinstance(img, torch.Tensor)  # To make pyright happy.
-    img = img.to(net.device)
+    device = next(net.parameters()).device
+    img = img.to(device)
 
     # Forward pass.
     net.eval()
