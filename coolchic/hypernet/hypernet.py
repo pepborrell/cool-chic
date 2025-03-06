@@ -586,8 +586,8 @@ class LatentDecoder(CoolChicEncoder):
     def forward(  # pyright: ignore
         self,
         latents: list[torch.Tensor],
-        synth_delta: list[torch.Tensor],
-        arm_delta: list[torch.Tensor],
+        synth_delta: list[torch.Tensor] | None,
+        arm_delta: list[torch.Tensor] | None,
         quantizer_noise_type: POSSIBLE_QUANTIZATION_NOISE_TYPE = "kumaraswamy",
         quantizer_type: POSSIBLE_QUANTIZER_TYPE = "softround",
         soft_round_temperature: torch.Tensor | None = torch.tensor(0.3),
@@ -598,9 +598,11 @@ class LatentDecoder(CoolChicEncoder):
         # Replace latents in CoolChicEncoder.
         self.size_per_latent = [(1, *lat.shape[-3:]) for lat in latents]
         self.latent_grids = nn.ParameterList(latents)
-        # This makes synthesis happen with deltas added to the filters.
-        self.synthesis.add_delta(synth_delta)
-        self.arm.add_delta(arm_delta)
+        # This makes synthesis and arm happen with deltas added to the filters.
+        if synth_delta is not None:
+            self.synthesis.add_delta(synth_delta)
+        if arm_delta is not None:
+            self.arm.add_delta(arm_delta)
 
         # Forward pass (latents are in the class already).
         return super().forward(
@@ -615,6 +617,58 @@ class LatentDecoder(CoolChicEncoder):
     def get_flops(self) -> None:
         """Changed the forward method's signature, so we need to redefine this method."""
         print("Ignoring get_flops")
+
+
+class NOWholeNet(WholeNet):
+    def __init__(self, config: HyperNetConfig):
+        super().__init__()
+        self.config = config
+        coolchic_encoder_parameter = CoolChicEncoderParameter(
+            **get_coolchic_param_from_args(config.dec_cfg)
+        )
+        coolchic_encoder_parameter.set_image_size(config.patch_size)
+
+        self.encoder = LatentHyperNet(n_latents=self.config.n_latents)
+        self.mean_decoder = LatentDecoder(param=coolchic_encoder_parameter)
+
+    def forward(
+        self,
+        img: torch.Tensor,
+        quantizer_noise_type: POSSIBLE_QUANTIZATION_NOISE_TYPE = "gaussian",
+        quantizer_type: POSSIBLE_QUANTIZER_TYPE = "softround",
+        softround_temperature: float = 0.3,
+        noise_parameter: float = 0.25,
+    ) -> tuple[torch.Tensor, torch.Tensor, dict[str, Any]]:
+        latents = self.encoder.forward(img)
+
+        return self.mean_decoder.forward(
+            latents=latents,
+            synth_delta=None,
+            arm_delta=None,
+            quantizer_noise_type=quantizer_noise_type,
+            quantizer_type=quantizer_type,
+            soft_round_temperature=torch.tensor(softround_temperature),
+            noise_parameter=torch.tensor(noise_parameter),
+            AC_MAX_VAL=-1,
+            flag_additional_outputs=False,
+        )
+
+    def get_mlp_rate(self) -> float:
+        # Get MLP rate.
+        rate_mlp = 0.0
+        rate_per_module = self.mean_decoder.get_network_rate()
+        for _, module_rate in rate_per_module.items():  # pyright: ignore
+            for _, param_rate in module_rate.items():  # weight, bias
+                rate_mlp += param_rate
+        return rate_mlp
+
+    def freeze_resnet(self):
+        """Not implemented."""
+        pass
+
+    def unfreeze_resnet(self):
+        """Not implemented."""
+        pass
 
 
 class DeltaWholeNet(WholeNet):
