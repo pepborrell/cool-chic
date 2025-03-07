@@ -141,6 +141,16 @@ class CoolChicEncoderOutput:
     additional_data: dict[str, Any]
 
 
+class CoolChicLatentGrid(nn.Module):
+    """Stores the latent grid for a single resolution.
+    Necessary, because we can't directly change tensors in a parameter list, but we can from modules.
+    """
+
+    def __init__(self, data: torch.Tensor):
+        super().__init__()
+        self.data = nn.Parameter(data, requires_grad=True)
+
+
 class CoolChicEncoder(nn.Module):
     """CoolChicEncoder for a single frame."""
 
@@ -170,7 +180,7 @@ class CoolChicEncoder(nn.Module):
 
         # Populate the successive grids
         self.size_per_latent = []
-        self.latent_grids = nn.ParameterList()
+        self.latent_grids = nn.ModuleList()
         for i in range(self.param.latent_n_grids):
             h_grid, w_grid = [int(math.ceil(x / (2**i))) for x in self.param.img_size]
             c_grid = self.param.n_ft_per_res[i]
@@ -180,9 +190,7 @@ class CoolChicEncoder(nn.Module):
 
             # Instantiate empty tensor, we fill them later on with the function
             # self.initialize_latent_grids()
-            self.latent_grids.append(
-                nn.Parameter(torch.empty(cur_size), requires_grad=True)
-            )
+            self.latent_grids.append(CoolChicLatentGrid(torch.empty(cur_size)))
 
         self.initialize_latent_grids()
 
@@ -350,7 +358,7 @@ class CoolChicEncoder(nn.Module):
         # to a single flat vector. This allows to call the quantization
         # only once, which is faster
         encoder_side_flat_latent = torch.cat(
-            [latent_i.view(-1) for latent_i in self.latent_grids]
+            [latent_i.data.view(-1) for latent_i in self.latent_grids]
         )
 
         flat_decoder_side_latent = quantize(
@@ -502,12 +510,11 @@ class CoolChicEncoder(nn.Module):
                 "random_seed is None."
             )
             generator = torch.Generator().manual_seed(random_seed)
-        for latent_index, latent_value in enumerate(self.latent_grids):
-            self.latent_grids[latent_index] = nn.Parameter(
-                torch.zeros_like(latent_value)
+        for latent_index, latent in enumerate(self.latent_grids):
+            self.latent_grids[latent_index] = CoolChicLatentGrid(
+                torch.zeros_like(latent.data)
                 if zeros
-                else 1e-2 * torch.randn(latent_value.shape, generator=generator),  # pyright: ignore
-                requires_grad=True,
+                else 1e-2 * torch.randn(latent.shape, generator=generator),  # pyright: ignore
             )
 
     def reinitialize_parameters(self):

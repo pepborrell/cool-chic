@@ -534,7 +534,12 @@ class CoolchicWholeNet(WholeNet):
         self.cc_encoder.size_per_latent = [
             (1, *lat.shape[-3:]) for lat in latent_weights
         ]
-        self.cc_encoder.latent_grids = nn.ParameterList(latent_weights)
+        # Something like self.cc_encoder.latent_grids = nn.ParameterList(latent_weights)
+        # would break the computation graph. This doesn't. Following tips in:
+        # https://github.com/qu-gg/torch-hypernetwork-tutorials?tab=readme-ov-file#tensorVSparameter
+        for i in range(len(self.latent_grids)):
+            del self.latent_grids[i].data
+            self.latent_grids[i].data = latent_weights[i]
 
         return self.cc_encoder
 
@@ -597,7 +602,13 @@ class LatentDecoder(CoolChicEncoder):
     ) -> tuple[torch.Tensor, torch.Tensor, dict[str, Any]]:
         # Replace latents in CoolChicEncoder.
         self.size_per_latent = [(1, *lat.shape[-3:]) for lat in latents]
-        self.latent_grids = nn.ParameterList(latents)
+        # Something like self.latent_grids = nn.ParameterList(latents)
+        # would break the computation graph. This doesn't. Following tips in:
+        # https://github.com/qu-gg/torch-hypernetwork-tutorials?tab=readme-ov-file#tensorVSparameter
+        for i in range(len(self.latent_grids)):
+            del self.latent_grids[i].data
+            self.latent_grids[i].data = latents[i]
+
         # This makes synthesis and arm happen with deltas added to the filters.
         if synth_delta is not None:
             self.synthesis.add_delta(synth_delta)
@@ -640,6 +651,26 @@ class NOWholeNet(WholeNet):
         noise_parameter: float = 0.25,
     ) -> tuple[torch.Tensor, torch.Tensor, dict[str, Any]]:
         latents = self.encoder.forward(img)
+        # # Function to display tensors
+        # def show_tensors(tensors: list[torch.Tensor]):
+        #     dpi = 200
+        #     fig, axes = plt.subplots(
+        #         2,
+        #         len(tensors) // 2 + len(tensors) % 2,
+        #         figsize=(len(tensors) * 2, 2),
+        #         dpi=dpi,
+        #     )
+        #     assert isinstance(axes, np.ndarray)
+        #     if len(tensors) == 1:
+        #         axes = [axes]  # Ensure axes is iterable for a single image
+        #     for ax, tensor in zip(axes.flatten().tolist(), tensors):
+        #         ax.imshow(
+        #             tensor.squeeze(), cmap="gray"
+        #         )  # Squeeze and display in grayscale
+        #         ax.axis("off")  # Hide axis for cleaner visualization
+        #     plt.show()
+        #
+        # show_tensors(latents)
 
         return self.mean_decoder.forward(
             latents=latents,
