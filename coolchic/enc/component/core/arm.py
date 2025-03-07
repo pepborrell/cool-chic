@@ -201,7 +201,7 @@ class Arm(nn.Module):
             layers_list.append(nn.ReLU())
 
         # Construct the output layer. It always has 2 outputs (mu and scale)
-        layers_list.append(ArmLinear(dim_arm, 2, residual=False))
+        layers_list.append(ArmLinearDelta(dim_arm, 2, residual=False))
         self.mlp = nn.Sequential(*layers_list)
         # ======================== Construct the MLP ======================== #
 
