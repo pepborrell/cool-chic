@@ -10,7 +10,12 @@ from tqdm import tqdm
 from coolchic.enc.io.io import load_frame_data_from_tensor
 from coolchic.enc.training.loss import LossFunctionOutput, loss_function
 from coolchic.eval.hypernet import plot_hypernet_rd
-from coolchic.hypernet.hypernet import CoolchicWholeNet, DeltaWholeNet, WholeNet
+from coolchic.hypernet.hypernet import (
+    CoolchicWholeNet,
+    DeltaWholeNet,
+    NOWholeNet,
+    WholeNet,
+)
 from coolchic.utils.paths import DATA_DIR
 from coolchic.utils.types import HypernetRunConfig, load_config
 
@@ -117,7 +122,7 @@ if __name__ == "__main__":
         "--hypernet",
         type=str,
         default="full",
-        help="Hypernet type. Can be one of ['full', 'delta'].",
+        help="Hypernet type. Can be one of ['full', 'delta', 'nocchic'].",
     )
     args = parser.parse_args()
 
@@ -125,8 +130,14 @@ if __name__ == "__main__":
     w_paths = [Path(p) for p in args.weight_paths.split(",")]
     assert all(p.exists() for p in w_paths), "One or more weight paths do not exist."
 
-    assert args.hypernet in ["full", "delta"], "Invalid hypernet type."
-    wholenet_cls = CoolchicWholeNet if args.hypernet == "full" else DeltaWholeNet
+    assert args.hypernet in ["full", "delta", "nocchic"], "Invalid hypernet type."
+    wholenet_cls = (
+        CoolchicWholeNet
+        if args.hypernet == "full"
+        else DeltaWholeNet
+        if args.hypernet == "delta"
+        else NOWholeNet
+    )
 
     if args.img_path is not None or args.img_num is not None:
         assert (
