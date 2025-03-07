@@ -537,9 +537,9 @@ class CoolchicWholeNet(WholeNet):
         # Something like self.cc_encoder.latent_grids = nn.ParameterList(latent_weights)
         # would break the computation graph. This doesn't. Following tips in:
         # https://github.com/qu-gg/torch-hypernetwork-tutorials?tab=readme-ov-file#tensorVSparameter
-        for i in range(len(self.latent_grids)):
-            del self.latent_grids[i].data
-            self.latent_grids[i].data = latent_weights[i]
+        for i in range(len(self.cc_encoder.latent_grids)):
+            del self.cc_encoder.latent_grids[i].data
+            self.cc_encoder.latent_grids[i].data = latent_weights[i]
 
         return self.cc_encoder
 
