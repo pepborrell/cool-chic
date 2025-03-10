@@ -734,7 +734,7 @@ class DeltaWholeNet(WholeNet):
             synth_deltas = [torch.tensor(0)] * len(
                 self.hypernet.synthesis_hn.layer_info
             )
-            arm_deltas = [torch.tensor(0)] * self.hypernet.arm_hn.n_hidden_layers
+            arm_deltas = [torch.tensor(0)] * (self.hypernet.arm_hn.n_hidden_layers + 1)
 
         return self.mean_decoder.forward(
             latents=latents,
