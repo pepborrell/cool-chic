@@ -739,10 +739,19 @@ class NOWholeNet(WholeNet):
         stop_grads: bool = False,
     ) -> CoolChicEncoder:
         img = img.to(self.encoder.conv1ds[0].weight.device)
-        latents = self.encoder.forward(img)
-        return self.mean_decoder.as_coolchic(
-            latents=latents, synth_delta=None, arm_delta=None, stop_grads=stop_grads
-        )
+        if not stop_grads:
+            raise NotImplementedError(
+                "This method is only implemented for stop_grads=True."
+            )
+
+        self.eval()
+        with torch.no_grad():
+            latents = self.encoder.forward(img)
+            cc_enc = self.mean_decoder.as_coolchic(
+                latents=latents, synth_delta=None, arm_delta=None, stop_grads=stop_grads
+            )
+        self.train()
+        return cc_enc
 
     def get_mlp_rate(self) -> float:
         # Get MLP rate.
