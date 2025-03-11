@@ -633,31 +633,41 @@ class LatentDecoder(CoolChicEncoder):
             )
 
         encoder = CoolChicEncoder(self.param)
+
         # Replacing weights.
-        encoder.synthesis.set_hypernet_weights(self.synthesis.state_dict())
-        encoder.arm.set_hypernet_weights(self.arm.state_dict())
-        # Set upsampling as a bicubic upsampling filter.
-        encoder.upsampling.set_hypernet_weights(self.upsampling.state_dict())
+        # If we want to stop gradients, we need to make the tensors leaves in the graph.
+        def state_dict_to_param(
+            state: dict[str, torch.Tensor],
+        ) -> OrderedDict[str, nn.Parameter]:
+            # This should not happen if stop grads is True.
+            return OrderedDict({k: nn.Parameter(v) for k, v in state.items()})
+
+        encoder.synthesis.set_hypernet_weights(
+            state_dict_to_param(self.synthesis.state_dict())
+        )
+        encoder.arm.set_hypernet_weights(state_dict_to_param(self.arm.state_dict()))
+        encoder.upsampling.set_hypernet_weights(
+            state_dict_to_param(self.upsampling.state_dict())
+        )
         # Replace latents in CoolChicEncoder.
         encoder.size_per_latent = [(1, *lat.shape[-3:]) for lat in latents]
 
-        # If we want to stop gradients, we need to make the tensors leaves in the graph.
-        if stop_grads:
-            latents = [nn.Parameter(lat) for lat in latents]
-            # Just checking.
-            assert all(
-                lat.is_leaf for lat in latents
-            ), "Latents are not leaves. They still carry gradients back."
-            synth_delta = (
-                [nn.Parameter(delta) for delta in synth_delta]
-                if synth_delta is not None
-                else None
-            )
-            arm_delta = (
-                [nn.Parameter(delta) for delta in arm_delta]
-                if arm_delta is not None
-                else None
-            )
+        # Only because stop grads is True.
+        latents = [nn.Parameter(lat) for lat in latents]
+        # Just checking.
+        assert all(
+            lat.is_leaf for lat in latents
+        ), "Latents are not leaves. They still carry gradients back."
+        synth_delta = (
+            [nn.Parameter(delta) for delta in synth_delta]
+            if synth_delta is not None
+            else None
+        )
+        arm_delta = (
+            [nn.Parameter(delta) for delta in arm_delta]
+            if arm_delta is not None
+            else None
+        )
 
         # Something like self.latent_grids = nn.ParameterList(latents)
         # would break the computation graph. This doesn't. Following tips in:
