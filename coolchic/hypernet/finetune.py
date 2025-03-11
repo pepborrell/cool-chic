@@ -176,6 +176,8 @@ def finetune_all_kodak(
 
     all_finetuned = []
     for i in range(1, 25):
+        img_name = f"kodim{i:02d}"
+        print(f"Finetuning {img_name}")
         finetuned = finetune_one_kodak(
             i,
             preset,
@@ -186,7 +188,7 @@ def finetune_all_kodak(
         )
         all_finetuned.append(
             pd.DataFrame(
-                [log_to_results(log, f"kodim{i:02d}").model_dump() for log in finetuned]
+                [log_to_results(log, img_name).model_dump() for log in finetuned]
             )
         )
     return pd.concat(all_finetuned)
