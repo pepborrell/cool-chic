@@ -507,6 +507,7 @@ class CoolchicWholeNet(WholeNet):
     def image_to_coolchic(
         self, img: torch.Tensor, stop_grads: bool = False
     ) -> CoolChicEncoder:
+        img = img.to(self.hypernet.latent_hn.conv1ds[0].weight.device)
         latent_weights, synthesis_weights, arm_weights = self.hypernet.forward(img)
         # Make them leaves in the graph.
         if stop_grads:
