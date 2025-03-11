@@ -738,6 +738,7 @@ class NOWholeNet(WholeNet):
         img: torch.Tensor,
         stop_grads: bool = False,
     ) -> CoolChicEncoder:
+        img = img.to(self.encoder.conv1ds[0].weight.device)
         latents = self.encoder.forward(img)
         return self.mean_decoder.as_coolchic(
             latents=latents, synth_delta=None, arm_delta=None, stop_grads=stop_grads
@@ -810,6 +811,7 @@ class DeltaWholeNet(WholeNet):
     def image_to_coolchic(
         self, img: torch.Tensor, stop_grads: bool = False
     ) -> CoolChicEncoder:
+        img = img.to(self.encoder.conv1ds[0].weight.device)
         latents = self.encoder.forward(img)
         if self.use_delta:
             _, s_delta_dict, arm_delta_dict = self.hypernet.forward(img)
