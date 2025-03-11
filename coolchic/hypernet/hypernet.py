@@ -396,8 +396,6 @@ class CoolchicHyperNet(nn.Module):
             arch=config.backbone_arch,
             input_channels=self.config.n_latents,
         )
-        if self.config.lmbda_as_feature:
-            backbone_n_features += 1
 
         self.synthesis_hn = SynthesisHyperNet(
             n_latents=self.config.n_latents,
@@ -419,7 +417,7 @@ class CoolchicHyperNet(nn.Module):
         self.print_n_params_submodule()
 
     def forward(
-        self, img: torch.Tensor, lmbda: torch.Tensor | None = None
+        self, img: torch.Tensor
     ) -> tuple[
         list[torch.Tensor],
         OrderedDict[str, torch.Tensor],
@@ -436,9 +434,6 @@ class CoolchicHyperNet(nn.Module):
             ).detach()
         )
         features = torch.cat([img_features, latent_features], dim=1)
-        if self.config.lmbda_as_feature:
-            assert lmbda is not None
-            features = torch.cat([features, lmbda.unsqueeze(0)], dim=1)
         synthesis_weights = self.synthesis_hn.forward(features)
         arm_weights = self.arm_hn.forward(features)
 
@@ -481,6 +476,10 @@ class WholeNet(nn.Module, abc.ABC):
         pass
 
     @abc.abstractmethod
+    def image_to_coolchic(self, img: torch.Tensor, stop_grads: bool) -> CoolChicEncoder:
+        pass
+
+    @abc.abstractmethod
     def get_mlp_rate(self) -> float:
         pass
 
@@ -506,14 +505,9 @@ class CoolchicWholeNet(WholeNet):
         self.cc_encoder = CoolChicEncoder(param=coolchic_encoder_parameter)
 
     def image_to_coolchic(
-        self,
-        img: torch.Tensor,
-        stop_grads: bool = False,
-        lmbda: torch.Tensor | None = None,
+        self, img: torch.Tensor, stop_grads: bool = False
     ) -> CoolChicEncoder:
-        latent_weights, synthesis_weights, arm_weights = self.hypernet.forward(
-            img, lmbda=lmbda
-        )
+        latent_weights, synthesis_weights, arm_weights = self.hypernet.forward(img)
         # Make them leaves in the graph.
         if stop_grads:
             latent_weights = [nn.Parameter(lat) for lat in latent_weights]
@@ -550,9 +544,8 @@ class CoolchicWholeNet(WholeNet):
         quantizer_type: POSSIBLE_QUANTIZER_TYPE = "softround",
         softround_temperature: float = 0.3,
         noise_parameter: float = 0.25,
-        lmbda: torch.Tensor | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor, dict[str, Any]]:
-        return self.image_to_coolchic(img, lmbda=lmbda).forward(
+        return self.image_to_coolchic(img).forward(
             quantizer_noise_type=quantizer_noise_type,
             quantizer_type=quantizer_type,
             soft_round_temperature=torch.tensor(softround_temperature),
@@ -587,6 +580,7 @@ class LatentDecoder(CoolChicEncoder):
 
     def __init__(self, param: CoolChicEncoderParameter):
         super().__init__(param)
+        self.param = param
 
     def forward(  # pyright: ignore
         self,
@@ -624,6 +618,61 @@ class LatentDecoder(CoolChicEncoder):
             AC_MAX_VAL=AC_MAX_VAL,
             flag_additional_outputs=flag_additional_outputs,
         )
+
+    def as_coolchic(
+        self,
+        latents: list[torch.Tensor],
+        synth_delta: list[torch.Tensor] | None,
+        arm_delta: list[torch.Tensor] | None,
+        stop_grads: bool = False,
+    ) -> CoolChicEncoder:
+        """Returns a CoolChicEncoder with the latents and deltas set."""
+        if not stop_grads:
+            raise NotImplementedError(
+                "This method is only implemented for stop_grads=True."
+            )
+
+        encoder = CoolChicEncoder(self.param)
+        # Replacing weights.
+        encoder.synthesis.set_hypernet_weights(self.synthesis.state_dict())
+        encoder.arm.set_hypernet_weights(self.arm.state_dict())
+        # Set upsampling as a bicubic upsampling filter.
+        encoder.upsampling.set_hypernet_weights(self.upsampling.state_dict())
+        # Replace latents in CoolChicEncoder.
+        encoder.size_per_latent = [(1, *lat.shape[-3:]) for lat in latents]
+
+        # If we want to stop gradients, we need to make the tensors leaves in the graph.
+        if stop_grads:
+            latents = [nn.Parameter(lat) for lat in latents]
+            # Just checking.
+            assert all(
+                lat.is_leaf for lat in latents
+            ), "Latents are not leaves. They still carry gradients back."
+            synth_delta = (
+                [nn.Parameter(delta) for delta in synth_delta]
+                if synth_delta is not None
+                else None
+            )
+            arm_delta = (
+                [nn.Parameter(delta) for delta in arm_delta]
+                if arm_delta is not None
+                else None
+            )
+
+        # Something like self.latent_grids = nn.ParameterList(latents)
+        # would break the computation graph. This doesn't. Following tips in:
+        # https://github.com/qu-gg/torch-hypernetwork-tutorials?tab=readme-ov-file#tensorVSparameter
+        for i in range(len(self.latent_grids)):
+            del encoder.latent_grids[i].data
+            encoder.latent_grids[i].data = latents[i]
+
+        # This makes synthesis and arm happen with deltas added to the filters.
+        if synth_delta is not None:
+            encoder.synthesis.add_delta(synth_delta)
+        if arm_delta is not None:
+            encoder.arm.add_delta(arm_delta)
+
+        return encoder
 
     def get_flops(self) -> None:
         """Changed the forward method's signature, so we need to redefine this method."""
@@ -684,6 +733,16 @@ class NOWholeNet(WholeNet):
             flag_additional_outputs=False,
         )
 
+    def image_to_coolchic(
+        self,
+        img: torch.Tensor,
+        stop_grads: bool = False,
+    ) -> CoolChicEncoder:
+        latents = self.encoder.forward(img)
+        return self.mean_decoder.as_coolchic(
+            latents=latents, synth_delta=None, arm_delta=None, stop_grads=stop_grads
+        )
+
     def get_mlp_rate(self) -> float:
         # Get MLP rate.
         rate_mlp = 0.0
@@ -727,7 +786,7 @@ class DeltaWholeNet(WholeNet):
     ) -> tuple[torch.Tensor, torch.Tensor, dict[str, Any]]:
         latents = self.encoder.forward(img)
         if self.use_delta:
-            _, s_delta_dict, arm_delta_dict = self.hypernet.forward(img, lmbda=None)
+            _, s_delta_dict, arm_delta_dict = self.hypernet.forward(img)
             synth_deltas = [delta for delta in s_delta_dict.values()]
             arm_deltas = [delta for delta in arm_delta_dict.values()]
         else:
@@ -746,6 +805,27 @@ class DeltaWholeNet(WholeNet):
             noise_parameter=torch.tensor(noise_parameter),
             AC_MAX_VAL=-1,
             flag_additional_outputs=False,
+        )
+
+    def image_to_coolchic(
+        self, img: torch.Tensor, stop_grads: bool = False
+    ) -> CoolChicEncoder:
+        latents = self.encoder.forward(img)
+        if self.use_delta:
+            _, s_delta_dict, arm_delta_dict = self.hypernet.forward(img)
+            synth_deltas = [delta for delta in s_delta_dict.values()]
+            arm_deltas = [delta for delta in arm_delta_dict.values()]
+        else:
+            synth_deltas = [torch.tensor(0)] * len(
+                self.hypernet.synthesis_hn.layer_info
+            )
+            arm_deltas = [torch.tensor(0)] * (self.hypernet.arm_hn.n_hidden_layers + 1)
+
+        return self.mean_decoder.as_coolchic(
+            latents=latents,
+            synth_delta=synth_deltas,
+            arm_delta=arm_deltas,
+            stop_grads=stop_grads,
         )
 
     def get_mlp_rate(self) -> float:

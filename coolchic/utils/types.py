@@ -285,7 +285,6 @@ class HyperNetConfig(BaseModel):
     backbone_arch: Literal["resnet18", "resnet50"] = "resnet18"
 
     patch_size: tuple[int, int] = (256, 256)
-    lmbda_as_feature: bool = False
 
     @computed_field
     @property
