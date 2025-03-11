@@ -145,6 +145,8 @@ def finetune_one_kodak(
         coolchic_encoder_parameter = CoolChicEncoderParameter(
             **get_coolchic_param_from_args(dec_cfg)
         )
+        img, _ = read_png(str(img_path))
+        coolchic_encoder_parameter.set_image_size((img.shape[1], img.shape[2]))
         cc_encoder = CoolChicEncoder(coolchic_encoder_parameter)
     else:
         # Get coolchic representation from hypernet
