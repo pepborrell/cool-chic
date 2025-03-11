@@ -23,7 +23,12 @@ from coolchic.enc.utils.parsecli import (
 from coolchic.encode_simpler import build_frame_encoder
 from coolchic.eval.hypernet import find_crossing_iteration, plot_hypernet_rd
 from coolchic.eval.results import SummaryEncodingMetrics
-from coolchic.hypernet.hypernet import CoolchicWholeNet, WholeNet
+from coolchic.hypernet.hypernet import (
+    CoolchicWholeNet,
+    DeltaWholeNet,
+    NOWholeNet,
+    WholeNet,
+)
 from coolchic.hypernet.inference import load_hypernet
 from coolchic.utils.paths import DATA_DIR
 from coolchic.utils.types import (
@@ -157,12 +162,16 @@ def finetune_one_kodak(
 
 
 def finetune_all_kodak(
-    preset: PresetConfig, from_scratch: bool, weights_path: Path, config_path: Path
+    preset: PresetConfig,
+    from_scratch: bool,
+    weights_path: Path,
+    config_path: Path,
+    wholenet_cls: type[WholeNet],
 ) -> pd.DataFrame:
     # Load config and hypernet.
     cfg = load_config(config_path, HypernetRunConfig)
     assert isinstance(cfg.lmbda, float)  # To make pyright happy.
-    hnet = load_hypernet(weights_path, cfg, CoolchicWholeNet)
+    hnet = load_hypernet(weights_path, cfg, wholenet_cls)
     hnet.eval()
 
     all_finetuned = []
@@ -192,10 +201,23 @@ if __name__ == "__main__":
         "--weight_path", type=Path, required=True, help="Path to the hypernet weights."
     )
     parser.add_argument(
+        "--wholenet_cls",
+        type=str,
+        default="CoolchicWholeNet",
+        help="Class name of the WholeNet to use. "
+        "Can be 'CoolchicWholeNet', 'DeltaWholeNet', or 'NOWholeNet'.",
+    )
+    parser.add_argument(
         "--config", type=Path, required=True, help="Path to the hypernet config."
     )
     parser.add_argument(
-        "--n_iterations", type=int, default=100, help="Number of iterations to train."
+        "--n_iterations", type=int, default=1_000, help="Number of iterations to train."
+    )
+    parser.add_argument(
+        "--from_scratch_file",
+        type=Path,
+        help="Path to the results of training from scratch. "
+        "If provided, the results will be reused and training won't happen.",
     )
     args = parser.parse_args()
 
@@ -218,18 +240,37 @@ if __name__ == "__main__":
         preset_name="", warmup=Warmup(), all_phases=[training_phase]
     )
 
+    # Checking that the wholenet class is correct and assigning it.
+    def get_wholenet_class(wholenet_cls: str) -> type[WholeNet]:
+        match wholenet_cls:
+            case "CoolchicWholeNet":
+                return CoolchicWholeNet
+            case "DeltaWholeNet":
+                return DeltaWholeNet
+            case "NOWholeNet":
+                return NOWholeNet
+            case _:
+                raise ValueError(f"Invalid WholeNet class. Got {wholenet_cls}.")
+
+    wholenet_cls = get_wholenet_class(args.wholenet_cls)
+
     finetuned = finetune_all_kodak(
         training_preset,
         weights_path=args.weight_path,
         config_path=args.config,
         from_scratch=False,
+        wholenet_cls=wholenet_cls,
     )
-    from_scratch = finetune_all_kodak(
-        training_preset,
-        weights_path=args.weight_path,
-        config_path=args.config,
-        from_scratch=True,
-    )
+    if args.from_scratch_file is not None:
+        from_scratch = pd.read_csv(args.from_scratch_file)
+    else:
+        from_scratch = finetune_all_kodak(
+            training_preset,
+            weights_path=args.weight_path,
+            config_path=args.config,
+            from_scratch=True,
+            wholenet_cls=wholenet_cls,
+        )
     finetuned["anchor"] = "hnet-finetuning"
     from_scratch["anchor"] = "train-from-scratch"
 

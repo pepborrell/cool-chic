@@ -23,10 +23,17 @@ from coolchic.utils.types import HypernetRunConfig, load_config
 def load_hypernet(
     weights_path: Path, config: HypernetRunConfig, wholenet_cls: type[WholeNet]
 ) -> WholeNet:
-    # Either CoolchicWholeNet or DeltaWholeNet.
+    # CoolchicWholeNet, NOWholeNet, or DeltaWholeNet.
     net = wholenet_cls(config=config.hypernet_cfg)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     net = net.to(device)
+
+    # Cold run in the network.
+    # In particular, this forward pass removes the latent grids from the NO coolchic network parameters.
+    # When loading the weights we won't provide them, so this is good.
+    net.forward(torch.zeros(1, 3, 256, 256).to(device))
+    net.zero_grad()
+
     # Loading weights.
     weights = torch.load(weights_path, map_location=device, weights_only=True)
 
