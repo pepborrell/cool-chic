@@ -1,5 +1,6 @@
 import argparse
 from pathlib import Path
+from typing import Literal
 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -20,7 +21,7 @@ from coolchic.enc.utils.parsecli import (
     get_coolchic_param_from_args,
 )
 from coolchic.encode_simpler import build_frame_encoder
-from coolchic.eval.hypernet import find_crossing_iteration, plot_hypernet_rd
+from coolchic.eval.hypernet import find_crossing_it, plot_hypernet_rd
 from coolchic.eval.results import SummaryEncodingMetrics
 from coolchic.hypernet.hypernet import (
     CoolchicWholeNet,
@@ -272,15 +273,36 @@ if __name__ == "__main__":
     # only plot if not on server.
     if get_best_device() == "cpu":
         all_results = pd.read_csv("finetuning_results.csv")
+        crossing_its: dict[str, list[dict[Literal["hn", "scratch"], int]]] = {
+            "jpeg": [],
+            "hm": [],
+        }
         for i in range(1, 25):
             plot_hypernet_rd(f"kodim{i:02d}", all_results)
-            hn_crossing = find_crossing_iteration(
-                f"kodim{i:02d}", all_results, "hnet-finetuning"
-            )
-            scratch_crossing = find_crossing_iteration(
-                f"kodim{i:02d}", all_results, "train-from-scratch"
-            )
-            print(
-                f"kodim{i:02d}, crossing iterations: hnet-finetuning: {hn_crossing}, train-from-scratch: {scratch_crossing}"
-            )
+            for anchor_name in crossing_its:
+                crossing_its[anchor_name].append(
+                    {
+                        "hn": find_crossing_it(
+                            f"kodim{i:02d}",
+                            all_results,
+                            "hnet-finetuning",
+                            anchor_name=anchor_name,
+                        ),
+                        "scratch": find_crossing_it(
+                            f"kodim{i:02d}",
+                            all_results,
+                            "train-from-scratch",
+                            anchor_name=anchor_name,
+                        ),
+                    }
+                )
+
+        for anchor_name, crossings in crossing_its.items():
+            print(f"Crossing iterations for {anchor_name}")
+            for i, cross in enumerate(crossings):
+                print(
+                    f"kodim{i+1:02d}, crossing iterations: "
+                    f"hnet-finetuning: {cross['hn']*training_phase.freq_valid}, "
+                    f"train-from-scratch: {cross['scratch']*training_phase.freq_valid}"
+                )
         plt.show()

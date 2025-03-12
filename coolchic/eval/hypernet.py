@@ -49,8 +49,8 @@ def is_above_anchor_curve(
     return False
 
 
-def find_crossing_iteration(
-    kodim_name: str, results: pd.DataFrame, run_name: str
+def find_crossing_it(
+    kodim_name: str, results: pd.DataFrame, run_name: str, anchor_name: str
 ) -> int:
     all_df = compare_kodak_res(results)
     all_df = all_df.loc[all_df["seq_name"] == kodim_name]
@@ -62,7 +62,6 @@ def find_crossing_iteration(
             return sorted(curve, key=lambda x: x[0])
         return curve
 
-    anchor_name = "jpeg"
     anchor_curve = get_curve_for_anchor(anchor_name, sort=True)
     run_points = get_curve_for_anchor(run_name)
 
