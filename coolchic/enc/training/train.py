@@ -338,7 +338,12 @@ def train(
 
             # If logging vector is provided, append the logs.
             if val_logs is not None:
-                val_logs.append(log_to_results(encoder_logs))
+                assert (
+                    encoder_logs.seq_name is not None
+                ), "seq_name is None."  # To make pyright happy.
+                val_logs.append(
+                    log_to_results(encoder_logs, seq_name=encoder_logs.seq_name)
+                )
 
             # Update soft rounding temperature and noise_parameter
             cur_softround_temperature = _linear_schedule(

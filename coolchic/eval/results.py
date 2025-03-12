@@ -110,13 +110,11 @@ def gen_run_summary(run_dir: Path) -> SummaryEncodingMetrics | None:
     return SummaryEncodingMetrics(**all_data)
 
 
-def log_to_results(
-    logs: FrameEncoderLogs, seq_name: str | None = None
-) -> SummaryEncodingMetrics:
+def log_to_results(logs: FrameEncoderLogs, seq_name: str) -> SummaryEncodingMetrics:
     assert logs.total_rate_bpp is not None  # To make pyright happy.
     assert logs.psnr_db is not None  # To make pyright happy.
     return SummaryEncodingMetrics(
-        seq_name=seq_name if seq_name is not None else logs.seq_name,
+        seq_name=seq_name,
         rate_bpp=logs.total_rate_bpp,
         psnr_db=logs.psnr_db,
         lmbda=logs.encoding_iterations_cnt,

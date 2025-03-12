@@ -90,6 +90,8 @@ def finetune_coolchic(
     frame, frame_encoder_manager, frame_enc = get_coolchic_structs(
         lmbda, preset_config, dec_cfg, cc_encoder, frame_data
     )
+    # Add seq name to frame, useful for logging.
+    frame.seq_name = img_path.stem
 
     # Train like in coolchic
     frame.to_device(device)
