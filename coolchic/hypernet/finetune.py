@@ -12,7 +12,6 @@ from coolchic.enc.component.video import VideoEncoder
 from coolchic.enc.io.format.png import read_png
 from coolchic.enc.io.io import load_frame_data_from_file
 from coolchic.enc.training.presets import TrainerPhase, Warmup
-from coolchic.enc.training.test import FrameEncoderLogs
 from coolchic.enc.training.train import train as coolchic_train
 from coolchic.enc.utils.codingstructure import CodingStructure, FrameData
 from coolchic.enc.utils.manager import FrameEncoderManager
@@ -37,17 +36,6 @@ from coolchic.utils.types import (
     PresetConfig,
     load_config,
 )
-
-
-def log_to_results(logs: FrameEncoderLogs, seq_name: str) -> SummaryEncodingMetrics:
-    assert logs.total_rate_bpp is not None  # To make pyright happy.
-    assert logs.psnr_db is not None  # To make pyright happy.
-    return SummaryEncodingMetrics(
-        seq_name=seq_name,
-        rate_bpp=logs.total_rate_bpp,
-        psnr_db=logs.psnr_db,
-        lmbda=logs.encoding_iterations_cnt,
-    )
 
 
 def get_coolchic_structs(
@@ -90,7 +78,7 @@ def finetune_coolchic(
     cc_encoder: CoolChicEncoder,
     lmbda: float,
     dec_cfg: DecoderConfig,
-) -> list[FrameEncoderLogs]:
+) -> list[SummaryEncodingMetrics]:
     # Get image
     frame_data = load_frame_data_from_file(str(img_path), 0)
     img = frame_data.data
@@ -110,7 +98,9 @@ def finetune_coolchic(
     os.environ["WANDB_MODE"] = "disabled"
     wandb.init()
     assert training_phase.end_lr is not None  # To make pyright happy.
-    validation_logs = []  # We'll record the validation logs here.
+    validation_logs: list[
+        SummaryEncodingMetrics
+    ] = []  # We'll record the validation logs here.
     frame_enc = coolchic_train(
         frame_encoder=frame_enc,
         frame=frame,
@@ -138,7 +128,7 @@ def finetune_one_kodak(
     dec_cfg: DecoderConfig,
     lmbda: float,
     from_scratch: bool = False,
-) -> list[FrameEncoderLogs]:
+) -> list[SummaryEncodingMetrics]:
     img_path = DATA_DIR / "kodak" / f"kodim{img_num:02d}.png"
     if from_scratch:
         # No need to load hypernet.
@@ -188,11 +178,7 @@ def finetune_all_kodak(
             lmbda=cfg.lmbda,
             from_scratch=from_scratch,
         )
-        all_finetuned.append(
-            pd.DataFrame(
-                [log_to_results(log, img_name).model_dump() for log in finetuned]
-            )
-        )
+        all_finetuned.append(pd.DataFrame([log.model_dump() for log in finetuned]))
     return pd.concat(all_finetuned)
 
 

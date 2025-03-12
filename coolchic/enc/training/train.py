@@ -26,6 +26,7 @@ from coolchic.enc.training.presets import MODULE_TO_OPTIMIZE
 from coolchic.enc.training.test import test
 from coolchic.enc.utils.codingstructure import Frame
 from coolchic.enc.utils.manager import FrameEncoderManager
+from coolchic.eval.results import SummaryEncodingMetrics, log_to_results
 
 
 # Custom scheduling function for the soft rounding temperature and the noise parameter
@@ -68,7 +69,7 @@ def train(
     quantizer_noise_type: POSSIBLE_QUANTIZATION_NOISE_TYPE = "kumaraswamy",
     softround_temperature: Tuple[float, float] = (0.3, 0.2),
     noise_parameter: Tuple[float, float] = (2.0, 1.0),
-    val_logs: list | None = None,
+    val_logs: list[SummaryEncodingMetrics] | None = None,
 ) -> FrameEncoder:
     """Train a ``FrameEncoder`` and return the updated module. This function is
     supposed to be called any time we want to optimize the parameters of a
@@ -337,7 +338,7 @@ def train(
 
             # If logging vector is provided, append the logs.
             if val_logs is not None:
-                val_logs.append(encoder_logs)
+                val_logs.append(log_to_results(encoder_logs))
 
             # Update soft rounding temperature and noise_parameter
             cur_softround_temperature = _linear_schedule(
