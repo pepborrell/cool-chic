@@ -293,6 +293,7 @@ def main():
 
     # Eval on kodak at end of training.
     kodak_df = eval_on_all_kodak(net)
+    kodak_df["lmbda"] = run_cfg.lmbda
     kodak_df["anchor"] = "hypernet"
     kodak_df.to_csv(workdir / "kodak_results.csv")
     wandb_run.log({"kodak_results": wandb.Table(dataframe=kodak_df)})
