@@ -1,9 +1,9 @@
 import torch
-import torchvision
 from torch.utils.data import Dataset
 
 from coolchic.enc.io.io import load_frame_data_from_tensor
 from coolchic.metalearning.training_data import get_image_list
+from coolchic.utils.tensors import load_img_from_path
 
 
 class OpenImagesDataset(Dataset):
@@ -48,10 +48,7 @@ class OpenImagesDataset(Dataset):
     def _getitem_one(self, index: int) -> torch.Tensor:
         img_paths = self.train_paths if self.train else self.test_paths
         img_path = img_paths[index]
-        # Load image from filesystem to tensor.
-        img = torchvision.io.decode_image(
-            str(img_path), mode=torchvision.io.ImageReadMode.RGB
-        )
+        img = load_img_from_path(img_path)
         patch = self.extract_random_patch(img, self.patch_size)
         patch_correct = load_frame_data_from_tensor(patch).data
         assert isinstance(patch_correct, torch.Tensor)

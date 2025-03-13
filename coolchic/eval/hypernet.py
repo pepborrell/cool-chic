@@ -1,9 +1,18 @@
+from pathlib import Path
+
 import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
+import torch
 
+from coolchic.enc.io.io import load_frame_data_from_file
+from coolchic.enc.training.presets import PresetC3x
+from coolchic.enc.training.test import FrameEncoderLogs, test
 from coolchic.eval.results import result_summary_to_df
+from coolchic.hypernet.hypernet import WholeNet
+from coolchic.utils.coolchic_types import get_coolchic_structs
 from coolchic.utils.paths import ALL_ANCHORS
+from coolchic.utils.types import PresetConfig
 
 
 def compare_kodak_res(results: pd.DataFrame) -> pd.DataFrame:
@@ -69,3 +78,35 @@ def find_crossing_it(
         if is_above_anchor_curve(point, anchor_curve):
             return i
     return -1
+
+
+def coolchic_test_hypernet(
+    model: WholeNet, img_path: Path, lmbda: float
+) -> FrameEncoderLogs:
+    # Load image.
+    frame_data = load_frame_data_from_file(str(img_path), 0)
+    img = frame_data.data
+    assert isinstance(img, torch.Tensor)  # To make pyright happy.
+    device = next(model.parameters()).device
+    img = img.to(device)
+
+    cc_encoder = model.image_to_coolchic(img, stop_grads=True)
+
+    # Placeholder preset config.
+    # I don't think it's being used for anything useful.
+    # Based on C3x.
+    preset_config = PresetConfig(
+        preset_name=(tmp_preset := PresetC3x()).preset_name,
+        warmup=tmp_preset.warmup,
+        all_phases=tmp_preset.all_phases,
+    )
+
+    frame, frame_encoder_manager, frame_enc = get_coolchic_structs(
+        lmbda=lmbda,
+        preset_config=preset_config,
+        dec_cfg=model.config.dec_cfg,
+        cc_encoder=cc_encoder,
+        frame_data=frame_data,
+    )
+    logs = test(frame_enc, frame, frame_encoder_manager)
+    return logs

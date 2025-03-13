@@ -17,6 +17,7 @@ from coolchic.hypernet.hypernet import (
     WholeNet,
 )
 from coolchic.utils.paths import DATA_DIR
+from coolchic.utils.tensors import load_img_from_path
 from coolchic.utils.types import HypernetRunConfig, load_config
 
 
@@ -57,10 +58,7 @@ def load_hypernet(
 def get_image_from_hypernet(
     net: WholeNet, img_path: Path
 ) -> tuple[torch.Tensor, LossFunctionOutput]:
-    # Load image.
-    img = torchvision.io.decode_image(
-        str(img_path), mode=torchvision.io.ImageReadMode.RGB
-    )
+    img = load_img_from_path(img_path)
     img = load_frame_data_from_tensor(img).data
     assert isinstance(img, torch.Tensor)  # To make pyright happy.
     device = next(net.parameters()).device

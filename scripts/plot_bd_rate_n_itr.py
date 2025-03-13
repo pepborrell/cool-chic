@@ -10,18 +10,11 @@ from coolchic.eval.bd_rate import (
 )
 from coolchic.eval.plotting import plot_bd_rate_n_itr, plot_bd_rate_total_itr
 from coolchic.eval.results import full_run_summary
+from coolchic.utils.paths import ALL_ANCHORS
 
 # all_runs = Path("results/exps/copied/n_it-grid/")
 all_runs = Path("results/exps/copied/only_latents/")
-og_summary_dir = Path("results/image/kodak/results.tsv")
-hm_summary_dir = Path("results/image/kodak/hm.tsv")
-jpeg_summary_dir = Path("results/image/kodak/jpeg.tsv")
 
-all_anchors = {
-    "cool-chic": og_summary_dir,
-    "hm": hm_summary_dir,
-    "jpeg": jpeg_summary_dir,
-}
 real_rate = False
 all_data = []
 for run_path in tqdm(list(all_runs.iterdir())):
@@ -40,7 +33,7 @@ for run_path in tqdm(list(all_runs.iterdir())):
         for img_configs in run_summaries.values()
         for config in img_configs
     )
-    for anchor in all_anchors:
+    for anchor in ALL_ANCHORS:
         all_data.extend(
             {
                 "avg_bd_rate": bd_rate,
@@ -49,20 +42,20 @@ for run_path in tqdm(list(all_runs.iterdir())):
                 "anchor": anchor,
             }
             for bd_rate in bd_rates_from_paths(
-                run_path, all_anchors[anchor], real_rate=real_rate
+                run_path, ALL_ANCHORS[anchor], real_rate=real_rate
             )
         )
 
 bd_vs_best_cc = {
-    anchor: avg_bd_rate_summary_paths(og_summary_dir, all_anchors[anchor])
+    anchor: avg_bd_rate_summary_paths(ALL_ANCHORS["cool-chic"], ALL_ANCHORS[anchor])
     if anchor != "cool-chic"
     else None
-    for anchor in all_anchors
+    for anchor in ALL_ANCHORS
 }
 
 plots = []
 df = pd.DataFrame(all_data)
-for anchor in all_anchors:
+for anchor in ALL_ANCHORS:
     a_df = df.loc[df.anchor == anchor]
     f1 = plot_bd_rate_n_itr(a_df, anchor_name=anchor, bd_vs_cc=bd_vs_best_cc[anchor])
     f2 = plot_bd_rate_total_itr(

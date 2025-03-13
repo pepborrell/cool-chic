@@ -464,6 +464,8 @@ class CoolchicHyperNet(nn.Module):
 
 # Abstract WholeNet class, to indicate that the class is a whole network.
 class WholeNet(nn.Module, abc.ABC):
+    config: HyperNetConfig
+
     @abc.abstractmethod
     def forward(
         self,
@@ -711,26 +713,6 @@ class NOWholeNet(WholeNet):
         noise_parameter: float = 0.25,
     ) -> tuple[torch.Tensor, torch.Tensor, dict[str, Any]]:
         latents = self.encoder.forward(img)
-        # # Function to display tensors
-        # def show_tensors(tensors: list[torch.Tensor]):
-        #     dpi = 200
-        #     fig, axes = plt.subplots(
-        #         2,
-        #         len(tensors) // 2 + len(tensors) % 2,
-        #         figsize=(len(tensors) * 2, 2),
-        #         dpi=dpi,
-        #     )
-        #     assert isinstance(axes, np.ndarray)
-        #     if len(tensors) == 1:
-        #         axes = [axes]  # Ensure axes is iterable for a single image
-        #     for ax, tensor in zip(axes.flatten().tolist(), tensors):
-        #         ax.imshow(
-        #             tensor.squeeze(), cmap="gray"
-        #         )  # Squeeze and display in grayscale
-        #         ax.axis("off")  # Hide axis for cleaner visualization
-        #     plt.show()
-        #
-        # show_tensors(latents)
 
         return self.mean_decoder.forward(
             latents=latents,

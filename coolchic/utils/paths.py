@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Literal
 
 COOLCHIC_PYTHON_ROOT = Path(__file__).parent.parent.absolute()
 COOLCHIC_REPO_ROOT = COOLCHIC_PYTHON_ROOT.parent
@@ -13,7 +14,8 @@ if (LOCAL_SCRATCH_DIR / "openimages").exists():
 elif (DATA_DIR / "openimages").exists():
     OPEN_IMAGES_DIR = DATA_DIR / "openimages"
 
-ALL_ANCHORS = {
+ANCHOR_NAMES = Literal["coolchic", "hm", "jpeg"]
+ALL_ANCHORS: dict[ANCHOR_NAMES, Path] = {
     "coolchic": RESULTS_DIR / "image" / "kodak" / "results.tsv",
     "hm": RESULTS_DIR / "image" / "kodak" / "hm.tsv",
     "jpeg": RESULTS_DIR / "image" / "kodak" / "jpeg.tsv",
