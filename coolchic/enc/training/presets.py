@@ -338,7 +338,7 @@ class PresetC3x(Preset):
         ]
 
         self.warmup = Warmup(
-            [
+            phases=[
                 WarmupPhase(
                     candidates=5,
                     training_phase=TrainerPhase(
