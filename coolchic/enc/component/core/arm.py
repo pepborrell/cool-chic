@@ -292,7 +292,7 @@ def _get_neighbor(x: Tensor, mask_size: int, non_zero_pixel_ctx_idx: Tensor) -> 
     """Use the unfold function to extract the neighbors of each pixel in x.
 
     Args:
-        x (Tensor): [1, 1, H, W] feature map from which we wish to extract the
+        x (Tensor): [B, 1, H, W] feature map from which we wish to extract the
             neighbors
         mask_size (int): Virtual size of the kernel around the current coded latent.
             mask_size = 2 * n_ctx_rowcol - 1
@@ -303,18 +303,20 @@ def _get_neighbor(x: Tensor, mask_size: int, non_zero_pixel_ctx_idx: Tensor) -> 
             faster than usual indexing.
 
     Returns:
-        torch.tensor: [H * W, floor(N ** 2 / 2) - 1] the spatial neighbors
+        torch.tensor: [B, H * W, floor(N ** 2 / 2) - 1] the spatial neighbors
             the floor(N ** 2 / 2) - 1 neighbors of each H * W pixels.
     """
     pad = int((mask_size - 1) / 2)
     x_pad = F.pad(x, (pad, pad, pad, pad), mode="constant", value=0.0)
 
-    # Shape of x_unfold is [B, C, H, W, mask_size, mask_size] --> [B * C * H * W, mask_size * mask_size]
+    # Shape of x_unfold is [B, C, H, W, mask_size, mask_size] --> [B, C * H * W, mask_size * mask_size]
     # reshape is faster than einops.rearrange
+    assert x.ndim == 4, f"Input tensor must have 4 dimensions. Found {x.ndim}."
+    B, C, H, W = x.shape
     x_unfold = (
         x_pad.unfold(2, mask_size, step=1)
         .unfold(3, mask_size, step=1)
-        .reshape(-1, mask_size * mask_size)
+        .reshape(B, -1, mask_size * mask_size)
     )
 
     # Convert x_unfold to a 2D tensor: [Number of pixels, all neighbors]
@@ -327,7 +329,7 @@ def _get_neighbor(x: Tensor, mask_size: int, non_zero_pixel_ctx_idx: Tensor) -> 
     # Select the pixels for which the mask is not zero
     # For a N x N mask, select only the first (N x N - 1) / 2 pixels
     # (those which aren't null)
-    neighbor = index_select(x_unfold, dim=1, index=non_zero_pixel_ctx_idx)
+    neighbor = index_select(x_unfold, dim=2, index=non_zero_pixel_ctx_idx)
     return neighbor
 
 
