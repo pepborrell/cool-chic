@@ -443,6 +443,11 @@ class CoolchicHyperNet(nn.Module):
             self.arm_hn.shape_outputs(arm_weights),
         )
 
+    def latent_forward(self, img: torch.Tensor) -> list[torch.Tensor]:
+        """This strings together all hypernetwork components."""
+        latent_weights = self.latent_hn.forward(img)
+        return latent_weights
+
     def print_n_params_submodule(self):
         total_params = get_num_of_params(self)
 
@@ -774,7 +779,6 @@ class DeltaWholeNet(WholeNet):
         coolchic_encoder_parameter.set_image_size(config.patch_size)
 
         self.hypernet = CoolchicHyperNet(config=config)
-        self.encoder = LatentHyperNet(n_latents=self.config.n_latents)
         self.mean_decoder = LatentDecoder(param=coolchic_encoder_parameter)
 
         self.use_delta = False
@@ -787,12 +791,12 @@ class DeltaWholeNet(WholeNet):
         softround_temperature: float = 0.3,
         noise_parameter: float = 0.25,
     ) -> tuple[torch.Tensor, torch.Tensor, dict[str, Any]]:
-        latents = self.encoder.forward(img)
         if self.use_delta:
-            _, s_delta_dict, arm_delta_dict = self.hypernet.forward(img)
+            latents, s_delta_dict, arm_delta_dict = self.hypernet.forward(img)
             synth_deltas = [delta for delta in s_delta_dict.values()]
             arm_deltas = [delta for delta in arm_delta_dict.values()]
         else:
+            latents = self.hypernet.latent_forward(img)
             synth_deltas = [torch.tensor(0)] * len(
                 self.hypernet.synthesis_hn.layer_info
             )
@@ -814,12 +818,12 @@ class DeltaWholeNet(WholeNet):
         self, img: torch.Tensor, stop_grads: bool = False
     ) -> CoolChicEncoder:
         img = img.to(self.encoder.conv1ds[0].weight.device)
-        latents = self.encoder.forward(img)
         if self.use_delta:
-            _, s_delta_dict, arm_delta_dict = self.hypernet.forward(img)
+            latents, s_delta_dict, arm_delta_dict = self.hypernet.forward(img)
             synth_deltas = [delta for delta in s_delta_dict.values()]
             arm_deltas = [delta for delta in arm_delta_dict.values()]
         else:
+            latents = self.hypernet.latent_forward(img)
             synth_deltas = [torch.tensor(0)] * len(
                 self.hypernet.synthesis_hn.layer_info
             )
