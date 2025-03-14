@@ -312,7 +312,9 @@ def _get_neighbor(x: Tensor, mask_size: int, non_zero_pixel_ctx_idx: Tensor) -> 
     # Shape of x_unfold is [B, C, H, W, mask_size, mask_size] --> [B, C * H * W, mask_size * mask_size]
     # reshape is faster than einops.rearrange
     assert x.ndim == 4, f"Input tensor must have 4 dimensions. Found {x.ndim}."
-    B, C, H, W = x.shape
+    B, C, _, _ = x.shape
+    assert C == 1, f"Input tensor must have 1 channel. Found {C}."
+
     x_unfold = (
         x_pad.unfold(2, mask_size, step=1)
         .unfold(3, mask_size, step=1)
