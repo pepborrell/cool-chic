@@ -54,7 +54,6 @@ def evaluate_wholenet(
                 test_img,
                 quantizer_noise_type="none",
                 quantizer_type="hardround",
-                lmbda=torch.Tensor([lmbda]).to(device),
             )
             test_out = CoolChicEncoderOutput(
                 raw_out=raw_out, rate=rate, additional_data=add_data
@@ -141,7 +140,6 @@ def train(
                 img_batch,
                 softround_temperature=cur_softround_t,
                 noise_parameter=cur_noise_param,
-                lmbda=torch.Tensor([lmbda]).to(device),
             )
             out_forward = CoolChicEncoderOutput(
                 raw_out=raw_out, rate=rate, additional_data=add_data
