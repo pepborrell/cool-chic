@@ -357,6 +357,7 @@ class CoolChicEncoder(nn.Module):
         # Convert the N [1, C, H_i, W_i] 4d latents with different resolutions
         # to a single flat vector. This allows to call the quantization
         # only once, which is faster
+        # TODO(batching): make sure that the batch dimension isn't made flat.
         encoder_side_flat_latent = torch.cat(
             [latent_i.data.view(-1) for latent_i in self.latent_grids]
         )
@@ -381,20 +382,23 @@ class CoolChicEncoder(nn.Module):
         decoder_side_latent = []
         cnt = 0
         for latent_size in self.size_per_latent:
-            b, c, h, w = latent_size  # b should be one
+            # TODO(batching): leave the batch dimension out of this.
+            b, c, h, w = latent_size  # b should be one. or not if we batch
             latent_numel = b * c * h * w
             decoder_side_latent.append(
                 flat_decoder_side_latent[cnt : cnt + latent_numel].view(latent_size)
             )
             cnt += latent_numel
 
+        # TODO(batching): add batch dimension here, doesn't mess with the flattening.
         # ----- ARM to estimate the distribution and the rate of each latent
         # As for the quantization, we flatten all the latent and their context
         # so that the ARM network is only called once.
         # flat_latent: [N, 1] tensor describing N latents
         # flat_context: [N, context_size] tensor describing each latent context
 
-        # Get all the context as a single 2D vector of size [B, context size]
+        # TODO(batching): get_neighbor has been updated, but not the comments or this code.
+        # Get all the context as a single 2D vector of size [M := N*H*W, context size]
         flat_context = torch.cat(
             [
                 _get_neighbor(
@@ -405,15 +409,18 @@ class CoolChicEncoder(nn.Module):
             dim=0,
         )
 
-        # Get all the B latent variables as a single one dimensional vector
+        # TODO(batching): add batch dimension to flat_latent.
+        # Get all the M latent variables as a single one dimensional vector
         flat_latent = torch.cat(
             [spatial_latent_i.view(-1) for spatial_latent_i in decoder_side_latent],
             dim=0,
         )
 
+        # TODO(batching): is arm a batched module?
         # Feed the spatial context to the arm MLP and get mu and scale
         flat_mu, flat_scale, flat_log_scale = self.arm(flat_context)
 
+        # TODO(batching): is laplace_cdf batched?
         # Compute the rate (i.e. the entropy of flat latent knowing mu and scale)
         proba = torch.clamp_min(
             _laplace_cdf(flat_latent + 0.5, flat_mu, flat_scale)
@@ -422,11 +429,18 @@ class CoolChicEncoder(nn.Module):
         )
         flat_rate = -torch.log2(proba)
 
+        # TODO(batching): can upsampling and synthesis happen in batches? They are designed for it, so it should work.
         # Upsampling and synthesis to get the output
         synthesis_output = self.synthesis(self.upsampling(decoder_side_latent))
 
         additional_data = {}
         if flag_additional_outputs:
+            batch_size = self.latent_grids[0].data.shape[0]
+            if (batch_size) > 1:
+                raise NotImplementedError(
+                    "Batching is not yet supported for additional outputs."
+                )
+
             # Prepare list to accommodate the visualisations
             additional_data["detailed_sent_latent"] = []
             additional_data["detailed_mu"] = []
