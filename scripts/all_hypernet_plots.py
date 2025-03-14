@@ -60,7 +60,7 @@ def print_bd(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--sweep_path", type=Path)
+    parser.add_argument("--sweep_path", type=Path, required=True)
     args = parser.parse_args()
     if not args.sweep_path.exists():
         raise FileNotFoundError(f"Path not found: {args.sweep_path}")
