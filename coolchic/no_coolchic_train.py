@@ -9,7 +9,8 @@ import wandb
 from coolchic.enc.component.coolchic import CoolChicEncoderOutput
 from coolchic.enc.training.loss import LossFunctionOutput, loss_function
 from coolchic.enc.utils.misc import POSSIBLE_DEVICE, get_best_device
-from coolchic.hypernet.hypernet import CoolchicWholeNet
+from coolchic.hypernet.hypernet import NOWholeNet
+from coolchic.hypernet.inference import eval_on_all_kodak
 from coolchic.metalearning.data import OpenImagesDataset
 from coolchic.utils.nn import _linear_schedule
 from coolchic.utils.paths import COOLCHIC_REPO_ROOT
@@ -30,9 +31,9 @@ def get_workdir_hypernet(config: HypernetRunConfig, config_path: Path) -> Path:
     return workdir
 
 
-def get_mlp_rate(net: CoolchicWholeNet) -> float:
+def get_mlp_rate(net: NOWholeNet) -> float:
     rate_mlp = 0.0
-    rate_per_module = net.cc_encoder.get_network_rate()
+    rate_per_module = net.mean_decoder.get_network_rate()
     for _, module_rate in rate_per_module.items():  # pyright: ignore
         for _, param_rate in module_rate.items():  # weight, bias
             rate_mlp += param_rate
@@ -40,7 +41,7 @@ def get_mlp_rate(net: CoolchicWholeNet) -> float:
 
 
 def evaluate_wholenet(
-    net: CoolchicWholeNet,
+    net: NOWholeNet,
     test_data: torch.utils.data.DataLoader,
     lmbda: float,
     device: POSSIBLE_DEVICE,
@@ -109,7 +110,7 @@ def train(
     softround_temperature: tuple[float, float] = (0.3, 0.3),
     noise_parameter: tuple[float, float] = (0.25, 0.25),
 ):
-    wholenet = CoolchicWholeNet(config)
+    wholenet = NOWholeNet(config)
     if torch.cuda.is_available():
         print_gpu_info()
         wholenet = wholenet.cuda()
@@ -117,7 +118,7 @@ def train(
         wholenet = wholenet.to(device)
     optimizer = torch.optim.Adam(wholenet.parameters(), lr=start_lr)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-        optimizer, n_epochs, eta_min=1e-5
+        optimizer, n_epochs, eta_min=1e-6
     )
     total_iterations = len(train_data) * n_epochs
 
@@ -213,13 +214,10 @@ def train(
                 # Save model, but only every 10k batches.
                 if batch_n % 10000 == 0:
                     save_path = workdir / f"epoch_{epoch}_batch_{batch_n}.pt"
-                    torch.save(wholenet.hypernet.state_dict(), save_path)
+                    torch.save(wholenet.state_dict(), save_path)
 
                 # Unfreeze backbone if needed
-                if (
-                    unfreeze_backbone_samples is not None
-                    and samples_seen > unfreeze_backbone_samples
-                ):
+                if samples_seen > unfreeze_backbone_samples:
                     wholenet.unfreeze_resnet()
                     print("Unfreezing backbone")
 
@@ -276,10 +274,10 @@ def main():
     else:
         os.environ["WANDB_MODE"] = "online"
     # Start wandb logging.
-    wandb.init(project="coolchic-runs", config=run_cfg.model_dump())
+    wandb_run = wandb.init(project="coolchic-runs", config=run_cfg.model_dump())
 
     # Train
-    _ = train(
+    net = train(
         train_data_loader,
         test_data_loader,
         config=run_cfg.hypernet_cfg,
@@ -292,6 +290,13 @@ def main():
         softround_temperature=run_cfg.softround_temperature,
         noise_parameter=run_cfg.noise_parameter,
     )
+
+    # Eval on kodak at end of training.
+    kodak_df = eval_on_all_kodak(net)
+    kodak_df["lmbda"] = run_cfg.lmbda
+    kodak_df["anchor"] = "hypernet"
+    kodak_df.to_csv(workdir / "kodak_results.csv")
+    wandb_run.log({"kodak_results": wandb.Table(dataframe=kodak_df)})
 
 
 if __name__ == "__main__":

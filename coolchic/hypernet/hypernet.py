@@ -1,3 +1,4 @@
+import abc
 from typing import Any, Literal, OrderedDict
 
 import torch
@@ -70,6 +71,7 @@ class SynthesisLayerInfo(BaseModel):
     k_size: int
     mode: str
     non_linearity: str
+    bias: bool
 
 
 class SynthesisHyperNet(nn.Module):
@@ -82,13 +84,15 @@ class SynthesisHyperNet(nn.Module):
         n_input_features: int,
         hypernet_hidden_dim: int,
         hypernet_n_layers: int,
+        biases: bool,
     ) -> None:
         super().__init__()
         self.n_input_features = n_input_features
 
         self.n_latents = n_latents
         self.layers_dim = layers_dim
-        self.layer_info = self.parse_layers_dim()
+        self.biases = biases
+        self.layer_info = self.parse_layers_dim(biases=self.biases)
 
         # For hop config, this will be 642 parameters.
         self.n_output_features = self.n_params_synthesis()
@@ -104,7 +108,7 @@ class SynthesisHyperNet(nn.Module):
             output_activation=nn.Tanh(),
         )
 
-    def parse_layers_dim(self) -> list[SynthesisLayerInfo]:
+    def parse_layers_dim(self, biases: bool) -> list[SynthesisLayerInfo]:
         """Parses the layers_dim list to a list of SynthesisLayerInfo objects."""
         layer_info = []
         in_ft = self.n_latents  # The input to synthesis are the upsampled latents.
@@ -117,6 +121,7 @@ class SynthesisHyperNet(nn.Module):
                     k_size=int(k_size),
                     mode=mode,
                     non_linearity=non_linearity,
+                    bias=biases,
                 )
             )
             in_ft = int(out_ft)
@@ -131,7 +136,12 @@ class SynthesisHyperNet(nn.Module):
     @staticmethod
     def n_params_synthesis_layer(layer: SynthesisLayerInfo) -> int:
         """Every synthesis layer has out_channels conv kernels of size in_channels x k x k."""
-        return layer.in_ft * layer.out_ft * layer.k_size * layer.k_size + layer.out_ft
+        n_params_kernels = layer.in_ft * layer.out_ft * layer.k_size * layer.k_size
+        if layer.bias:
+            n_params_bias = layer.out_ft
+        else:
+            n_params_bias = 0
+        return n_params_kernels + n_params_bias
 
     def forward(self, latent: torch.Tensor) -> torch.Tensor:
         return self.mlp(latent)
@@ -144,17 +154,19 @@ class SynthesisHyperNet(nn.Module):
             # Select weights for the current layer.
             n_params = self.n_params_synthesis_layer(layer)
             layer_params = x[:, weight_count : weight_count + n_params]
-            weight, bias = (
-                layer_params[:, : -layer.out_ft],
-                layer_params[:, -layer.out_ft :],
-            )
-            # Reshaping
-            weight = weight.view(layer.out_ft, layer.in_ft, layer.k_size, layer.k_size)
-            bias = bias.view(layer.out_ft)
-            # Adding to the dictionary
             layer_name = f"layers.{2 * layer_num}"  # Multiply by 2 because of the non-linearity layers.
+
+            # Adding weight.
+            weight = layer_params[
+                :, : layer.out_ft * layer.in_ft * layer.k_size * layer.k_size
+            ].view(layer.out_ft, layer.in_ft, layer.k_size, layer.k_size)
+            # Adding to the dictionary
             formatted_weights[f"{layer_name}.weight"] = weight
-            formatted_weights[f"{layer_name}.bias"] = bias
+
+            # Adding bias, if needed.
+            if layer.bias:
+                bias = layer_params[:, -layer.out_ft :].view(layer.out_ft)
+                formatted_weights[f"{layer_name}.bias"] = bias
 
             weight_count += n_params
 
@@ -171,6 +183,7 @@ class ArmHyperNet(nn.Module):
         n_input_features: int,
         hypernet_hidden_dim: int,
         hypernet_n_layers: int,
+        biases: bool,
     ) -> None:
         """
         Args:
@@ -184,8 +197,9 @@ class ArmHyperNet(nn.Module):
 
         self.dim_arm = dim_arm
         self.n_hidden_layers = n_hidden_layers
+        self.biases = biases
         # For hop config, this will be 544 parameters.
-        self.n_output_features = self.n_params_arm()
+        self.n_output_features = self.n_params_arm(biases=self.biases)
 
         # The layers we need: an MLP with hypernet_n_layers hidden layers.
         self.hidden_size = hypernet_hidden_dim
@@ -198,14 +212,22 @@ class ArmHyperNet(nn.Module):
             output_activation=nn.Tanh(),
         )
 
-    def n_params_arm(self) -> int:
+    def n_params_arm(self, biases: bool) -> int:
         """Calculates the number of parameters needed for the arm network.
         An arm network is an MLP with n_hidden_layers of size dim_arm->dim_arm.
         The output layer outputs 2 values (mu and sigma)."""
+        n_params_interm_layer = (
+            self.dim_arm * self.dim_arm + self.dim_arm
+            if biases
+            else self.dim_arm * self.dim_arm
+        )
+        bias_outp_layer = 2 if biases else 0
+
         return (
-            (self.dim_arm * self.dim_arm + self.dim_arm) * self.n_hidden_layers
+            n_params_interm_layer * self.n_hidden_layers
+            # Output layer.
             + self.dim_arm * 2
-            + 2
+            + bias_outp_layer
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -220,36 +242,34 @@ class ArmHyperNet(nn.Module):
         formatted_weights = OrderedDict()
         for layer in range(self.n_hidden_layers):
             # Select weights for the current layer.
-            n_params = self.dim_arm * self.dim_arm + self.dim_arm
+            n_params = self.dim_arm * self.dim_arm
+            n_params += self.dim_arm if self.biases else 0
             layer_params = x[weight_count : weight_count + n_params]
-            weight, bias = (
-                layer_params[: -self.dim_arm],
-                layer_params[-self.dim_arm :],
-            )
-            # Reshaping
-            weight = weight.view(self.dim_arm, self.dim_arm)
-            bias = bias.view(self.dim_arm)
-
-            # Adding to the dictionary
             layer_name = f"mlp.{2 * layer}"  # Multiplying by 2 because we have activations interleaved.
+
+            # Adding weight.
+            weight = layer_params[: self.dim_arm**2].view(self.dim_arm, self.dim_arm)
+            # Adding to the dictionary
             formatted_weights[f"{layer_name}.weight"] = weight
-            formatted_weights[f"{layer_name}.bias"] = bias
+
+            # Adding bias, if needed.
+            if self.biases:
+                bias = layer_params[self.dim_arm**2 :].view(self.dim_arm)
+                formatted_weights[f"{layer_name}.bias"] = bias
 
             weight_count += n_params
 
         # Output layer
-        n_params = self.dim_arm * 2 + 2
+        n_params = self.dim_arm * 2
+        n_params += 2 if self.biases else 0
         layer_params = x[weight_count : weight_count + n_params]
-        weight, bias = (
-            layer_params[:-2],
-            layer_params[-2:],
-        )
-        # Reshaping
-        weight = weight.view(2, self.dim_arm)
-        bias = bias.view(2)
-
+        # Adding weight.
+        weight = layer_params[: self.dim_arm * 2].view(2, self.dim_arm)
         formatted_weights[f"mlp.{2 * self.n_hidden_layers}.weight"] = weight
-        formatted_weights[f"mlp.{2 * self.n_hidden_layers}.bias"] = bias
+        # Adding bias, if needed.
+        if self.biases:
+            bias = layer_params[self.dim_arm * 2 :].view(2)
+            formatted_weights[f"mlp.{2 * self.n_hidden_layers}.bias"] = bias
 
         return formatted_weights
 
@@ -376,8 +396,6 @@ class CoolchicHyperNet(nn.Module):
             arch=config.backbone_arch,
             input_channels=self.config.n_latents,
         )
-        if self.config.lmbda_as_feature:
-            backbone_n_features += 1
 
         self.synthesis_hn = SynthesisHyperNet(
             n_latents=self.config.n_latents,
@@ -385,6 +403,7 @@ class CoolchicHyperNet(nn.Module):
             n_input_features=2 * backbone_n_features,
             hypernet_hidden_dim=self.config.synthesis.hidden_dim,
             hypernet_n_layers=self.config.synthesis.n_layers,
+            biases=self.config.synthesis.biases,
         )
         self.arm_hn = ArmHyperNet(
             dim_arm=self.config.dec_cfg.dim_arm,
@@ -392,12 +411,13 @@ class CoolchicHyperNet(nn.Module):
             n_input_features=2 * backbone_n_features,
             hypernet_hidden_dim=self.config.arm.hidden_dim,
             hypernet_n_layers=self.config.arm.n_layers,
+            biases=self.config.arm.biases,
         )
 
         self.print_n_params_submodule()
 
     def forward(
-        self, img: torch.Tensor, lmbda: torch.Tensor | None = None
+        self, img: torch.Tensor
     ) -> tuple[
         list[torch.Tensor],
         OrderedDict[str, torch.Tensor],
@@ -414,9 +434,6 @@ class CoolchicHyperNet(nn.Module):
             ).detach()
         )
         features = torch.cat([img_features, latent_features], dim=1)
-        if self.config.lmbda_as_feature:
-            assert lmbda is not None
-            features = torch.cat([features, lmbda.unsqueeze(0)], dim=1)
         synthesis_weights = self.synthesis_hn.forward(features)
         arm_weights = self.arm_hn.forward(features)
 
@@ -425,6 +442,11 @@ class CoolchicHyperNet(nn.Module):
             self.synthesis_hn.shape_outputs(synthesis_weights),
             self.arm_hn.shape_outputs(arm_weights),
         )
+
+    def latent_forward(self, img: torch.Tensor) -> list[torch.Tensor]:
+        """This strings together all hypernetwork components."""
+        latent_weights = self.latent_hn.forward(img)
+        return latent_weights
 
     def print_n_params_submodule(self):
         total_params = get_num_of_params(self)
@@ -445,7 +467,39 @@ class CoolchicHyperNet(nn.Module):
         print(output_str)
 
 
-class CoolchicWholeNet(nn.Module):
+# Abstract WholeNet class, to indicate that the class is a whole network.
+class WholeNet(nn.Module, abc.ABC):
+    config: HyperNetConfig
+
+    @abc.abstractmethod
+    def forward(
+        self,
+        img: torch.Tensor,
+        quantizer_noise_type: POSSIBLE_QUANTIZATION_NOISE_TYPE = "gaussian",
+        quantizer_type: POSSIBLE_QUANTIZER_TYPE = "softround",
+        softround_temperature: float = 0.3,
+        noise_parameter: float = 0.25,
+    ) -> tuple[torch.Tensor, torch.Tensor, dict[str, Any]]:
+        pass
+
+    @abc.abstractmethod
+    def image_to_coolchic(self, img: torch.Tensor, stop_grads: bool) -> CoolChicEncoder:
+        pass
+
+    @abc.abstractmethod
+    def get_mlp_rate(self) -> float:
+        pass
+
+    @abc.abstractmethod
+    def freeze_resnet(self):
+        pass
+
+    @abc.abstractmethod
+    def unfreeze_resnet(self):
+        pass
+
+
+class CoolchicWholeNet(WholeNet):
     def __init__(self, config: HyperNetConfig):
         super().__init__()
         self.config = config
@@ -458,14 +512,10 @@ class CoolchicWholeNet(nn.Module):
         self.cc_encoder = CoolChicEncoder(param=coolchic_encoder_parameter)
 
     def image_to_coolchic(
-        self,
-        img: torch.Tensor,
-        stop_grads: bool = False,
-        lmbda: torch.Tensor | None = None,
+        self, img: torch.Tensor, stop_grads: bool = False
     ) -> CoolChicEncoder:
-        latent_weights, synthesis_weights, arm_weights = self.hypernet.forward(
-            img, lmbda=lmbda
-        )
+        img = img.to(self.hypernet.latent_hn.conv1ds[0].weight.device)
+        latent_weights, synthesis_weights, arm_weights = self.hypernet.forward(img)
         # Make them leaves in the graph.
         if stop_grads:
             latent_weights = [nn.Parameter(lat) for lat in latent_weights]
@@ -486,7 +536,12 @@ class CoolchicWholeNet(nn.Module):
         self.cc_encoder.size_per_latent = [
             (1, *lat.shape[-3:]) for lat in latent_weights
         ]
-        self.cc_encoder.latent_grids = nn.ParameterList(latent_weights)
+        # Something like self.cc_encoder.latent_grids = nn.ParameterList(latent_weights)
+        # would break the computation graph. This doesn't. Following tips in:
+        # https://github.com/qu-gg/torch-hypernetwork-tutorials?tab=readme-ov-file#tensorVSparameter
+        for i in range(len(self.cc_encoder.latent_grids)):
+            del self.cc_encoder.latent_grids[i].data
+            self.cc_encoder.latent_grids[i].data = latent_weights[i]
 
         return self.cc_encoder
 
@@ -497,9 +552,8 @@ class CoolchicWholeNet(nn.Module):
         quantizer_type: POSSIBLE_QUANTIZER_TYPE = "softround",
         softround_temperature: float = 0.3,
         noise_parameter: float = 0.25,
-        lmbda: torch.Tensor | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor, dict[str, Any]]:
-        return self.image_to_coolchic(img, lmbda=lmbda).forward(
+        return self.image_to_coolchic(img).forward(
             quantizer_noise_type=quantizer_noise_type,
             quantizer_type=quantizer_type,
             soft_round_temperature=torch.tensor(softround_temperature),
@@ -524,3 +578,288 @@ class CoolchicWholeNet(nn.Module):
     def unfreeze_resnet(self):
         for param in self.hypernet.hn_backbone.parameters():
             param.requires_grad = True
+
+
+class LatentDecoder(CoolChicEncoder):
+    """Abstraction over the CoolChicEncoder to use it as a decoder.
+    It hides the fact that the CoolChicEncoder stores the latents in the class,
+    and allows the user to pass them as arguments.
+    """
+
+    def __init__(self, param: CoolChicEncoderParameter):
+        super().__init__(param)
+        self.param = param
+
+    def forward(  # pyright: ignore
+        self,
+        latents: list[torch.Tensor],
+        synth_delta: list[torch.Tensor] | None,
+        arm_delta: list[torch.Tensor] | None,
+        quantizer_noise_type: POSSIBLE_QUANTIZATION_NOISE_TYPE = "kumaraswamy",
+        quantizer_type: POSSIBLE_QUANTIZER_TYPE = "softround",
+        soft_round_temperature: torch.Tensor | None = torch.tensor(0.3),
+        noise_parameter: torch.Tensor | None = torch.tensor(1.0),
+        AC_MAX_VAL: int = -1,
+        flag_additional_outputs: bool = False,
+    ) -> tuple[torch.Tensor, torch.Tensor, dict[str, Any]]:
+        # Replace latents in CoolChicEncoder.
+        self.size_per_latent = [(1, *lat.shape[-3:]) for lat in latents]
+        # Something like self.latent_grids = nn.ParameterList(latents)
+        # would break the computation graph. This doesn't. Following tips in:
+        # https://github.com/qu-gg/torch-hypernetwork-tutorials?tab=readme-ov-file#tensorVSparameter
+        for i in range(len(self.latent_grids)):
+            del self.latent_grids[i].data
+            self.latent_grids[i].data = latents[i]
+
+        # This makes synthesis and arm happen with deltas added to the filters.
+        if synth_delta is not None:
+            self.synthesis.add_delta(synth_delta)
+        if arm_delta is not None:
+            self.arm.add_delta(arm_delta)
+
+        # Forward pass (latents are in the class already).
+        return super().forward(
+            quantizer_noise_type=quantizer_noise_type,
+            quantizer_type=quantizer_type,
+            soft_round_temperature=soft_round_temperature,
+            noise_parameter=noise_parameter,
+            AC_MAX_VAL=AC_MAX_VAL,
+            flag_additional_outputs=flag_additional_outputs,
+        )
+
+    def as_coolchic(
+        self,
+        latents: list[torch.Tensor],
+        synth_delta: list[torch.Tensor] | None,
+        arm_delta: list[torch.Tensor] | None,
+        stop_grads: bool = False,
+    ) -> CoolChicEncoder:
+        """Returns a CoolChicEncoder with the latents and deltas set."""
+        if not stop_grads:
+            raise NotImplementedError(
+                "This method is only implemented for stop_grads=True."
+            )
+
+        encoder = CoolChicEncoder(self.param)
+
+        # Replacing weights.
+        # If we want to stop gradients, we need to make the tensors leaves in the graph.
+        def state_dict_to_param(
+            state: dict[str, torch.Tensor],
+        ) -> OrderedDict[str, nn.Parameter]:
+            # This should not happen if stop grads is True.
+            return OrderedDict({k: nn.Parameter(v) for k, v in state.items()})
+
+        encoder.synthesis.set_hypernet_weights(
+            state_dict_to_param(self.synthesis.state_dict())
+        )
+        encoder.arm.set_hypernet_weights(state_dict_to_param(self.arm.state_dict()))
+        encoder.upsampling.set_hypernet_weights(
+            state_dict_to_param(self.upsampling.state_dict())
+        )
+        # Replace latents in CoolChicEncoder.
+        encoder.size_per_latent = [(1, *lat.shape[-3:]) for lat in latents]
+
+        # Only because stop grads is True.
+        latents = [nn.Parameter(lat) for lat in latents]
+        # Just checking.
+        assert all(
+            lat.is_leaf for lat in latents
+        ), "Latents are not leaves. They still carry gradients back."
+        synth_delta = (
+            [nn.Parameter(delta) for delta in synth_delta]
+            if synth_delta is not None
+            else None
+        )
+        arm_delta = (
+            [nn.Parameter(delta) for delta in arm_delta]
+            if arm_delta is not None
+            else None
+        )
+
+        # Something like self.latent_grids = nn.ParameterList(latents)
+        # would break the computation graph. This doesn't. Following tips in:
+        # https://github.com/qu-gg/torch-hypernetwork-tutorials?tab=readme-ov-file#tensorVSparameter
+        for i in range(len(self.latent_grids)):
+            del encoder.latent_grids[i].data
+            encoder.latent_grids[i].data = latents[i]
+
+        # This makes synthesis and arm happen with deltas added to the filters.
+        if synth_delta is not None:
+            encoder.synthesis.add_delta(synth_delta)
+        if arm_delta is not None:
+            encoder.arm.add_delta(arm_delta)
+
+        return encoder
+
+    def get_flops(self) -> None:
+        """Changed the forward method's signature, so we need to redefine this method."""
+        print("Ignoring get_flops")
+
+
+class NOWholeNet(WholeNet):
+    def __init__(self, config: HyperNetConfig):
+        super().__init__()
+        self.config = config
+        coolchic_encoder_parameter = CoolChicEncoderParameter(
+            **get_coolchic_param_from_args(config.dec_cfg)
+        )
+        coolchic_encoder_parameter.set_image_size(config.patch_size)
+
+        self.encoder = LatentHyperNet(n_latents=self.config.n_latents)
+        self.mean_decoder = LatentDecoder(param=coolchic_encoder_parameter)
+
+    def forward(
+        self,
+        img: torch.Tensor,
+        quantizer_noise_type: POSSIBLE_QUANTIZATION_NOISE_TYPE = "gaussian",
+        quantizer_type: POSSIBLE_QUANTIZER_TYPE = "softround",
+        softround_temperature: float = 0.3,
+        noise_parameter: float = 0.25,
+    ) -> tuple[torch.Tensor, torch.Tensor, dict[str, Any]]:
+        latents = self.encoder.forward(img)
+
+        return self.mean_decoder.forward(
+            latents=latents,
+            synth_delta=None,
+            arm_delta=None,
+            quantizer_noise_type=quantizer_noise_type,
+            quantizer_type=quantizer_type,
+            soft_round_temperature=torch.tensor(softround_temperature),
+            noise_parameter=torch.tensor(noise_parameter),
+            AC_MAX_VAL=-1,
+            flag_additional_outputs=False,
+        )
+
+    def image_to_coolchic(
+        self,
+        img: torch.Tensor,
+        stop_grads: bool = False,
+    ) -> CoolChicEncoder:
+        img = img.to(self.encoder.conv1ds[0].weight.device)
+        if not stop_grads:
+            raise NotImplementedError(
+                "This method is only implemented for stop_grads=True."
+            )
+
+        self.eval()
+        with torch.no_grad():
+            latents = self.encoder.forward(img)
+            cc_enc = self.mean_decoder.as_coolchic(
+                latents=latents, synth_delta=None, arm_delta=None, stop_grads=stop_grads
+            )
+        self.train()
+        return cc_enc
+
+    def get_mlp_rate(self) -> float:
+        # Get MLP rate.
+        rate_mlp = 0.0
+        rate_per_module = self.mean_decoder.get_network_rate()
+        for _, module_rate in rate_per_module.items():  # pyright: ignore
+            for _, param_rate in module_rate.items():  # weight, bias
+                rate_mlp += param_rate
+        return rate_mlp
+
+    def freeze_resnet(self):
+        """Not implemented."""
+        pass
+
+    def unfreeze_resnet(self):
+        """Not implemented."""
+        pass
+
+
+class DeltaWholeNet(WholeNet):
+    def __init__(self, config: HyperNetConfig):
+        super().__init__()
+        self.config = config
+        coolchic_encoder_parameter = CoolChicEncoderParameter(
+            **get_coolchic_param_from_args(config.dec_cfg)
+        )
+        coolchic_encoder_parameter.set_image_size(config.patch_size)
+
+        self.hypernet = CoolchicHyperNet(config=config)
+        self.mean_decoder = LatentDecoder(param=coolchic_encoder_parameter)
+
+        self.use_delta = False
+
+    def forward(
+        self,
+        img: torch.Tensor,
+        quantizer_noise_type: POSSIBLE_QUANTIZATION_NOISE_TYPE = "gaussian",
+        quantizer_type: POSSIBLE_QUANTIZER_TYPE = "softround",
+        softround_temperature: float = 0.3,
+        noise_parameter: float = 0.25,
+    ) -> tuple[torch.Tensor, torch.Tensor, dict[str, Any]]:
+        if self.use_delta:
+            latents, s_delta_dict, arm_delta_dict = self.hypernet.forward(img)
+            synth_deltas = [delta for delta in s_delta_dict.values()]
+            arm_deltas = [delta for delta in arm_delta_dict.values()]
+        else:
+            latents = self.hypernet.latent_forward(img)
+            synth_deltas = [torch.tensor(0)] * len(
+                self.hypernet.synthesis_hn.layer_info
+            )
+            arm_deltas = [torch.tensor(0)] * (self.hypernet.arm_hn.n_hidden_layers + 1)
+
+        return self.mean_decoder.forward(
+            latents=latents,
+            synth_delta=synth_deltas,
+            arm_delta=arm_deltas,
+            quantizer_noise_type=quantizer_noise_type,
+            quantizer_type=quantizer_type,
+            soft_round_temperature=torch.tensor(softround_temperature),
+            noise_parameter=torch.tensor(noise_parameter),
+            AC_MAX_VAL=-1,
+            flag_additional_outputs=False,
+        )
+
+    def image_to_coolchic(
+        self, img: torch.Tensor, stop_grads: bool = False
+    ) -> CoolChicEncoder:
+        img = img.to(self.encoder.conv1ds[0].weight.device)
+        if self.use_delta:
+            latents, s_delta_dict, arm_delta_dict = self.hypernet.forward(img)
+            synth_deltas = [delta for delta in s_delta_dict.values()]
+            arm_deltas = [delta for delta in arm_delta_dict.values()]
+        else:
+            latents = self.hypernet.latent_forward(img)
+            synth_deltas = [torch.tensor(0)] * len(
+                self.hypernet.synthesis_hn.layer_info
+            )
+            arm_deltas = [torch.tensor(0)] * (self.hypernet.arm_hn.n_hidden_layers + 1)
+
+        return self.mean_decoder.as_coolchic(
+            latents=latents,
+            synth_delta=synth_deltas,
+            arm_delta=arm_deltas,
+            stop_grads=stop_grads,
+        )
+
+    def get_mlp_rate(self) -> float:
+        # Get MLP rate.
+        rate_mlp = 0.0
+        rate_per_module = self.mean_decoder.get_network_rate()
+        for _, module_rate in rate_per_module.items():  # pyright: ignore
+            for _, param_rate in module_rate.items():  # weight, bias
+                rate_mlp += param_rate
+        return rate_mlp
+
+    def freeze_resnet(self):
+        for param in self.hypernet.hn_backbone.parameters():
+            param.requires_grad = False
+        for name, param in self.hypernet.latent_backbone.named_parameters():
+            if "conv1" in name:
+                param.requires_grad = True
+            else:
+                param.requires_grad = False
+        # Deactivate delta hypernet.
+        self.use_delta = False
+
+    def unfreeze_resnet(self):
+        for param in self.hypernet.hn_backbone.parameters():
+            param.requires_grad = True
+        for param in self.hypernet.latent_backbone.parameters():
+            param.requires_grad = True
+        # Activate delta hypernet.
+        self.use_delta = True

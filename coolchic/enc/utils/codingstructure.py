@@ -136,7 +136,7 @@ class Frame:
     coding_order: int
     display_order: int
     depth: int = 0
-    seq_name: str = ""
+    seq_name: str | None = None
     data: Optional[FrameData] = None
     decoded_data: Optional[FrameData] = None
     already_encoded: bool = False

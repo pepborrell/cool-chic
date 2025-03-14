@@ -10,22 +10,12 @@ from coolchic.eval.results import (
     full_run_summary,
     parse_result_summary,
 )
+from coolchic.utils.paths import ALL_ANCHORS
 
 all_runs = Path("results/exps/copied/only_latents/")
-all_runs = Path("results/exps/copied/only_latents/")
-og_summary_dir = Path("results/image/kodak/results.tsv")
-hm_summary_dir = Path("results/image/kodak/hm.tsv")
-jpeg_summary_dir = Path("results/image/kodak/jpeg.tsv")
-
-all_anchors = {
-    "cool-chic": og_summary_dir,
-    "hm": hm_summary_dir,
-    "jpeg": jpeg_summary_dir,
-}
+og_summary = parse_result_summary(ALL_ANCHORS["coolchic"])
 
 real_rate = False
-
-og_summary = parse_result_summary(og_summary_dir)
 
 
 def get_summaries_from_sweep(

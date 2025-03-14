@@ -272,6 +272,9 @@ class UserConfig(BaseModel):
 class HyperNetParams(BaseModel):
     hidden_dim: int
     n_layers: int
+    # Whether or not the hypernet should output bias values
+    # (as well as matrices or conv kernels).
+    biases: bool = True
 
 
 class HyperNetConfig(BaseModel):
@@ -282,7 +285,6 @@ class HyperNetConfig(BaseModel):
     backbone_arch: Literal["resnet18", "resnet50"] = "resnet18"
 
     patch_size: tuple[int, int] = (256, 256)
-    lmbda_as_feature: bool = False
 
     @computed_field
     @property
@@ -299,7 +301,7 @@ class HypernetRunConfig(BaseModel):
     softround_temperature: tuple[float, float]
     noise_parameter: tuple[float, float]
     start_lr: float = 1e-3
-    unfreeze_backbone: int | None
+    unfreeze_backbone: int
     hypernet_cfg: HyperNetConfig
     disable_wandb: bool = False
     unique_id: str = get_run_uid()

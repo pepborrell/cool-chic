@@ -6,6 +6,8 @@ import pandas as pd
 import yaml
 from pydantic import BaseModel
 
+from coolchic.enc.training.test import FrameEncoderLogs
+
 
 class EncodingMetrics(BaseModel):
     loss: float
@@ -106,6 +108,17 @@ def gen_run_summary(run_dir: Path) -> SummaryEncodingMetrics | None:
     if all_data["n_itr"] is None:
         all_data["n_itr"] = all_data["enc_cfg"]["recipe"]["all_phases"][0]["max_itr"]
     return SummaryEncodingMetrics(**all_data)
+
+
+def log_to_results(logs: FrameEncoderLogs, seq_name: str) -> SummaryEncodingMetrics:
+    assert logs.total_rate_bpp is not None  # To make pyright happy.
+    assert logs.psnr_db is not None  # To make pyright happy.
+    return SummaryEncodingMetrics(
+        seq_name=seq_name,
+        rate_bpp=logs.total_rate_bpp,
+        psnr_db=logs.psnr_db,
+        lmbda=logs.encoding_iterations_cnt,
+    )
 
 
 def read_real_rate(dir_path: Path) -> float:

@@ -116,6 +116,44 @@ class SynthesisConv2d(nn.Module):
             )
 
 
+class SynthesisConv2dDelta(SynthesisConv2d):
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        kernel_size: int,
+        residual: bool = False,
+    ):
+        super().__init__(in_channels, out_channels, kernel_size, residual)
+        self.delta_weight: torch.Tensor | None = None
+
+    def forward(self, x: Tensor) -> Tensor:
+        """Perform the forward pass of this layer.
+        Uses the delta to modify the weights if it's available.
+
+        Args:
+            x: Input tensor of shape :math:`[B, C_{in}, H, W]`.
+
+        Returns:
+            Output tensor of shape :math:`[B, C_{out}, H, W]`.
+        """
+        padded_x = F.pad(x, (self.pad, self.pad, self.pad, self.pad), mode="replicate")
+        if self.delta_weight is None:
+            y = F.conv2d(padded_x, self.weight, self.bias, groups=self.groups)
+        else:
+            y = F.conv2d(
+                padded_x, self.weight + self.delta_weight, self.bias, groups=self.groups
+            )
+
+        if self.residual:
+            return y + x
+        else:
+            return y
+
+    def set_delta(self, delta: torch.Tensor) -> None:
+        self.delta_weight = delta
+
+
 class Synthesis(nn.Module):
     """Instantiate Cool-chic convolution-based synthesis transform. It
     performs the following operation.
@@ -197,7 +235,9 @@ class Synthesis(nn.Module):
 
             # Instantiate them
             layers_list.append(
-                SynthesisConv2d(input_ft, out_ft, k_size, residual=mode == "residual")
+                SynthesisConv2dDelta(
+                    input_ft, out_ft, k_size, residual=mode == "residual"
+                )
             )
             layers_list.append(Synthesis.possible_non_linearity[non_linearity]())
 
@@ -249,3 +289,13 @@ class Synthesis(nn.Module):
         | OrderedDict[str, torch.nn.Parameter],
     ):
         set_hypernet_weights(self, all_weights)
+
+    def add_delta(self, delta: list[Tensor]) -> None:
+        pointer = 0
+        for layer in self.layers:
+            if isinstance(layer, SynthesisConv2dDelta):
+                layer.set_delta(delta[pointer])
+                pointer += 1
+        assert pointer == len(delta), (
+            "Not all delta were used. " f"Used {pointer} out of {len(delta)}."
+        )

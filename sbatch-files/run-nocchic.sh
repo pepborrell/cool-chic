@@ -6,10 +6,7 @@
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=4
 #SBATCH --gres=gpu:1
-#SBATCH --nodelist=tikgpu07
-# only run on tikgpu04: gpu is titan rtx and not xp.
-# out #SBATCH --exclude=tikgpu10,tikgpu[02-03],tikgpu08,artongpu[01-07],hardin01,lbbgpu01
-# nonono #SBATCH --exclude=tikgpu10,tikgpu[02-03],tikgpu[05-09],artongpu[01-07],hardin01,lbbgpu01
+#SBATCH --nodelist=tikgpu05
 
 ETH_USERNAME=jborrell
 PROJECT_NAME=cool-chic
@@ -52,7 +49,7 @@ if [ "$#" -ne 1 ]; then
   exit 1
 fi
 # The source workdir contains a model trained with full parameters and kodim01.
-uv run coolchic/hypernet_train.py --config=$1
+uv run coolchic/no_coolchic_train.py --config=$1
 
 # Send more noteworthy information to the output log
 echo "Finished at: $(date)"

@@ -103,7 +103,9 @@ class FrameEncoderLogs(LossFunctionOutput):
         init=False
     )  # Index of the current frame in display order
     coding_order: int = field(init=False)  # Index of the current frame in coding order
-    seq_name: str = field(init=False)  # Name of the sequence to which this frame belong
+    seq_name: str | None = field(
+        init=False
+    )  # Name of the sequence to which this frame belong
 
     # ----- Neural network rate in bit per pixels
     detailed_rate_nn_bpp: DescriptorCoolChic = field(
