@@ -87,10 +87,11 @@ class ArmLinear(nn.Module):
         """Perform the forward pass of this layer.
 
         Args:
-            x: Input tensor of shape :math:`[B, C_{in}]`.
+            x: Input tensor of shape :math:`[*, B, C_{in}]`.
+            * is any number of additional dimensions.
 
         Returns:
-            Tensor with shape :math:`[B, C_{out}]`.
+            Tensor with shape :math:`[*, B, C_{out}]`.
         """
         if self.residual:
             return F.linear(x, self.weight, bias=self.bias) + x
@@ -231,16 +232,17 @@ class Arm(nn.Module):
 
         Args:
             x: Concatenation of all input contexts
-                :math:`\\mathbf{c}_i`. Tensor of shape :math:`[B, C]`.
+                :math:`\\mathbf{c}_i`. Tensor of shape :math:`[*, B, C]`.
+                * is any number of additional dimensions.
 
         Returns:
             Concatenation of all Laplace distributions param :math:`\\mu, b`.
-            Tensor of shape :math:([B]). Also return the *log scale*
-            :math:`s` as described above. Tensor of shape :math:`(B)`
+            Tensor of shape :math:([*, B]). Also return the *log scale*
+            :math:`s` as described above. Tensor of shape :math:`[*, B]`
         """
         raw_proba_param = self.mlp(x)
-        mu = raw_proba_param[:, 0]
-        log_scale = raw_proba_param[:, 1]
+        mu = raw_proba_param[..., 0]
+        log_scale = raw_proba_param[..., 1]
 
         # no scale smaller than exp(-4.6) = 1e-2 or bigger than exp(5.01) = 150
         scale = torch.exp(torch.clamp(log_scale - 4, min=-4.6, max=5.0))

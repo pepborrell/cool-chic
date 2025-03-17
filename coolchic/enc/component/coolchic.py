@@ -406,9 +406,8 @@ class CoolChicEncoder(nn.Module):
             dim=1,
         )
 
-        # TODO(batching): is arm a batched module?
         # Feed the spatial context to the arm MLP and get mu and scale
-        flat_mu, flat_scale, flat_log_scale = self.arm(flat_context)
+        flat_mu, flat_scale, flat_log_scale = self.arm.forward(flat_context)
 
         # Get all the M latent variables flat in one vector [B, M]
         flat_latent = torch.cat(
