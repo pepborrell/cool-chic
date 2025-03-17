@@ -231,13 +231,6 @@ def main():
     parser.add_argument(
         "--config", help="Specifies the path to the config file that will be used."
     )
-    parser.add_argument(
-        "--no_coolchic_path",
-        help="Path to the weights of the NO-Coolchic model "
-        "used to initialize the DeltaWholeNet.",
-        required=False,
-        type=Path,
-    )
     args = parser.parse_args()
 
     config_path = Path(args.config)
@@ -264,8 +257,11 @@ def main():
     wholenet = DeltaWholeNet(run_cfg.hypernet_cfg)
     if run_cfg.model_weights is not None:
         # If N-O coolchic model is given, we use it as init.
+        assert (
+            run_cfg.model_weights.exists()
+        ), "Specified model weights path doesn't exist."
         no_model = load_hypernet(
-            weights_path=args.no_coolchic_path, config=run_cfg, wholenet_cls=NOWholeNet
+            weights_path=run_cfg.model_weights, config=run_cfg, wholenet_cls=NOWholeNet
         )
         wholenet.load_from_no_coolchic(no_model)
     else:
