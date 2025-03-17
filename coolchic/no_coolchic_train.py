@@ -122,7 +122,7 @@ def train(
     )
     batch_size = train_data.batch_size
     assert batch_size is not None, "Batch size must be set."
-    total_iterations = len(train_data) * n_epochs
+    total_iterations = len(train_data) * n_epochs * batch_size
 
     train_losses = []
     samples_seen = 0
@@ -180,7 +180,7 @@ def train(
             batch_n += 1
             samples_seen += batch_size
 
-            if samples_seen % 500 < img_batch.shape[0]:
+            if (samples_seen % 500) < img_batch.shape[0]:
                 # Average train losses.
                 train_losses_avg = {
                     "train_loss": torch.mean(
@@ -214,7 +214,7 @@ def train(
                 )
 
                 # Save model, but only every 10k batches.
-                if samples_seen % 10000 < img_batch.shape[0]:
+                if (samples_seen % 10000) < img_batch.shape[0]:
                     save_path = workdir / f"epoch_{epoch}_batch_{samples_seen}.pt"
                     torch.save(wholenet.state_dict(), save_path)
 
