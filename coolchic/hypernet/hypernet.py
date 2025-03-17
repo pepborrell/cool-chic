@@ -873,5 +873,8 @@ class DeltaWholeNet(WholeNet):
         self.use_delta = True
 
     def load_from_no_coolchic(self, no_coolchic: NOWholeNet) -> None:
+        # Necessary because there are no latents stored in the no coolchic model.
+        for i in range(len(self.mean_decoder.latent_grids)):
+            self.mean_decoder.latent_grids[i].data = None  # pyright: ignore
         self.mean_decoder.load_state_dict(no_coolchic.mean_decoder.state_dict())
         self.hypernet.latent_hn.load_state_dict(no_coolchic.encoder.state_dict())

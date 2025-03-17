@@ -262,24 +262,24 @@ def main():
 
     #### LOADING HYPERNET ####
     wholenet = DeltaWholeNet(run_cfg.hypernet_cfg)
-    if args.no_coolchic_path is not None:
+    if run_cfg.model_weights is not None:
         # If N-O coolchic model is given, we use it as init.
         no_model = load_hypernet(
             weights_path=args.no_coolchic_path, config=run_cfg, wholenet_cls=NOWholeNet
         )
-        for i in range(len(wholenet.mean_decoder.latent_grids)):
-            wholenet.mean_decoder.latent_grids[i].data = None  # pyright: ignore
         wholenet.load_from_no_coolchic(no_model)
+    else:
+        # We don't want to train this from scratch anymore.
+        raise ValueError("Model weights must be provided.")
+
+    # The part that comes from NO coolchic is already trained.
+    # Let's freeze that.
+    for param in wholenet.mean_decoder.parameters():
+        param.requires_grad = False
 
     # Lambda definition logic.
     if isinstance(run_cfg.lmbda, float):
         lmbdas = ConstantIterable(run_cfg.lmbda)
-    elif run_cfg.lmbda == "random":
-        # In coolchic experiments, we ran these lambda values: [0.0001, 0.0004, 0.001, 0.004, 0.02].
-        lmbda_min, lmbda_max = 0.0001, 0.02
-        lmbdas = (
-            torch.rand(run_cfg.n_samples) * (lmbda_max - lmbda_min) + lmbda_min
-        ).tolist()
     else:
         raise ValueError(f"Invalid lambda value: {run_cfg.lmbda}")
 
