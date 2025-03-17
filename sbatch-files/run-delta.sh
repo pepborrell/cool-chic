@@ -42,21 +42,13 @@ echo "SLURM_JOB_ID: ${SLURM_JOB_ID}"
 cd ${DIRECTORY}
 
 # Execute your code
-# Check that 1 or 2 args were provided.
-if [[ $# -lt 1 || $# -gt 2 ]]; then
-fi
-
-if [[ $# -eq 2 ]]; then
-  echo "Using coolchic weights: $2"
-  uv run coolchic/delta_hypernet_train.py --config=$1 --no_coolchic_path=$2
+# Check that 1 arg was provided.
+if [[ $# -eq 1 ]]; then
+  uv run coolchic/delta_hypernet_train.py --config=$1
 else
-  if [[ $# -eq 1 ]]; then
-    uv run coolchic/delta_hypernet_train.py --config=$1
-  else
-    echo "Illegal number of parameters"
-    echo "Usage: $0 <config_file> [optional: <n-o coolchic weights>]"
-    exit 1
-  fi
+  echo "Illegal number of parameters"
+  echo "Usage: $0 <config_file>"
+  exit 1
 fi
 
 # Send more noteworthy information to the output log
