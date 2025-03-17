@@ -120,7 +120,9 @@ def train(
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
         optimizer, n_epochs, eta_min=1e-6
     )
-    total_iterations = len(train_data) * n_epochs
+    batch_size = train_data.batch_size
+    assert batch_size is not None, "Batch size must be set."
+    total_iterations = (len(train_data) * n_epochs) // batch_size + 1
 
     train_losses = []
     samples_seen = 0
