@@ -716,14 +716,14 @@ class NOWholeNet(WholeNet):
 
     def forward(
         self,
-        batch: torch.Tensor,
+        img: torch.Tensor,
         quantizer_noise_type: POSSIBLE_QUANTIZATION_NOISE_TYPE = "gaussian",
         quantizer_type: POSSIBLE_QUANTIZER_TYPE = "softround",
         softround_temperature: float = 0.3,
         noise_parameter: float = 0.25,
     ) -> tuple[torch.Tensor, torch.Tensor, dict[str, Any]]:
         # input tensor is of the shape (batch_size, 3, H, W)
-        latents = self.encoder.forward(batch)
+        latents = self.encoder.forward(img)
         # output is a list of tensors of the shape (batch_size, 1, H, W)
         assert latents[0].ndim == 4 and latents[0].shape[1] == 1
 
