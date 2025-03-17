@@ -376,7 +376,7 @@ class CoolChicEncoder(nn.Module):
                 flat_decoder_side_latent, -AC_MAX_VAL, AC_MAX_VAL + 1
             )
 
-        # Convert back the 1d tensor to a list of N [1, C, H_i, W_i] 4d latents.
+        # Convert back the 1d tensor to a list of N [B, C, H_i, W_i] 4d latents.
         # This require a few additional information about each individual
         # latent dimension, stored in self.size_per_latent
         decoder_side_latent = []
@@ -423,7 +423,6 @@ class CoolChicEncoder(nn.Module):
         )
         flat_rate = -torch.log2(proba)
 
-        # TODO(batching): can upsampling and synthesis happen in batches? They are designed for it, so it should work.
         # Upsampling and synthesis to get the output
         synthesis_output = self.synthesis(self.upsampling(decoder_side_latent))
 
