@@ -122,7 +122,7 @@ def train(
     )
     batch_size = train_data.batch_size
     assert batch_size is not None, "Batch size must be set."
-    total_iterations = (len(train_data) * n_epochs) // batch_size + 1
+    total_iterations = len(train_data) * n_epochs
 
     train_losses = []
     samples_seen = 0
@@ -178,7 +178,7 @@ def train(
             optimizer.step()
 
             batch_n += 1
-            samples_seen += img_batch.shape[0]
+            samples_seen += batch_size
 
             if samples_seen % 500 < img_batch.shape[0]:
                 # Average train losses.
