@@ -176,9 +176,9 @@ def train(
             optimizer.step()
 
             batch_n += 1
-            samples_seen += 1
+            samples_seen += img_batch.shape[0]
 
-            if batch_n % 500 == 0:
+            if samples_seen % 500 < img_batch.shape[0]:
                 # Average train losses.
                 train_losses_avg = {
                     "train_loss": torch.mean(
@@ -212,8 +212,8 @@ def train(
                 )
 
                 # Save model, but only every 10k batches.
-                if batch_n % 10000 == 0:
-                    save_path = workdir / f"epoch_{epoch}_batch_{batch_n}.pt"
+                if samples_seen % 10000 < img_batch.shape[0]:
+                    save_path = workdir / f"epoch_{epoch}_batch_{samples_seen}.pt"
                     torch.save(wholenet.state_dict(), save_path)
 
                 # Unfreeze backbone if needed
