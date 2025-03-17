@@ -533,9 +533,7 @@ class CoolchicWholeNet(WholeNet):
         self.cc_encoder.upsampling.reinitialize_parameters()
 
         # Replace latents, they are not exactly like a module's weights.
-        self.cc_encoder.size_per_latent = [
-            (1, *lat.shape[-3:]) for lat in latent_weights
-        ]
+        self.cc_encoder.size_per_latent = [lat.shape for lat in latent_weights]
         # Something like self.cc_encoder.latent_grids = nn.ParameterList(latent_weights)
         # would break the computation graph. This doesn't. Following tips in:
         # https://github.com/qu-gg/torch-hypernetwork-tutorials?tab=readme-ov-file#tensorVSparameter
@@ -603,7 +601,7 @@ class LatentDecoder(CoolChicEncoder):
         flag_additional_outputs: bool = False,
     ) -> tuple[torch.Tensor, torch.Tensor, dict[str, Any]]:
         # Replace latents in CoolChicEncoder.
-        self.size_per_latent = [(1, *lat.shape[-3:]) for lat in latents]
+        self.size_per_latent = [lat.shape for lat in latents]
         # Something like self.latent_grids = nn.ParameterList(latents)
         # would break the computation graph. This doesn't. Following tips in:
         # https://github.com/qu-gg/torch-hypernetwork-tutorials?tab=readme-ov-file#tensorVSparameter
@@ -658,7 +656,7 @@ class LatentDecoder(CoolChicEncoder):
             state_dict_to_param(self.upsampling.state_dict())
         )
         # Replace latents in CoolChicEncoder.
-        encoder.size_per_latent = [(1, *lat.shape[-3:]) for lat in latents]
+        encoder.size_per_latent = [lat.shape for lat in latents]
 
         # Only because stop grads is True.
         latents = [nn.Parameter(lat) for lat in latents]
