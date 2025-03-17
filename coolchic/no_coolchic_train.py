@@ -258,6 +258,7 @@ def main():
     if isinstance(run_cfg.lmbda, float):
         lmbdas = ConstantIterable(run_cfg.lmbda)
     elif run_cfg.lmbda == "random":
+        raise NotImplementedError("Random lambda not implemented.")
         # In coolchic experiments, we ran these lambda values: [0.0001, 0.0004, 0.001, 0.004, 0.02].
         lmbda_min, lmbda_max = 0.0001, 0.02
         lmbdas = (

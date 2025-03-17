@@ -36,9 +36,18 @@ class OpenImagesDataset(Dataset):
             return img
         h, w = img.shape[-2:]
         patch_height, patch_width = patch_size
-        if h <= patch_height or w <= patch_width:
-            # Work with the full image if it is too small.
-            return img
+        if h < patch_height or w < patch_width:
+            # Resample image so that we can extract a patch.
+            h_scale = patch_height / h
+            w_scale = patch_width / w
+            scale_factor = max(h_scale, w_scale)
+            if img.ndim == 3:
+                # Interpolate needs batch dimension.
+                img = img.unsqueeze(0)
+            img = torch.nn.functional.interpolate(
+                img, scale_factor=scale_factor, mode="bilinear", align_corners=False
+            ).squeeze(0)
+            h, w = img.shape[-2:]
         # Set random seed for reproducibility. Random seed is based on the image content.
         torch.manual_seed(torch.sum(img).item())
         i = torch.randint(0, h - patch_height, (1,)).item()
