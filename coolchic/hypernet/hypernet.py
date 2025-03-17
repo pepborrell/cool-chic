@@ -871,3 +871,7 @@ class DeltaWholeNet(WholeNet):
             param.requires_grad = True
         # Activate delta hypernet.
         self.use_delta = True
+
+    def load_from_no_coolchic(self, no_coolchic: NOWholeNet) -> None:
+        self.mean_decoder.load_state_dict(no_coolchic.mean_decoder.state_dict())
+        self.hypernet.latent_hn.load_state_dict(no_coolchic.encoder.state_dict())

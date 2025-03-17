@@ -9,13 +9,13 @@ import wandb
 from coolchic.enc.component.coolchic import CoolChicEncoderOutput
 from coolchic.enc.training.loss import LossFunctionOutput, loss_function
 from coolchic.enc.utils.misc import POSSIBLE_DEVICE, get_best_device
-from coolchic.hypernet.hypernet import DeltaWholeNet
-from coolchic.hypernet.inference import eval_on_all_kodak
+from coolchic.hypernet.hypernet import DeltaWholeNet, NOWholeNet
+from coolchic.hypernet.inference import eval_on_all_kodak, load_hypernet
 from coolchic.metalearning.data import OpenImagesDataset
 from coolchic.utils.nn import _linear_schedule
 from coolchic.utils.paths import COOLCHIC_REPO_ROOT
 from coolchic.utils.structs import ConstantIterable
-from coolchic.utils.types import HyperNetConfig, HypernetRunConfig, load_config
+from coolchic.utils.types import HypernetRunConfig, load_config
 
 
 def get_workdir_hypernet(config: HypernetRunConfig, config_path: Path) -> Path:
@@ -100,7 +100,7 @@ def print_gpu_info():
 def train(
     train_data: torch.utils.data.DataLoader,
     test_data: torch.utils.data.DataLoader,
-    config: HyperNetConfig,
+    wholenet: DeltaWholeNet,
     n_epochs: int,
     lmbdas: Iterable[float],
     workdir: Path,
@@ -110,7 +110,6 @@ def train(
     softround_temperature: tuple[float, float] = (0.3, 0.3),
     noise_parameter: tuple[float, float] = (0.25, 0.25),
 ):
-    wholenet = DeltaWholeNet(config)
     if torch.cuda.is_available():
         print_gpu_info()
         wholenet = wholenet.cuda()
@@ -232,6 +231,13 @@ def main():
     parser.add_argument(
         "--config", help="Specifies the path to the config file that will be used."
     )
+    parser.add_argument(
+        "--no_coolchic_path",
+        help="Path to the weights of the NO-Coolchic model "
+        "used to initialize the DeltaWholeNet.",
+        required=False,
+        type=Path,
+    )
     args = parser.parse_args()
 
     config_path = Path(args.config)
@@ -253,6 +259,17 @@ def main():
     test_data_loader = torch.utils.data.DataLoader(
         test_data, batch_size=1, shuffle=False
     )
+
+    #### LOADING HYPERNET ####
+    wholenet = DeltaWholeNet(run_cfg.hypernet_cfg)
+    if args.no_coolchic_path is not None:
+        # If N-O coolchic model is given, we use it as init.
+        no_model = load_hypernet(
+            weights_path=args.no_coolchic_path, config=run_cfg, wholenet_cls=NOWholeNet
+        )
+        for i in range(len(wholenet.mean_decoder.latent_grids)):
+            wholenet.mean_decoder.latent_grids[i].data = None  # pyright: ignore
+        wholenet.load_from_no_coolchic(no_model)
 
     # Lambda definition logic.
     if isinstance(run_cfg.lmbda, float):
@@ -280,7 +297,7 @@ def main():
     net = train(
         train_data_loader,
         test_data_loader,
-        config=run_cfg.hypernet_cfg,
+        wholenet=wholenet,
         n_epochs=run_cfg.n_epochs,
         lmbdas=lmbdas,
         unfreeze_backbone_samples=run_cfg.unfreeze_backbone,
