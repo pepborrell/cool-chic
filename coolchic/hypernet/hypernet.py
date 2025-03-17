@@ -572,9 +572,16 @@ class CoolchicWholeNet(WholeNet):
     def freeze_resnet(self):
         for param in self.hypernet.hn_backbone.parameters():
             param.requires_grad = False
+        for name, param in self.hypernet.latent_backbone.named_parameters():
+            if "conv1" in name:
+                param.requires_grad = True
+            else:
+                param.requires_grad = False
 
     def unfreeze_resnet(self):
         for param in self.hypernet.hn_backbone.parameters():
+            param.requires_grad = True
+        for param in self.hypernet.latent_backbone.parameters():
             param.requires_grad = True
 
 
