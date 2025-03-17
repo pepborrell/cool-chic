@@ -50,8 +50,14 @@ class OpenImagesDataset(Dataset):
             h, w = img.shape[-2:]
         # Set random seed for reproducibility. Random seed is based on the image content.
         torch.manual_seed(torch.sum(img).item())
-        i = torch.randint(0, h - patch_height, (1,)).item()
-        j = torch.randint(0, w - patch_width, (1,)).item()
+        if h == patch_height:
+            i = 0
+        else:
+            i = torch.randint(0, h - patch_height, (1,)).item()
+        if w == patch_width:
+            j = 0
+        else:
+            j = torch.randint(0, w - patch_width, (1,)).item()
         return img[..., i : i + patch_height, j : j + patch_width]
 
     def _getitem_one(self, index: int) -> torch.Tensor:
