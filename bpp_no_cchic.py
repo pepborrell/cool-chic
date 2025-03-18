@@ -25,6 +25,8 @@ from coolchic.enc.utils.misc import (
 
 _FRAME_DATA_TYPE = ["rgb", "yuv420", "yuv444"]
 _POSSIBLE_BITDEPTH = [8, 9, 10, 11, 12, 13, 14, 15, 16]
+_POSSIBLE_SYNTHESIS_MODE = [k for k in Synthesis.possible_mode]
+_POSSIBLE_SYNTHESIS_NON_LINEARITY = [k for k in Synthesis.possible_non_linearity]
 
 
 def n_bytes_in_header() -> int:
