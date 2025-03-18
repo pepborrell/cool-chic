@@ -1,0 +1,32 @@
+n_samples: 500000
+n_epochs: 2
+batch_size: 16
+patch_size: [256, 256]
+softround_temperature: [0.3, 0.1]
+noise_parameter: [0.25, 0.1]
+unfreeze_backbone: 20000 # After 20k samples, training is stable.
+workdir: null
+disable_wandb: False
+lmbda: 0
+start_lr: 1e-3
+user_tag: no-cchic-replication
+
+hypernet_cfg:
+  synthesis:
+    hidden_dim: 1024
+    n_layers: 3
+  arm:
+    hidden_dim: 1024
+    n_layers: 3
+  upsampling:
+    hidden_dim: 256
+    n_layers: 1
+  backbone_arch: resnet50
+
+  dec_cfg:
+    config_name: hop
+    arm: 16,2
+    layers_synthesis: 48-1-linear-relu,X-1-linear-none,X-3-residual-relu,X-3-residual-none
+    n_ft_per_res: 1,1,1,1,1,1,1
+    ups_k_size: 8
+    ups_preconcat_k_size: 7

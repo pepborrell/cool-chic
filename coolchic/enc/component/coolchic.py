@@ -354,11 +354,12 @@ class CoolChicEncoder(nn.Module):
         # ! CUDA operations. Some ordering are faster than other...
 
         # ------ Encoder-side: quantize the latent
-        # Convert the N [1, C, H_i, W_i] 4d latents with different resolutions
-        # to a single flat vector. This allows to call the quantization
-        # only once, which is faster
+        # Convert the N [B, C, H_i, W_i] 4d latents with different resolutions
+        # to a 2d [B, N*C*H*W] tensor. This allows to call the quantization
+        # only once, which is faster.
+        B = self.latent_grids[0].data.shape[0]
         encoder_side_flat_latent = torch.cat(
-            [latent_i.data.view(-1) for latent_i in self.latent_grids]
+            [latent_i.data.view(B, -1) for latent_i in self.latent_grids], dim=1
         )
 
         flat_decoder_side_latent = quantize(
@@ -375,26 +376,26 @@ class CoolChicEncoder(nn.Module):
                 flat_decoder_side_latent, -AC_MAX_VAL, AC_MAX_VAL + 1
             )
 
-        # Convert back the 1d tensor to a list of N [1, C, H_i, W_i] 4d latents.
+        # Convert back the 1d tensor to a list of N [B, C, H_i, W_i] 4d latents.
         # This require a few additional information about each individual
         # latent dimension, stored in self.size_per_latent
         decoder_side_latent = []
         cnt = 0
         for latent_size in self.size_per_latent:
-            b, c, h, w = latent_size  # b should be one
-            latent_numel = b * c * h * w
+            _, c, h, w = latent_size  # b should be one. or not if we batch
+            latent_numel = c * h * w
             decoder_side_latent.append(
-                flat_decoder_side_latent[cnt : cnt + latent_numel].view(latent_size)
+                flat_decoder_side_latent[:, cnt : cnt + latent_numel].view(latent_size)
             )
             cnt += latent_numel
 
         # ----- ARM to estimate the distribution and the rate of each latent
         # As for the quantization, we flatten all the latent and their context
         # so that the ARM network is only called once.
-        # flat_latent: [N, 1] tensor describing N latents
-        # flat_context: [N, context_size] tensor describing each latent context
+        # flat_latent: [B, N, 1] tensor describing N latents
+        # flat_context: [B, N, context_size] tensor describing each latent context
 
-        # Get all the context as a single 2D vector of size [B, context size]
+        # Get all the context as a single 3D vector of size [B, M := N*H*W, context size]
         flat_context = torch.cat(
             [
                 _get_neighbor(
@@ -402,17 +403,17 @@ class CoolChicEncoder(nn.Module):
                 )
                 for spatial_latent_i in decoder_side_latent
             ],
-            dim=0,
-        )
-
-        # Get all the B latent variables as a single one dimensional vector
-        flat_latent = torch.cat(
-            [spatial_latent_i.view(-1) for spatial_latent_i in decoder_side_latent],
-            dim=0,
+            dim=1,
         )
 
         # Feed the spatial context to the arm MLP and get mu and scale
-        flat_mu, flat_scale, flat_log_scale = self.arm(flat_context)
+        flat_mu, flat_scale, flat_log_scale = self.arm.forward(flat_context)
+
+        # Get all the M latent variables flat in one vector [B, M]
+        flat_latent = torch.cat(
+            [spatial_latent_i.view(B, -1) for spatial_latent_i in decoder_side_latent],
+            dim=1,
+        )
 
         # Compute the rate (i.e. the entropy of flat latent knowing mu and scale)
         proba = torch.clamp_min(
@@ -420,13 +421,18 @@ class CoolChicEncoder(nn.Module):
             - _laplace_cdf(flat_latent - 0.5, flat_mu, flat_scale),
             min=2**-16,  # No value can cost more than 16 bits.
         )
-        flat_rate = -torch.log2(proba)
+        flat_rate = -torch.log2(proba)  # shape: [B, M]
 
         # Upsampling and synthesis to get the output
         synthesis_output = self.synthesis(self.upsampling(decoder_side_latent))
 
         additional_data = {}
         if flag_additional_outputs:
+            if B > 1:
+                raise NotImplementedError(
+                    "Batching is not yet supported for additional outputs."
+                )
+
             # Prepare list to accommodate the visualisations
             additional_data["detailed_sent_latent"] = []
             additional_data["detailed_mu"] = []

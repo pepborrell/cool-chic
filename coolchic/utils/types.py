@@ -296,13 +296,17 @@ class HypernetRunConfig(BaseModel):
     n_samples: int
     n_epochs: int
     batch_size: int = 1
-    workdir: Path | None = None
     lmbda: float | Literal["random"] = 1e-3
+
     softround_temperature: tuple[float, float]
     noise_parameter: tuple[float, float]
     start_lr: float = 1e-3
     unfreeze_backbone: int
+
     hypernet_cfg: HyperNetConfig
+    workdir: Path | None = None
+    model_weights: Path | None = None
+
     disable_wandb: bool = False
     unique_id: str = get_run_uid()
     user_tag: str | None

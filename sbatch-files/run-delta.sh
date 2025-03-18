@@ -42,14 +42,14 @@ echo "SLURM_JOB_ID: ${SLURM_JOB_ID}"
 cd ${DIRECTORY}
 
 # Execute your code
-# Check that one arg was provided.
-if [ "$#" -ne 1 ]; then
+# Check that 1 arg was provided.
+if [[ $# -eq 1 ]]; then
+  uv run coolchic/delta_hypernet_train.py --config=$1
+else
   echo "Illegal number of parameters"
   echo "Usage: $0 <config_file>"
   exit 1
 fi
-# The source workdir contains a model trained with full parameters and kodim01.
-uv run coolchic/delta_hypernet_train.py --config=$1
 
 # Send more noteworthy information to the output log
 echo "Finished at: $(date)"

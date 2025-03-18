@@ -120,7 +120,9 @@ def train(
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
         optimizer, n_epochs, eta_min=1e-6
     )
-    total_iterations = len(train_data) * n_epochs
+    batch_size = train_data.batch_size
+    assert batch_size is not None, "Batch size must be set."
+    total_iterations = len(train_data) * n_epochs * batch_size
 
     train_losses = []
     samples_seen = 0
@@ -176,9 +178,9 @@ def train(
             optimizer.step()
 
             batch_n += 1
-            samples_seen += 1
+            samples_seen += batch_size
 
-            if batch_n % 500 == 0:
+            if (samples_seen % 500) < batch_size:
                 # Average train losses.
                 train_losses_avg = {
                     "train_loss": torch.mean(
@@ -212,8 +214,8 @@ def train(
                 )
 
                 # Save model, but only every 10k batches.
-                if batch_n % 10000 == 0:
-                    save_path = workdir / f"epoch_{epoch}_batch_{batch_n}.pt"
+                if (samples_seen % 10000) < batch_size:
+                    save_path = workdir / f"epoch_{epoch}_batch_{samples_seen}.pt"
                     torch.save(wholenet.state_dict(), save_path)
 
                 # Unfreeze backbone if needed
@@ -258,6 +260,7 @@ def main():
     if isinstance(run_cfg.lmbda, float):
         lmbdas = ConstantIterable(run_cfg.lmbda)
     elif run_cfg.lmbda == "random":
+        raise NotImplementedError("Random lambda not implemented.")
         # In coolchic experiments, we ran these lambda values: [0.0001, 0.0004, 0.001, 0.004, 0.02].
         lmbda_min, lmbda_max = 0.0001, 0.02
         lmbdas = (

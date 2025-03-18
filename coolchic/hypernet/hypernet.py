@@ -533,9 +533,7 @@ class CoolchicWholeNet(WholeNet):
         self.cc_encoder.upsampling.reinitialize_parameters()
 
         # Replace latents, they are not exactly like a module's weights.
-        self.cc_encoder.size_per_latent = [
-            (1, *lat.shape[-3:]) for lat in latent_weights
-        ]
+        self.cc_encoder.size_per_latent = [lat.shape for lat in latent_weights]
         # Something like self.cc_encoder.latent_grids = nn.ParameterList(latent_weights)
         # would break the computation graph. This doesn't. Following tips in:
         # https://github.com/qu-gg/torch-hypernetwork-tutorials?tab=readme-ov-file#tensorVSparameter
@@ -574,9 +572,16 @@ class CoolchicWholeNet(WholeNet):
     def freeze_resnet(self):
         for param in self.hypernet.hn_backbone.parameters():
             param.requires_grad = False
+        for name, param in self.hypernet.latent_backbone.named_parameters():
+            if "conv1" in name:
+                param.requires_grad = True
+            else:
+                param.requires_grad = False
 
     def unfreeze_resnet(self):
         for param in self.hypernet.hn_backbone.parameters():
+            param.requires_grad = True
+        for param in self.hypernet.latent_backbone.parameters():
             param.requires_grad = True
 
 
@@ -603,7 +608,7 @@ class LatentDecoder(CoolChicEncoder):
         flag_additional_outputs: bool = False,
     ) -> tuple[torch.Tensor, torch.Tensor, dict[str, Any]]:
         # Replace latents in CoolChicEncoder.
-        self.size_per_latent = [(1, *lat.shape[-3:]) for lat in latents]
+        self.size_per_latent = [lat.shape for lat in latents]
         # Something like self.latent_grids = nn.ParameterList(latents)
         # would break the computation graph. This doesn't. Following tips in:
         # https://github.com/qu-gg/torch-hypernetwork-tutorials?tab=readme-ov-file#tensorVSparameter
@@ -658,7 +663,7 @@ class LatentDecoder(CoolChicEncoder):
             state_dict_to_param(self.upsampling.state_dict())
         )
         # Replace latents in CoolChicEncoder.
-        encoder.size_per_latent = [(1, *lat.shape[-3:]) for lat in latents]
+        encoder.size_per_latent = [lat.shape for lat in latents]
 
         # Only because stop grads is True.
         latents = [nn.Parameter(lat) for lat in latents]
@@ -717,7 +722,10 @@ class NOWholeNet(WholeNet):
         softround_temperature: float = 0.3,
         noise_parameter: float = 0.25,
     ) -> tuple[torch.Tensor, torch.Tensor, dict[str, Any]]:
+        # input tensor is of the shape (batch_size, 3, H, W)
         latents = self.encoder.forward(img)
+        # output is a list of tensors of the shape (batch_size, 1, H, W)
+        assert latents[0].ndim == 4 and latents[0].shape[1] == 1
 
         return self.mean_decoder.forward(
             latents=latents,
@@ -863,3 +871,10 @@ class DeltaWholeNet(WholeNet):
             param.requires_grad = True
         # Activate delta hypernet.
         self.use_delta = True
+
+    def load_from_no_coolchic(self, no_coolchic: NOWholeNet) -> None:
+        # Necessary because there are no latents stored in the no coolchic model.
+        for i in range(len(self.mean_decoder.latent_grids)):
+            self.mean_decoder.latent_grids[i].data = None  # pyright: ignore
+        self.mean_decoder.load_state_dict(no_coolchic.mean_decoder.state_dict())
+        self.hypernet.latent_hn.load_state_dict(no_coolchic.encoder.state_dict())

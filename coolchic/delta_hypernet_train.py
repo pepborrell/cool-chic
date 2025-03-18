@@ -9,13 +9,13 @@ import wandb
 from coolchic.enc.component.coolchic import CoolChicEncoderOutput
 from coolchic.enc.training.loss import LossFunctionOutput, loss_function
 from coolchic.enc.utils.misc import POSSIBLE_DEVICE, get_best_device
-from coolchic.hypernet.hypernet import DeltaWholeNet
-from coolchic.hypernet.inference import eval_on_all_kodak
+from coolchic.hypernet.hypernet import DeltaWholeNet, NOWholeNet
+from coolchic.hypernet.inference import eval_on_all_kodak, load_hypernet
 from coolchic.metalearning.data import OpenImagesDataset
 from coolchic.utils.nn import _linear_schedule
 from coolchic.utils.paths import COOLCHIC_REPO_ROOT
 from coolchic.utils.structs import ConstantIterable
-from coolchic.utils.types import HyperNetConfig, HypernetRunConfig, load_config
+from coolchic.utils.types import HypernetRunConfig, load_config
 
 
 def get_workdir_hypernet(config: HypernetRunConfig, config_path: Path) -> Path:
@@ -100,7 +100,7 @@ def print_gpu_info():
 def train(
     train_data: torch.utils.data.DataLoader,
     test_data: torch.utils.data.DataLoader,
-    config: HyperNetConfig,
+    wholenet: DeltaWholeNet,
     n_epochs: int,
     lmbdas: Iterable[float],
     workdir: Path,
@@ -110,7 +110,6 @@ def train(
     softround_temperature: tuple[float, float] = (0.3, 0.3),
     noise_parameter: tuple[float, float] = (0.25, 0.25),
 ):
-    wholenet = DeltaWholeNet(config)
     if torch.cuda.is_available():
         print_gpu_info()
         wholenet = wholenet.cuda()
@@ -254,15 +253,29 @@ def main():
         test_data, batch_size=1, shuffle=False
     )
 
+    #### LOADING HYPERNET ####
+    wholenet = DeltaWholeNet(run_cfg.hypernet_cfg)
+    if run_cfg.model_weights is not None:
+        # If N-O coolchic model is given, we use it as init.
+        assert (
+            run_cfg.model_weights.exists()
+        ), "Specified model weights path doesn't exist."
+        no_model = load_hypernet(
+            weights_path=run_cfg.model_weights, config=run_cfg, wholenet_cls=NOWholeNet
+        )
+        wholenet.load_from_no_coolchic(no_model)
+    else:
+        # We don't want to train this from scratch anymore.
+        raise ValueError("Model weights must be provided.")
+
+    # The part that comes from NO coolchic is already trained.
+    # Let's freeze that.
+    for param in wholenet.mean_decoder.parameters():
+        param.requires_grad = False
+
     # Lambda definition logic.
     if isinstance(run_cfg.lmbda, float):
         lmbdas = ConstantIterable(run_cfg.lmbda)
-    elif run_cfg.lmbda == "random":
-        # In coolchic experiments, we ran these lambda values: [0.0001, 0.0004, 0.001, 0.004, 0.02].
-        lmbda_min, lmbda_max = 0.0001, 0.02
-        lmbdas = (
-            torch.rand(run_cfg.n_samples) * (lmbda_max - lmbda_min) + lmbda_min
-        ).tolist()
     else:
         raise ValueError(f"Invalid lambda value: {run_cfg.lmbda}")
 
@@ -280,7 +293,7 @@ def main():
     net = train(
         train_data_loader,
         test_data_loader,
-        config=run_cfg.hypernet_cfg,
+        wholenet=wholenet,
         n_epochs=run_cfg.n_epochs,
         lmbdas=lmbdas,
         unfreeze_backbone_samples=run_cfg.unfreeze_backbone,

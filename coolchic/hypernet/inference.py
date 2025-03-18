@@ -1,5 +1,6 @@
 import argparse
 from pathlib import Path
+from typing import TypeVar
 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -20,10 +21,12 @@ from coolchic.utils.paths import DATA_DIR
 from coolchic.utils.tensors import load_img_from_path
 from coolchic.utils.types import HypernetRunConfig, load_config
 
+T = TypeVar("T", bound=WholeNet)
+
 
 def load_hypernet(
-    weights_path: Path, config: HypernetRunConfig, wholenet_cls: type[WholeNet]
-) -> WholeNet:
+    weights_path: Path, config: HypernetRunConfig, wholenet_cls: type[T]
+) -> T:
     # CoolchicWholeNet, NOWholeNet, or DeltaWholeNet.
     net = wholenet_cls(config=config.hypernet_cfg)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
