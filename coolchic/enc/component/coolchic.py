@@ -421,7 +421,7 @@ class CoolChicEncoder(nn.Module):
             - _laplace_cdf(flat_latent - 0.5, flat_mu, flat_scale),
             min=2**-16,  # No value can cost more than 16 bits.
         )
-        flat_rate = -torch.log2(proba)
+        flat_rate = -torch.log2(proba)  # shape: [B, M]
 
         # Upsampling and synthesis to get the output
         synthesis_output = self.synthesis(self.upsampling(decoder_side_latent))

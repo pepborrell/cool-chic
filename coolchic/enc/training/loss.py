@@ -139,7 +139,12 @@ def loss_function(
     else:
         n_pixels = decoded_image.get("y").size()[-2] * decoded_image.get("y").size()[-1]
 
-    rate_bpp = (rate_latent_bit.sum() + rate_mlp_bit) / n_pixels
+    # Rate latent bit has shape [batch_size, n_latent_values].
+    # We sum over the image and average over the batch.
+    assert (
+        rate_latent_bit.ndim == 2
+    ), "Rate latent bit should have shape [batch, n_latent]."
+    rate_bpp = (rate_latent_bit.sum(dim=1).mean(dim=0) + rate_mlp_bit) / n_pixels
 
     loss = mse + lmbda * rate_bpp
 
