@@ -30,10 +30,10 @@ from enc.utils.misc import (
     DescriptorNN,
 )
 
-from coolchic.enc.component.coolchic import CoolChicEncoderOutput
+from coolchic.enc.component.coolchic import CoolChicEncoder, CoolChicEncoderOutput
 
 
-def get_ac_max_val_nn(frame_encoder: FrameEncoder) -> int:
+def get_ac_max_val_nn(encoder: FrameEncoder | CoolChicEncoder) -> int:
     """Look within the neural networks of a frame encoder. Return the maximum
     amplitude of the quantized model (i.e. weight / q_step).
     This allows to get the AC_MAX_VAL constant, used by the entropy coder. All
@@ -47,9 +47,11 @@ def get_ac_max_val_nn(frame_encoder: FrameEncoder) -> int:
     """
     model_param_quant = []
 
+    cc_enc = encoder.coolchic_encoder if isinstance(encoder, FrameEncoder) else encoder
+
     # Loop on all the modules to be sent, and find the biggest quantized value
-    for cur_module_name in frame_encoder.coolchic_encoder.modules_to_send:
-        module_to_encode = getattr(frame_encoder.coolchic_encoder, cur_module_name)
+    for cur_module_name in cc_enc.modules_to_send:
+        module_to_encode = getattr(cc_enc, cur_module_name)
 
         # Retrieve all the weights and biases for the ARM MLP
         for k, v in module_to_encode.named_parameters():
@@ -58,9 +60,7 @@ def get_ac_max_val_nn(frame_encoder: FrameEncoder) -> int:
 
                 # Find the index of the closest quantization step in the list of
                 # the possible quantization step.
-                cur_q_step = frame_encoder.coolchic_encoder.nn_q_step.get(
-                    cur_module_name
-                ).get("weight")
+                cur_q_step = cc_enc.nn_q_step.get(cur_module_name).get("weight")
                 cur_q_step_index = int(
                     torch.argmin((cur_possible_q_step - cur_q_step).abs()).item()
                 )
@@ -92,9 +92,7 @@ def get_ac_max_val_nn(frame_encoder: FrameEncoder) -> int:
                 # Find the index of the closest quantization step in the list of
                 # the possible quantization step.
                 cur_possible_q_step = POSSIBLE_Q_STEP.get(cur_module_name).get("bias")
-                cur_q_step = frame_encoder.coolchic_encoder.nn_q_step.get(
-                    cur_module_name
-                ).get("bias")
+                cur_q_step = cc_enc.nn_q_step.get(cur_module_name).get("bias")
                 cur_q_step_index = int(
                     torch.argmin((cur_possible_q_step - cur_q_step).abs()).item()
                 )
@@ -125,7 +123,7 @@ def get_ac_max_val_nn(frame_encoder: FrameEncoder) -> int:
     return AC_MAX_VAL
 
 
-def get_ac_max_val_latent(frame_encoder: FrameEncoder) -> int:
+def get_ac_max_val_latent(encoder: FrameEncoder | CoolChicEncoder) -> int:
     """Look within the latent variables of a frame encoder. Return the maximum
     amplitude of the quantized latent variables.
     This allows to get the AC_MAX_VAL constant, used by the entropy coder. All
@@ -140,12 +138,21 @@ def get_ac_max_val_latent(frame_encoder: FrameEncoder) -> int:
     # Setting flag_additional_outputs=True allows to recover the quantized latent.
     # Don't specify AC_MAX_VAL now: we let the latents evolve freely to capture
     # their dynamic.
-    raw_out, rate, additional_data = frame_encoder.coolchic_encoder.forward(
-        quantizer_noise_type="none",
-        quantizer_type="hardround",
-        AC_MAX_VAL=-1,
-        flag_additional_outputs=True,
-    )
+    if isinstance(encoder, FrameEncoder):
+        raw_out, rate, additional_data = encoder.coolchic_encoder.forward(
+            quantizer_noise_type="none",
+            quantizer_type="hardround",
+            AC_MAX_VAL=-1,
+            flag_additional_outputs=True,
+        )
+    else:
+        raw_out, rate, additional_data = encoder.forward(
+            quantizer_noise_type="none",
+            quantizer_type="hardround",
+            AC_MAX_VAL=-1,
+            flag_additional_outputs=True,
+        )
+
     encoder_output = CoolChicEncoderOutput(
         raw_out=raw_out, rate=rate, additional_data=additional_data
     )
