@@ -180,7 +180,7 @@ class CoolChicEncoder(nn.Module):
 
         # Populate the successive grids
         self.size_per_latent = []
-        self.latent_grids = nn.ModuleList()
+        self.res_latent_grids = nn.ModuleList()
         for i in range(self.param.latent_n_grids):
             h_grid, w_grid = [int(math.ceil(x / (2**i))) for x in self.param.img_size]
             c_grid = self.param.n_ft_per_res[i]
@@ -190,9 +190,17 @@ class CoolChicEncoder(nn.Module):
 
             # Instantiate empty tensor, we fill them later on with the function
             # self.initialize_latent_grids()
-            self.latent_grids.append(CoolChicLatentGrid(torch.empty(cur_size)))
+            self.res_latent_grids.append(CoolChicLatentGrid(torch.empty(cur_size)))
 
         self.initialize_latent_grids()
+
+        # Residual latent stuff, let's see if it helps compress better.
+        self.meta_latent_size = (1024, 1024)
+        self.meta_latent_grids = nn.ModuleList()
+        for i in range(self.config.n_latents):
+            h_grid, w_grid = [int(math.ceil(x / (2**i))) for x in self.meta_latent_size]
+            cur_size = (1, 1, h_grid, w_grid)
+            self.meta_latent_grids.append(CoolChicLatentGrid(torch.zeros(cur_size)))
 
         # Instantiate the synthesis MLP with as many inputs as the number
         # of latent channels
@@ -357,9 +365,9 @@ class CoolChicEncoder(nn.Module):
         # Convert the N [B, C, H_i, W_i] 4d latents with different resolutions
         # to a 2d [B, N*C*H*W] tensor. This allows to call the quantization
         # only once, which is faster.
-        B = self.latent_grids[0].data.shape[0]
+        B = self.res_latent_grids[0].data.shape[0]
         encoder_side_flat_latent = torch.cat(
-            [latent_i.data.view(B, -1) for latent_i in self.latent_grids], dim=1
+            [latent_i.data.view(B, -1) for latent_i in self.res_latent_grids], dim=1
         )
 
         flat_decoder_side_latent = quantize(
@@ -379,12 +387,12 @@ class CoolChicEncoder(nn.Module):
         # Convert back the 1d tensor to a list of N [B, C, H_i, W_i] 4d latents.
         # This require a few additional information about each individual
         # latent dimension, stored in self.size_per_latent
-        decoder_side_latent = []
+        decoder_side_res_latent = []
         cnt = 0
         for latent_size in self.size_per_latent:
             _, c, h, w = latent_size  # b should be one. or not if we batch
             latent_numel = c * h * w
-            decoder_side_latent.append(
+            decoder_side_res_latent.append(
                 flat_decoder_side_latent[:, cnt : cnt + latent_numel].view(latent_size)
             )
             cnt += latent_numel
@@ -401,7 +409,7 @@ class CoolChicEncoder(nn.Module):
                 _get_neighbor(
                     spatial_latent_i, self.mask_size, self.non_zero_pixel_ctx_index
                 )
-                for spatial_latent_i in decoder_side_latent
+                for spatial_latent_i in decoder_side_res_latent
             ],
             dim=1,
         )
@@ -411,7 +419,10 @@ class CoolChicEncoder(nn.Module):
 
         # Get all the M latent variables flat in one vector [B, M]
         flat_latent = torch.cat(
-            [spatial_latent_i.view(B, -1) for spatial_latent_i in decoder_side_latent],
+            [
+                spatial_latent_i.view(B, -1)
+                for spatial_latent_i in decoder_side_res_latent
+            ],
             dim=1,
         )
 
@@ -423,8 +434,16 @@ class CoolChicEncoder(nn.Module):
         )
         flat_rate = -torch.log2(proba)  # shape: [B, M]
 
+        latents = [
+            # Resample the meta latents to the same size as the res_latents.
+            torch.nn.functional.interpolate(
+                meta.data, size=resid.shape[-2:], mode="bilinear"
+            )
+            + resid
+            for meta, resid in zip(self.meta_latent_grids, decoder_side_res_latent)
+        ]
         # Upsampling and synthesis to get the output
-        synthesis_output = self.synthesis(self.upsampling(decoder_side_latent))
+        synthesis_output = self.synthesis(self.upsampling(latents))
 
         additional_data = {}
         if flag_additional_outputs:
@@ -445,10 +464,10 @@ class CoolChicEncoder(nn.Module):
             # "Pointer" for the reading of the 1D scale, mu and rate
             cnt = 0
             # for i, _ in enumerate(filtered_latent):
-            for index_latent_res, _ in enumerate(self.latent_grids):
-                c_i, h_i, w_i = decoder_side_latent[index_latent_res].size()[-3:]
+            for index_latent_res, _ in enumerate(self.res_latent_grids):
+                c_i, h_i, w_i = decoder_side_res_latent[index_latent_res].size()[-3:]
                 additional_data["detailed_sent_latent"].append(
-                    decoder_side_latent[index_latent_res].view((1, c_i, h_i, w_i))
+                    decoder_side_res_latent[index_latent_res].view((1, c_i, h_i, w_i))
                 )
 
                 # Scale, mu and rate are 1D tensors where the N latent grids
@@ -483,7 +502,7 @@ class CoolChicEncoder(nn.Module):
             {
                 # Detach & clone to create a copy
                 f"latent_grids.{k}": v.detach().clone()
-                for k, v in self.latent_grids.named_parameters()
+                for k, v in self.res_latent_grids.named_parameters()
             }
         )
         param.update({f"arm.{k}": v for k, v in self.arm.get_param().items()})
@@ -516,8 +535,8 @@ class CoolChicEncoder(nn.Module):
                 "random_seed is None."
             )
             generator = torch.Generator().manual_seed(random_seed)
-        for latent_index, latent in enumerate(self.latent_grids):
-            self.latent_grids[latent_index] = CoolChicLatentGrid(
+        for latent_index, latent in enumerate(self.res_latent_grids):
+            self.res_latent_grids[latent_index] = CoolChicLatentGrid(
                 torch.zeros_like(latent.data)
                 if zeros
                 else 1e-2 * torch.randn(latent.shape, generator=generator),  # pyright: ignore

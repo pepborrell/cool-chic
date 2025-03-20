@@ -1,5 +1,4 @@
 import abc
-import math
 from typing import Any, Literal, OrderedDict
 
 import torch
@@ -10,7 +9,6 @@ from torchvision.models import ResNet18_Weights, ResNet50_Weights, resnet18, res
 from coolchic.enc.component.coolchic import (
     CoolChicEncoder,
     CoolChicEncoderParameter,
-    CoolChicLatentGrid,
 )
 from coolchic.enc.component.core.quantizer import (
     POSSIBLE_QUANTIZATION_NOISE_TYPE,
@@ -542,9 +540,9 @@ class CoolchicWholeNet(WholeNet):
         # Something like self.cc_encoder.latent_grids = nn.ParameterList(latent_weights)
         # would break the computation graph. This doesn't. Following tips in:
         # https://github.com/qu-gg/torch-hypernetwork-tutorials?tab=readme-ov-file#tensorVSparameter
-        for i in range(len(self.cc_encoder.latent_grids)):
-            del self.cc_encoder.latent_grids[i].data
-            self.cc_encoder.latent_grids[i].data = latent_weights[i]
+        for i in range(len(self.cc_encoder.res_latent_grids)):
+            del self.cc_encoder.res_latent_grids[i].data
+            self.cc_encoder.res_latent_grids[i].data = latent_weights[i]
 
         return self.cc_encoder
 
@@ -617,9 +615,9 @@ class LatentDecoder(CoolChicEncoder):
         # Something like self.latent_grids = nn.ParameterList(latents)
         # would break the computation graph. This doesn't. Following tips in:
         # https://github.com/qu-gg/torch-hypernetwork-tutorials?tab=readme-ov-file#tensorVSparameter
-        for i in range(len(self.latent_grids)):
-            del self.latent_grids[i].data
-            self.latent_grids[i].data = latents[i]
+        for i in range(len(self.res_latent_grids)):
+            del self.res_latent_grids[i].data
+            self.res_latent_grids[i].data = latents[i]
 
         # This makes synthesis and arm happen with deltas added to the filters.
         if synth_delta is not None:
@@ -690,9 +688,9 @@ class LatentDecoder(CoolChicEncoder):
         # Something like self.latent_grids = nn.ParameterList(latents)
         # would break the computation graph. This doesn't. Following tips in:
         # https://github.com/qu-gg/torch-hypernetwork-tutorials?tab=readme-ov-file#tensorVSparameter
-        for i in range(len(self.latent_grids)):
-            del encoder.latent_grids[i].data
-            encoder.latent_grids[i].data = latents[i]
+        for i in range(len(self.res_latent_grids)):
+            del encoder.res_latent_grids[i].data
+            encoder.res_latent_grids[i].data = latents[i]
 
         # This makes synthesis and arm happen with deltas added to the filters.
         if synth_delta is not None:
@@ -719,13 +717,6 @@ class NOWholeNet(WholeNet):
         self.encoder = LatentHyperNet(n_latents=self.config.n_latents)
         self.mean_decoder = LatentDecoder(param=coolchic_encoder_parameter)
 
-        self.meta_latent_size = (1024, 1024)
-        self.meta_latent_grids = nn.ModuleList()
-        for i in range(self.config.n_latents):
-            h_grid, w_grid = [int(math.ceil(x / (2**i))) for x in self.meta_latent_size]
-            cur_size = (1, 1, h_grid, w_grid)
-            self.meta_latent_grids.append(CoolChicLatentGrid(torch.zeros(cur_size)))
-
     def forward(
         self,
         img: torch.Tensor,
@@ -735,18 +726,9 @@ class NOWholeNet(WholeNet):
         noise_parameter: float = 0.25,
     ) -> tuple[torch.Tensor, torch.Tensor, dict[str, Any]]:
         # input tensor is of the shape (batch_size, 3, H, W)
-        res_latents = self.encoder.forward(img)
+        latents = self.encoder.forward(img)
         # output is a list of tensors of the shape (batch_size, 1, H, W)
-        assert res_latents[0].ndim == 4 and res_latents[0].shape[1] == 1
-
-        # Resample the meta latents to the same size as the res_latents.
-        resampled_meta = [
-            torch.nn.functional.interpolate(
-                meta.data, size=rl.shape[-2:], mode="bilinear"
-            )
-            for meta, rl in zip(self.meta_latent_grids, res_latents)
-        ]
-        latents = [resid + meta for resid, meta in zip(res_latents, resampled_meta)]
+        assert latents[0].ndim == 4 and latents[0].shape[1] == 1
 
         return self.mean_decoder.forward(
             latents=latents,
@@ -895,7 +877,7 @@ class DeltaWholeNet(WholeNet):
 
     def load_from_no_coolchic(self, no_coolchic: NOWholeNet) -> None:
         # Necessary because there are no latents stored in the no coolchic model.
-        for i in range(len(self.mean_decoder.latent_grids)):
-            self.mean_decoder.latent_grids[i].data = None  # pyright: ignore
+        for i in range(len(self.mean_decoder.res_latent_grids)):
+            self.mean_decoder.res_latent_grids[i].data = None  # pyright: ignore
         self.mean_decoder.load_state_dict(no_coolchic.mean_decoder.state_dict())
         self.hypernet.latent_hn.load_state_dict(no_coolchic.encoder.state_dict())
