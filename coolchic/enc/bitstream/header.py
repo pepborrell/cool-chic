@@ -89,11 +89,11 @@ Header for the frame (one by frame):
 import os
 from typing import List, Tuple, TypedDict
 
-from enc.component.core.synthesis import Synthesis
-from enc.component.frame import FrameEncoder
-from enc.component.video import VideoEncoder
-from enc.utils.codingstructure import FRAME_DATA_TYPE, POSSIBLE_BITDEPTH, Frame
-from enc.utils.misc import MAX_AC_MAX_VAL, DescriptorCoolChic
+from coolchic.enc.component.core.synthesis import Synthesis
+from coolchic.enc.component.frame import FrameEncoder
+from coolchic.enc.component.video import VideoEncoder
+from coolchic.enc.utils.codingstructure import FRAME_DATA_TYPE, POSSIBLE_BITDEPTH, Frame
+from coolchic.enc.utils.misc import MAX_AC_MAX_VAL, DescriptorCoolChic
 
 # Quick & dirty copy and paste from utils.coding_structure
 _FRAME_DATA_TYPE = ["rgb", "yuv420", "yuv444"]

@@ -3,8 +3,8 @@ import subprocess
 from pathlib import Path
 
 import torch
-from CCLIB.ccencapi import cc_code_latent_layer_bac, cc_code_wb_bac
 
+from coolchic.CCLIB.ccencapi import cc_code_latent_layer_bac, cc_code_wb_bac
 from coolchic.dec.nn import decode_network
 from coolchic.enc.bitstream.armint import ArmInt
 from coolchic.enc.bitstream.encode import get_ac_max_val_latent, get_ac_max_val_nn

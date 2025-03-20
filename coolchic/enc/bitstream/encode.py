@@ -12,16 +12,18 @@ import time
 from pathlib import Path
 
 import torch
-from CCLIB.ccencapi import cc_code_latent_layer_bac, cc_code_wb_bac
-from dec.nn import decode_network
-from enc.bitstream.armint import ArmInt
-from enc.bitstream.header import write_frame_header, write_gop_header
-from enc.bitstream.utils import get_sub_bitstream_path
-from enc.component.core.synthesis import Synthesis
-from enc.component.core.upsampling import Upsampling
-from enc.component.frame import FrameEncoder
-from enc.component.video import VideoEncoder
-from enc.utils.misc import (
+
+from coolchic.CCLIB.ccencapi import cc_code_latent_layer_bac, cc_code_wb_bac
+from coolchic.dec.nn import decode_network
+from coolchic.enc.bitstream.armint import ArmInt
+from coolchic.enc.bitstream.header import write_frame_header, write_gop_header
+from coolchic.enc.bitstream.utils import get_sub_bitstream_path
+from coolchic.enc.component.coolchic import CoolChicEncoder, CoolChicEncoderOutput
+from coolchic.enc.component.core.synthesis import Synthesis
+from coolchic.enc.component.core.upsampling import Upsampling
+from coolchic.enc.component.frame import FrameEncoder
+from coolchic.enc.component.video import VideoEncoder
+from coolchic.enc.utils.misc import (
     FIXED_POINT_FRACTIONAL_BITS,
     FIXED_POINT_FRACTIONAL_MULT,
     POSSIBLE_Q_STEP,
@@ -29,8 +31,6 @@ from enc.utils.misc import (
     DescriptorCoolChic,
     DescriptorNN,
 )
-
-from coolchic.enc.component.coolchic import CoolChicEncoder, CoolChicEncoderOutput
 
 
 def get_ac_max_val_nn(encoder: FrameEncoder | CoolChicEncoder) -> int:
