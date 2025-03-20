@@ -197,7 +197,7 @@ class CoolChicEncoder(nn.Module):
         # Residual latent stuff, let's see if it helps compress better.
         self.meta_latent_size = (1024, 1024)
         self.meta_latent_grids = nn.ModuleList()
-        for i in range(self.config.n_latents):
+        for i in range(self.param.latent_n_grids):
             h_grid, w_grid = [int(math.ceil(x / (2**i))) for x in self.meta_latent_size]
             cur_size = (1, 1, h_grid, w_grid)
             self.meta_latent_grids.append(CoolChicLatentGrid(torch.zeros(cur_size)))
