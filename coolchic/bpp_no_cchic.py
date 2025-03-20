@@ -1,5 +1,7 @@
+import itertools
 import os
 import subprocess
+import tempfile
 from pathlib import Path
 
 import torch
@@ -12,15 +14,19 @@ from coolchic.enc.bitstream.utils import get_sub_bitstream_path
 from coolchic.enc.component.coolchic import CoolChicEncoder
 from coolchic.enc.component.core.synthesis import Synthesis
 from coolchic.enc.component.core.upsampling import Upsampling
+from coolchic.enc.training.loss import loss_function
+from coolchic.enc.training.quantizemodel import _quantize_parameters
 from coolchic.enc.utils.codingstructure import FrameData
 from coolchic.enc.utils.misc import (
     FIXED_POINT_FRACTIONAL_BITS,
     FIXED_POINT_FRACTIONAL_MULT,
     MAX_AC_MAX_VAL,
+    POSSIBLE_EXP_GOL_COUNT,
     POSSIBLE_Q_STEP,
     POSSIBLE_Q_STEP_SHIFT,
     DescriptorCoolChic,
     DescriptorNN,
+    exp_golomb_nbins,
 )
 
 _FRAME_DATA_TYPE = ["rgb", "yuv420", "yuv444"]
@@ -66,7 +72,7 @@ def write_gop_header(cc_encoder: CoolChicEncoder, header_path: str):
 
     # Mock frame data to extract the data we need here.
     # The values we give it are the ones hardcoded in load_frame_data_from_tensor.
-    frame_data = FrameData(bitdepth=8, frame_data_type="rgb", data=torch.empty(1))
+    frame_data = FrameData(bitdepth=8, frame_data_type="rgb", data=torch.empty((1, 1)))
     byte_to_write += (
         # Last 4 bits are for the bitdepth
         _POSSIBLE_BITDEPTH.index(frame_data.bitdepth) * 2**4
@@ -728,3 +734,193 @@ def encode_coolchic(cc_enc: CoolChicEncoder, bitstream_path: Path):
     print(f"Real rate           [bpp]: {real_rate_bpp :9.3f}")
 
     return real_rate_bpp
+
+
+@torch.no_grad()
+def quantize_model(
+    cc_enc: CoolChicEncoder, input_img: torch.Tensor, lmbda: float
+) -> CoolChicEncoder:
+    """Quantize a ``FrameEncoder`` compressing a ``Frame`` under a rate
+    constraint ``lmbda`` and return it.
+
+    This function iterates on all the neural networks sent from the encoder
+    to the decoder, listed in `cc_enc.modules_to_send`.
+    For each module :math:`m`, we want to find the most suited pair of
+    quantization steps for the weight and the biases :math:`(\\Delta_w^m,
+    \\Delta_b^m)`.
+
+    To do so, a greedy search is used where we quantize the weights and biases
+    using all the possible pairs of quantization steps, and we compute the
+    :doc`usual loss function <./loss>`. The loss measures the impact of the NN
+    quantization steps :math:`(\\Delta_w^m, \\Delta_b^m)` on the MSE / rate of
+    the decoded image and the rate of the NN.-
+
+    In the end, we select the pair of quantization step minimizing the loss:
+
+        .. math::
+
+            (\\Delta_w^m, \\Delta_b^m) = \\arg\\min ||\\mathbf{x}
+            - \hat{\\mathbf{x}}||^2 + \\lambda
+            (\\mathrm{R}(\hat{\\mathbf{x}}) + \\mathrm{R}_{NN}), \\text{ with }
+            \\begin{cases}
+                \\mathbf{x} & \\text{the original image}\\\\ \\hat{\\mathbf{x}} &
+                \\text{the coded image}\\\\ \\mathrm{R}(\\hat{\\mathbf{x}}) &
+                \\text{A measure of the rate of } \\hat{\\mathbf{x}} \\\\
+                    \\mathrm{R}_{NN} & \\text{The rate of the neural networks}
+            \\end{cases}
+
+    Then we quantize the next module to be sent.
+
+    .. warning::
+
+        The parameter ``frame_encoder_manager`` tracking the encoding time of
+        the frame (``total_training_time_sec``) and the number of encoding
+        iterations (``iterations_counter``) is modified ** in place** by this
+        function.
+
+
+    Args:
+        cc_enc: Cool-chic encoder to quantize.
+        frame: Original frame to code, including its references.
+        frame_encoder_manager: Contains (among other things) the rate
+            constraint :math:`\\lambda` and description of the warm-up preset.
+            It is also used to track the total encoding time and encoding
+            iterations. Modified in place.
+
+    Returns:
+        Model with quantized parameters.
+    """
+    cc_enc.eval()
+
+    # We have to quantize all the modules that we want to send
+    module_to_quantize = {
+        module_name: getattr(cc_enc, module_name)
+        for module_name in cc_enc.modules_to_send
+    }
+
+    for module_name, cur_module in sorted(module_to_quantize.items()):
+        # Start the RD optimization for the quantization step of each module with an
+        # arbitrary high value for the RD cost.
+        best_loss = 1e6
+
+        # All possible quantization steps for this module
+        all_q_step = POSSIBLE_Q_STEP.get(module_name)
+        all_expgol_cnt = POSSIBLE_EXP_GOL_COUNT.get(module_name)
+
+        # Save full precision parameter.
+        fp_param = cur_module.get_param()
+
+        best_q_step = {}
+        # Overall best expgol count for this module weights and biases
+        final_best_expgol_cnt = {}
+
+        for q_step_w, q_step_b in itertools.product(
+            all_q_step.get("weight"), all_q_step.get("bias")
+        ):
+            # Reset full precision parameters, set the quantization step
+            # and quantize the model.
+            current_q_step: DescriptorNN = {"weight": q_step_w, "bias": q_step_b}
+
+            # Reset full precision parameter before quantizing
+            q_param = _quantize_parameters(fp_param, current_q_step)
+
+            # Quantization has failed
+            if q_param is None:
+                continue
+
+            cur_module.set_param(q_param)
+
+            # Plug the quantized module back into Cool-chic
+            setattr(cc_enc, module_name, cur_module)
+
+            cc_enc.nn_q_step[module_name] = current_q_step
+
+            # Test Cool-chic performance with this quantization steps pair
+            raw_out, rate_bpp, _ = cc_enc.forward(
+                quantizer_noise_type="none",
+                quantizer_type="hardround",
+                AC_MAX_VAL=-1,
+                flag_additional_outputs=False,
+            )
+
+            param = cur_module.get_param()
+
+            # Best exp-golomb count for this quantization step
+            best_expgol_cnt = {}
+            for weight_or_bias in ["weight", "bias"]:
+                # Find the best exp-golomb count for this quantization step:
+                cur_best_expgol_cnt = None
+                # Arbitrarily high number
+                cur_best_rate = 1e9
+
+                sent_param = []
+                for parameter_name, parameter_value in param.items():
+                    # Quantization is round(parameter_value / q_step) * q_step so we divide by q_step
+                    # to obtain the sent latent.
+                    current_sent_param = (
+                        parameter_value / current_q_step.get(weight_or_bias)
+                    ).view(-1)
+
+                    if weight_or_bias in parameter_name:
+                        sent_param.append(current_sent_param)
+
+                # Integer, sent parameters
+                v = torch.cat(sent_param)
+
+                # Find the best expgol count for this weight
+                for expgol_cnt in all_expgol_cnt.get(weight_or_bias):
+                    cur_rate = exp_golomb_nbins(v, count=expgol_cnt)
+                    if cur_rate < cur_best_rate:
+                        cur_best_rate = cur_rate
+                        cur_best_expgol_cnt = expgol_cnt
+
+                best_expgol_cnt[weight_or_bias] = int(cur_best_expgol_cnt)
+
+            cc_enc.nn_expgol_cnt[module_name] = best_expgol_cnt
+
+            rate_mlp = 0.0
+            rate_per_module = cc_enc.get_network_rate()
+            for _, module_rate in rate_per_module.items():
+                for _, param_rate in module_rate.items():  # weight, bias
+                    rate_mlp += param_rate
+
+            loss_fn_output = loss_function(
+                raw_out,
+                rate_bpp,
+                input_img,
+                lmbda=lmbda,
+                rate_mlp_bit=rate_mlp,
+                compute_logs=True,
+            )
+
+            # Store best quantization steps
+            if loss_fn_output.loss < best_loss:
+                best_loss = loss_fn_output.loss
+                best_q_step = current_q_step
+                final_best_expgol_cnt = best_expgol_cnt
+
+        # Once we've tested all the possible quantization step and expgol_cnt,
+        # quantize one last time with the best one we've found to actually use it.
+        cc_enc.nn_q_step[module_name] = best_q_step
+        cc_enc.nn_expgol_cnt[module_name] = final_best_expgol_cnt
+
+        q_param = _quantize_parameters(fp_param, cc_enc.nn_q_step[module_name])
+        assert q_param is not None, (
+            "_quantize_parameters() failed with q_step "
+            f"{cc_enc.nn_q_step[module_name]}"
+        )
+
+        cur_module.set_param(q_param)
+        # Plug the quantized module back into Cool-chic
+        setattr(cc_enc, module_name, cur_module)
+
+    return cc_enc
+
+
+def get_coolchic_real_rate(
+    cc_enc: CoolChicEncoder, img: torch.Tensor, lmbda: float
+) -> float:
+    cc_enc = quantize_model(cc_enc, input_img=img, lmbda=lmbda)
+    with tempfile.NamedTemporaryFile() as tmp:
+        bitstream_path = Path(tmp.name)
+        return encode_coolchic(cc_enc, bitstream_path)
