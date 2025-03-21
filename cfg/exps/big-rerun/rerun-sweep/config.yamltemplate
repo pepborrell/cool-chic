@@ -7,7 +7,7 @@ noise_parameter: [0.25, 0.1]
 unfreeze_backbone: 200000 # After 200k samples, training is stable.
 workdir: null
 disable_wandb: False
-lmbda: {lmbda_value}
+lmbda: {lambda_value}
 start_lr: 1e-3
 user_tag: rerun-hn
 
