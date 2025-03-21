@@ -1,5 +1,5 @@
 n_samples: 500000
-n_epochs: 2
+n_epochs: 8
 batch_size: 16
 patch_size: [256, 256]
 softround_temperature: [0.3, 0.1]
