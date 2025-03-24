@@ -82,7 +82,7 @@ def get_image_from_hypernet(
         cc_enc = net.image_to_coolchic(img, stop_grads=True).cpu()
         cc_enc._store_full_precision_param()
         assert LMBDA is not None, f"LMBDA must be set, got {LMBDA} instead"
-        cc_enc = quantize_model(encoder=cc_enc, input_img=img, lmbda=LMBDA)
+        cc_enc = quantize_model(encoder=cc_enc, input_img=img.cpu(), lmbda=LMBDA)
         rate_mlp = get_mlp_rate(cc_enc)
 
         loss_out = loss_function(
