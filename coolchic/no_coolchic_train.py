@@ -55,7 +55,7 @@ def evaluate_wholenet(
 
             if not rate_mlp:
                 # getting mlp rate involves "mocking" a model quantization.
-                cc_enc = net.image_to_coolchic(test_img, stop_grads=True)
+                cc_enc = net.image_to_coolchic(test_img, stop_grads=True).cpu()
                 cc_enc._store_full_precision_param()
                 cc_enc = quantize_model(encoder=cc_enc, input_img=test_img, lmbda=lmbda)
                 rate_mlp = get_mlp_rate(cc_enc)
