@@ -1,4 +1,9 @@
+from typing import cast
+
+import torch
 from torch import nn
+
+from coolchic.enc.component.coolchic import CoolChicEncoder
 
 
 def get_num_of_params(model: nn.Module) -> int:
@@ -29,3 +34,18 @@ def _linear_schedule(
     )
 
     return cur_itr * (final_value - initial_value) / max_itr + initial_value
+
+
+def get_mlp_rate(net: CoolChicEncoder) -> float:
+    rate_mlp = 0.0
+    rate_per_module = net.get_network_rate()
+    rate_per_module = cast(dict[str, dict[str, float]], rate_per_module)  # for pyright
+
+    for _, module_rate in rate_per_module.items():
+        for _, param_rate in module_rate.items():  # weight, bias
+            rate_mlp += param_rate
+
+    if rate_mlp == 0.0:
+        raise ValueError("Model has no parameters quantized parameters.")
+    rate_mlp = rate_mlp.item() if isinstance(rate_mlp, torch.Tensor) else rate_mlp
+    return rate_mlp

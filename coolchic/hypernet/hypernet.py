@@ -2,6 +2,7 @@ import abc
 from typing import Any, Literal, OrderedDict
 
 import torch
+from fvcore.nn import FlopCountAnalysis, flop_count_table
 from pydantic import BaseModel
 from torch import nn
 from torchvision.models import ResNet18_Weights, ResNet50_Weights, resnet18, resnet50
@@ -40,6 +41,43 @@ class LatentHyperNet(nn.Module):
             x = self.residual_blocks[i](x)
             outputs.append(self.conv1ds[i](x))
         return outputs
+
+    def get_flops(self) -> None:
+        """Compute the number of MAC & parameters for the model.
+        Update ``self.total_flops`` (integer describing the number of total MAC)
+        and ``self.flops_str``, a pretty string allowing to print the model
+        complexity somewhere.
+
+        .. attention::
+
+            ``fvcore`` measures MAC (multiplication & accumulation) but calls it
+            FLOP (floating point operation)... We do the same here and call
+            everything FLOP even though it would be more accurate to use MAC.
+
+        Docstring taken from the original coolchic encoder implementation.
+        """
+        # print("Ignoring get_flops")
+        # Count the number of floating point operations here. It must be done before
+        # torch scripting the different modules.
+
+        self = self.train(mode=False)
+
+        mock_img_size = (1, 3, 512, 512)
+        flops = FlopCountAnalysis(
+            self,
+            torch.zeros(mock_img_size),  # img
+        )
+        flops.unsupported_ops_warnings(False)
+        flops.uncalled_modules_warnings(False)
+
+        self.total_flops = flops.total()
+        for k in self.flops_per_module:
+            self.flops_per_module[k] = flops.by_module()[k]
+
+        self.flops_str = flop_count_table(flops)
+        del flops
+
+        self = self.train(mode=True)
 
 
 def get_backbone(
@@ -698,8 +736,57 @@ class LatentDecoder(CoolChicEncoder):
         return encoder
 
     def get_flops(self) -> None:
-        """Changed the forward method's signature, so we need to redefine this method."""
-        print("Ignoring get_flops")
+        """Compute the number of MAC & parameters for the model.
+        Update ``self.total_flops`` (integer describing the number of total MAC)
+        and ``self.flops_str``, a pretty string allowing to print the model
+        complexity somewhere.
+
+        .. attention::
+
+            ``fvcore`` measures MAC (multiplication & accumulation) but calls it
+            FLOP (floating point operation)... We do the same here and call
+            everything FLOP even though it would be more accurate to use MAC.
+
+        Docstring taken from the original coolchic encoder implementation.
+        """
+        # print("Ignoring get_flops")
+        # Count the number of floating point operations here. It must be done before
+        # torch scripting the different modules.
+
+        self = self.train(mode=False)
+
+        mock_patch_size = (512, 512)
+
+        flops = FlopCountAnalysis(
+            self,
+            (
+                [
+                    torch.zeros(
+                        (1, 1, mock_patch_size[0] // 2**i, mock_patch_size[1] // 2**i)
+                    )
+                    for i in range(7)
+                ],  # latents
+                None,  # synth_delta
+                None,  # arm_delta
+                "none",  # Quantization noise
+                "hardround",  # Quantizer type
+                0.3,  # Soft round temperature
+                0.1,  # Noise parameter
+                -1,  # AC_MAX_VAL
+                False,  # Flag additional outputs
+            ),
+        )
+        flops.unsupported_ops_warnings(False)
+        flops.uncalled_modules_warnings(False)
+
+        self.total_flops = flops.total()
+        for k in self.flops_per_module:
+            self.flops_per_module[k] = flops.by_module()[k]
+
+        self.flops_str = flop_count_table(flops)
+        del flops
+
+        self = self.train(mode=True)
 
 
 class NOWholeNet(WholeNet):

@@ -8,11 +8,12 @@ import torch
 import wandb
 from coolchic.enc.component.coolchic import CoolChicEncoderOutput
 from coolchic.enc.training.loss import LossFunctionOutput, loss_function
+from coolchic.enc.training.quantizemodel import quantize_model
 from coolchic.enc.utils.misc import POSSIBLE_DEVICE, get_best_device
 from coolchic.hypernet.hypernet import NOWholeNet
 from coolchic.hypernet.inference import eval_on_all_kodak
 from coolchic.metalearning.data import OpenImagesDataset
-from coolchic.utils.nn import _linear_schedule
+from coolchic.utils.nn import _linear_schedule, get_mlp_rate
 from coolchic.utils.paths import COOLCHIC_REPO_ROOT
 from coolchic.utils.structs import ConstantIterable
 from coolchic.utils.types import HyperNetConfig, HypernetRunConfig, load_config
@@ -31,15 +32,6 @@ def get_workdir_hypernet(config: HypernetRunConfig, config_path: Path) -> Path:
     return workdir
 
 
-def get_mlp_rate(net: NOWholeNet) -> float:
-    rate_mlp = 0.0
-    rate_per_module = net.mean_decoder.get_network_rate()
-    for _, module_rate in rate_per_module.items():  # pyright: ignore
-        for _, param_rate in module_rate.items():  # weight, bias
-            rate_mlp += param_rate
-    return rate_mlp
-
-
 def evaluate_wholenet(
     net: NOWholeNet,
     test_data: torch.utils.data.DataLoader,
@@ -49,6 +41,7 @@ def evaluate_wholenet(
     net.eval()
     with torch.no_grad():
         all_losses: list[LossFunctionOutput] = []
+        rate_mlp: float | None = None
         for test_img in test_data:
             test_img = test_img.to(device)
             raw_out, rate, add_data = net.forward(
@@ -59,7 +52,14 @@ def evaluate_wholenet(
             test_out = CoolChicEncoderOutput(
                 raw_out=raw_out, rate=rate, additional_data=add_data
             )
-            rate_mlp = get_mlp_rate(net)
+
+            if not rate_mlp:
+                # getting mlp rate involves "mocking" a model quantization.
+                cc_enc = net.image_to_coolchic(test_img, stop_grads=True)
+                cc_enc._store_full_precision_param()
+                cc_enc = quantize_model(encoder=cc_enc, input_img=test_img, lmbda=lmbda)
+                rate_mlp = get_mlp_rate(cc_enc)
+
             test_loss = loss_function(
                 test_out.raw_out,
                 test_out.rate,
