@@ -10,6 +10,7 @@ from tqdm import tqdm
 
 from coolchic.enc.io.io import load_frame_data_from_tensor
 from coolchic.enc.training.loss import LossFunctionOutput, loss_function
+from coolchic.enc.training.quantizemodel import quantize_model
 from coolchic.eval.hypernet import plot_hypernet_rd
 from coolchic.hypernet.hypernet import (
     CoolchicWholeNet,
@@ -17,9 +18,12 @@ from coolchic.hypernet.hypernet import (
     NOWholeNet,
     WholeNet,
 )
+from coolchic.utils.nn import get_mlp_rate
 from coolchic.utils.paths import DATA_DIR
 from coolchic.utils.tensors import load_img_from_path
 from coolchic.utils.types import HypernetRunConfig, load_config
+
+LMBDA: float | None = None
 
 T = TypeVar("T", bound=WholeNet)
 
@@ -73,7 +77,14 @@ def get_image_from_hypernet(
         out_img, out_rate, _ = net.forward(
             img, quantizer_noise_type="none", quantizer_type="hardround"
         )
-        rate_mlp = net.get_mlp_rate()
+
+        # getting mlp rate involves "mocking" a model quantization.
+        cc_enc = net.image_to_coolchic(img, stop_grads=True)
+        cc_enc._store_full_precision_param()
+        assert LMBDA is not None, f"LMBDA must be set, got {LMBDA} instead"
+        cc_enc = quantize_model(encoder=cc_enc, input_img=img, lmbda=LMBDA)
+        rate_mlp = get_mlp_rate(cc_enc)
+
         loss_out = loss_function(
             out_img, out_rate, img, lmbda=0.0, rate_mlp_bit=rate_mlp, compute_logs=True
         )
@@ -137,6 +148,7 @@ if __name__ == "__main__":
     run_cfg = load_config(args.config, HypernetRunConfig)
     w_paths = [Path(p) for p in args.weight_paths.split(",")]
     assert all(p.exists() for p in w_paths), "One or more weight paths do not exist."
+    LMBDA = run_cfg.lmbda
 
     assert args.hypernet in ["full", "delta", "nocchic"], "Invalid hypernet type."
     wholenet_cls = (
