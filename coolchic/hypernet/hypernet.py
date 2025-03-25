@@ -514,8 +514,19 @@ class CoolchicHyperNet(nn.Module):
         Because we usually start from a pretrained model, we want the deltas that
         are outputted in the beggining to be zero.
         """
-        self.synthesis_hn.zero_out_output()
-        self.arm_hn.zero_out_output()
+
+        # zero out deltas, so at the start we have N-O coolchic.
+        def zero_out_last_layer(mod: nn.Module) -> None:
+            layers = [m for m in mod.modules() if isinstance(m, nn.Linear)]
+            last_layer = layers[-1]  # The last linear layer
+
+            # Zero out its parameters
+            with torch.no_grad():
+                last_layer.weight.fill_(0)
+                last_layer.bias.fill_(0)
+
+        zero_out_last_layer(self.synthesis_hn.mlp)
+        zero_out_last_layer(self.arm_hn.mlp)
 
 
 # Abstract WholeNet class, to indicate that the class is a whole network.
@@ -956,19 +967,17 @@ class DeltaWholeNet(WholeNet):
     def freeze_resnet(self):
         for param in self.hypernet.hn_backbone.parameters():
             param.requires_grad = False
-        for name, param in self.hypernet.latent_backbone.named_parameters():
-            if "conv1" in name:
-                param.requires_grad = True
-            else:
-                param.requires_grad = False
-        # Deactivate delta hypernet.
-        self.use_delta = False
+        # for name, param in self.hypernet.latent_backbone.named_parameters():
+        #     if "conv1" in name:
+        #         param.requires_grad = True
+        #     else:
+        #         param.requires_grad = False
 
     def unfreeze_resnet(self):
         for param in self.hypernet.hn_backbone.parameters():
             param.requires_grad = True
-        for param in self.hypernet.latent_backbone.parameters():
-            param.requires_grad = True
+        # for param in self.hypernet.latent_backbone.parameters():
+        #     param.requires_grad = True
         # Activate delta hypernet.
         self.use_delta = True
 
@@ -976,23 +985,13 @@ class DeltaWholeNet(WholeNet):
         # Necessary because there are no latents stored in the N-O coolchic model.
         for i in range(len(self.mean_decoder.latent_grids)):
             self.mean_decoder.latent_grids[i].data = None  # pyright: ignore
+
+        # load state dict normally.
         self.mean_decoder.load_state_dict(no_coolchic.mean_decoder.state_dict())
         self.hypernet.latent_hn.load_state_dict(no_coolchic.encoder.state_dict())
 
-        # zero out deltas, so at the start we have N-O coolchic.
-        def zero_out_last_layer(mod: nn.Module) -> None:
-            layers = [m for m in mod.modules() if isinstance(m, nn.Linear)]
-            last_layer = layers[-1]  # The last linear layer
-
-            # Zero out its parameters
-            with torch.no_grad():
-                last_layer.weight.fill_(0)
-                last_layer.bias.fill_(0)
-
-        zero_out_last_layer(self.hypernet.synthesis_hn.mlp)
-        zero_out_last_layer(self.hypernet.arm_hn.mlp)
         # we want deltas to be trainable.
-        self.unfreeze_resnet()
+        self.use_delta = True
         # and N-O coolchic weights shouldn't be trainable.
         for param in self.mean_decoder.parameters():
             param.requires_grad = False

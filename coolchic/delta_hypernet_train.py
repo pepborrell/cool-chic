@@ -124,7 +124,7 @@ def train(
     train_losses = []
     samples_seen = 0
 
-    # Don't want to freeze the backbone! This should be trained from the get go.
+    wholenet.freeze_resnet()
     for epoch in range(n_epochs):
         print(f"Epoch {epoch}")
         batch_n = 0
