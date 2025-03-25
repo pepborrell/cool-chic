@@ -13,7 +13,7 @@ from coolchic.enc.component.core.quantizer import (
     POSSIBLE_QUANTIZER_TYPE,
 )
 from coolchic.enc.utils.parsecli import get_coolchic_param_from_args
-from coolchic.hypernet.common import ResidualBlockDown, build_mlp, upsample_latents
+from coolchic.hypernet.common import ResidualBlockDown, build_mlp
 from coolchic.utils.nn import get_num_of_params
 from coolchic.utils.types import HyperNetConfig
 
@@ -429,16 +429,18 @@ class CoolchicHyperNet(nn.Module):
         self.hn_backbone, backbone_n_features = get_backbone(
             pretrained=True, arch=config.backbone_arch
         )
-        self.latent_backbone, _ = get_backbone(
-            pretrained=True,
-            arch=config.backbone_arch,
-            input_channels=self.config.n_latents,
-        )
+        # Commented out because we are not using the latent backbone.
+        # self.latent_backbone, _ = get_backbone(
+        #     pretrained=True,
+        #     arch=config.backbone_arch,
+        #     input_channels=self.config.n_latents,
+        # )
 
         self.synthesis_hn = SynthesisHyperNet(
             n_latents=self.config.n_latents,
             layers_dim=self.config.dec_cfg.parsed_layers_synthesis,
-            n_input_features=2 * backbone_n_features,
+            # n_input_features=2 * backbone_n_features,
+            n_input_features=backbone_n_features,
             hypernet_hidden_dim=self.config.synthesis.hidden_dim,
             hypernet_n_layers=self.config.synthesis.n_layers,
             biases=self.config.synthesis.biases,
@@ -446,7 +448,8 @@ class CoolchicHyperNet(nn.Module):
         self.arm_hn = ArmHyperNet(
             dim_arm=self.config.dec_cfg.dim_arm,
             n_hidden_layers=self.config.dec_cfg.n_hidden_layers_arm,
-            n_input_features=2 * backbone_n_features,
+            # n_input_features=2 * backbone_n_features,
+            n_input_features=backbone_n_features,
             hypernet_hidden_dim=self.config.arm.hidden_dim,
             hypernet_n_layers=self.config.arm.n_layers,
             biases=self.config.arm.biases,
@@ -464,14 +467,16 @@ class CoolchicHyperNet(nn.Module):
         """This strings together all hypernetwork components."""
         latent_weights = self.latent_hn.forward(img)
         img_features = self.hn_backbone.forward(img)
-        latent_features = self.latent_backbone.forward(
-            upsample_latents(
-                latent_weights,
-                mode="bicubic",
-                img_size=(img.shape[-2], img.shape[-1]),
-            ).detach()
-        )
-        features = torch.cat([img_features, latent_features], dim=1)
+        # Commented out because we are not using the latent backbone.
+        # latent_features = self.latent_backbone.forward(
+        #     upsample_latents(
+        #         latent_weights,
+        #         mode="bicubic",
+        #         img_size=(img.shape[-2], img.shape[-1]),
+        #     ).detach()
+        # )
+        # features = torch.cat([img_features, latent_features], dim=1)
+        features = img_features
         synthesis_weights = self.synthesis_hn.forward(features)
         arm_weights = self.arm_hn.forward(features)
 
