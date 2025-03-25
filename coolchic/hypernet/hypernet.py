@@ -920,7 +920,7 @@ class DeltaWholeNet(WholeNet):
     def image_to_coolchic(
         self, img: torch.Tensor, stop_grads: bool = False
     ) -> CoolChicEncoder:
-        img = img.to(self.encoder.conv1ds[0].weight.device)
+        img = img.to(self.hypernet.synthesis_hn.mlp[0].weight.device)
         if self.use_delta:
             latents, s_delta_dict, arm_delta_dict = self.hypernet.forward(img)
             synth_deltas = [delta for delta in s_delta_dict.values()]
