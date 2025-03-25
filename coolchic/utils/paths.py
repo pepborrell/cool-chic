@@ -7,6 +7,7 @@ COOLCHIC_REPO_ROOT = COOLCHIC_PYTHON_ROOT.parent
 DATA_DIR = COOLCHIC_REPO_ROOT / "data"
 LOCAL_SCRATCH_DIR = Path("/scratch/jborrell")
 RESULTS_DIR = COOLCHIC_REPO_ROOT / "results"
+CONFIG_DIR = COOLCHIC_REPO_ROOT / "cfg"
 # Openimages stored in scratch in nodes, but in data in local.
 OPEN_IMAGES_DIR = None
 if (LOCAL_SCRATCH_DIR / "openimages").exists():
