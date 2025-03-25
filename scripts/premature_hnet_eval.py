@@ -26,7 +26,9 @@ if __name__ == "__main__":
 
     for run in runs:
         latest_checkpoint = max(run.glob("*.pt"), key=lambda p: p.stat().st_ctime)
-        config_path = CONFIG_DIR / run.relative_to(RESULTS_DIR).with_suffix(".yaml")
+        config_path = CONFIG_DIR / run.absolute().relative_to(RESULTS_DIR).with_suffix(
+            ".yaml"
+        )
         assert config_path.exists(), f"Config file not found: {config_path}"
         config = load_config(config_path, HypernetRunConfig)
         assert isinstance(
