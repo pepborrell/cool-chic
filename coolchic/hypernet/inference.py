@@ -153,11 +153,11 @@ def main_eval(
         # Evaluate on all Kodak images.
         dfs = []
         # More than one model path allowed.
-        for i, weight_path in enumerate(w_paths):
-            print(f"Loading model {i + 1}/{len(w_paths)}")
+        for i, weight_path in enumerate(weight_paths):
+            print(f"Loading model {i + 1}/{len(weight_paths)}")
             model = load_hypernet(weight_path, cfg, wholenet_cls)
             df = eval_on_all_kodak(model, lmbda)
-            df["anchor"] = "hypernet" if len(w_paths) == 1 else weight_path.stem
+            df["anchor"] = "hypernet" if len(weight_paths) == 1 else weight_path.stem
             dfs.append(df)
 
         whole_df = pd.concat(dfs)
