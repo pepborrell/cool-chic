@@ -504,6 +504,14 @@ class CoolchicHyperNet(nn.Module):
         output_str += format_param_str("arm", get_num_of_params(self.arm_hn))
         print(output_str)
 
+    def init_deltas(self) -> None:
+        """Initialize the hypernetwork weights knowing that they will be used as deltas.
+        Because we usually start from a pretrained model, we want the deltas that
+        are outputted in the beggining to be zero.
+        """
+        self.synthesis_hn.zero_out_output()
+        self.arm_hn.zero_out_output()
+
 
 # Abstract WholeNet class, to indicate that the class is a whole network.
 class WholeNet(nn.Module, abc.ABC):
@@ -960,8 +968,28 @@ class DeltaWholeNet(WholeNet):
         self.use_delta = True
 
     def load_from_no_coolchic(self, no_coolchic: NOWholeNet) -> None:
-        # Necessary because there are no latents stored in the no coolchic model.
+        # Necessary because there are no latents stored in the N-O coolchic model.
         for i in range(len(self.mean_decoder.latent_grids)):
             self.mean_decoder.latent_grids[i].data = None  # pyright: ignore
         self.mean_decoder.load_state_dict(no_coolchic.mean_decoder.state_dict())
         self.hypernet.latent_hn.load_state_dict(no_coolchic.encoder.state_dict())
+
+        # zero out deltas, so at the start we have N-O coolchic.
+        def zero_out_last_layer(mod: nn.Module) -> None:
+            layers = [m for m in mod.modules() if isinstance(m, nn.Linear)]
+            last_layer = layers[-1]  # The last linear layer
+
+            # Zero out its parameters
+            with torch.no_grad():
+                last_layer.weight.fill_(0)
+                last_layer.bias.fill_(0)
+
+        zero_out_last_layer(self.hypernet.synthesis_hn.mlp)
+        zero_out_last_layer(self.hypernet.arm_hn.mlp)
+        # we want deltas to be trainable.
+        self.unfreeze_resnet()
+        # and N-O coolchic weights shouldn't be trainable.
+        for param in self.mean_decoder.parameters():
+            param.requires_grad = False
+        for param in self.hypernet.latent_hn.parameters():
+            param.requires_grad = False
