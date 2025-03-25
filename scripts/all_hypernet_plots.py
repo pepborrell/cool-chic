@@ -12,7 +12,7 @@ from coolchic.eval.results import SummaryEncodingMetrics
 from coolchic.utils.paths import ANCHOR_NAMES
 
 
-def parse_hypernet_metrics(sweep_path: Path):
+def parse_hypernet_metrics(sweep_path: Path, premature: bool = False):
     """Metrics saved by hypernet training jobs are csv files
     with the following columns: seq_name, rate_bpp, psnr_db, mse.
     Maybe lmbda.
@@ -30,7 +30,9 @@ def parse_hypernet_metrics(sweep_path: Path):
 
     for run in runs:
         run_lmbda = lmbdas[run.stem.split("_")[-1]]
-        results_path = run / "kodak_results.csv"
+        results_path = (
+            run / "premature_eval" if premature else run
+        ) / "kodak_results.csv"
         if not results_path.exists():
             raise FileNotFoundError(f"Results file not found: {results_path}")
         results = pd.read_csv(results_path)
@@ -61,12 +63,13 @@ def print_bd(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--sweep_path", type=Path, required=True)
+    parser.add_argument("--premature", action="store_true")
     args = parser.parse_args()
     if not args.sweep_path.exists():
         raise FileNotFoundError(f"Path not found: {args.sweep_path}")
 
     sweep_path = args.sweep_path
-    metrics = parse_hypernet_metrics(sweep_path)
+    metrics = parse_hypernet_metrics(sweep_path, args.premature)
     # BD rates for coolchic, hm, jpeg
     print_bd(metrics, "coolchic")
     print_bd(metrics, "hm")
