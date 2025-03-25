@@ -6,7 +6,7 @@ softround_temperature: [0.3, 0.1]
 noise_parameter: [0.25, 0.1]
 unfreeze_backbone: 0
 workdir: null
-model_weights: /itet-stor/jborrell/net_scratch/cool-chic/results/exps/no-cchic/like-blard/epoch_1_batch_490000.pt
+model_weights: /itet-stor/jborrell/net_scratch/cool-chic/results/exps/no-cchic/batch-sweep/config_02/epoch_3_batch_1590000.pt
 disable_wandb: False
 lmbda: 1e-3
 start_lr: 1e-3
