@@ -35,6 +35,9 @@ class LatentHyperNet(nn.Module):
             [nn.Conv2d(64, 1, kernel_size=1, padding=0) for _ in range(self.n_latents)]
         )
 
+        # For flop analysis.
+        self.flops_per_module = {k: 0 for k in ["residual_blocks", "conv1ds"]}
+
     def forward(self, x: torch.Tensor) -> list[torch.Tensor]:
         outputs = []
         for i in range(self.n_latents):
@@ -100,6 +103,35 @@ def get_backbone(
     # We want to extract the features, so we remove the final fc layer.
     model = torch.nn.Sequential(*list(model.children())[:-1], nn.Flatten(start_dim=1))
 
+    # Strange aux method for flop analysis.
+    def get_backbone_flops(self):
+        # Count the number of floating point operations here. It must be done before
+        # torch scripting the different modules.
+
+        self = self.train(mode=False)
+
+        mock_img_size = (1, 3, 512, 512)
+        flops = FlopCountAnalysis(
+            self,
+            torch.zeros(mock_img_size),  # img
+        )
+        flops.unsupported_ops_warnings(False)
+        flops.uncalled_modules_warnings(False)
+
+        self.total_flops = flops.total()
+        for k in self.flops_per_module:
+            self.flops_per_module[k] = flops.by_module()[k]
+
+        self.flops_str = flop_count_table(flops)
+        del flops
+
+        self = self.train(mode=True)
+
+    import types
+
+    model.flops_per_module = {k: 0 for k, _ in model.named_modules()}  # pyright: ignore
+    model.get_flops = types.MethodType(get_backbone_flops, model)  # pyright: ignore
+
     return model, n_output_features
 
 
@@ -145,6 +177,9 @@ class SynthesisHyperNet(nn.Module):
             hidden_size=self.hidden_size,
             output_activation=nn.Tanh(),
         )
+
+        # For flop analysis.
+        self.flops_per_module = {k: 0 for k in ["mlp"]}
 
     def parse_layers_dim(self, biases: bool) -> list[SynthesisLayerInfo]:
         """Parses the layers_dim list to a list of SynthesisLayerInfo objects."""
@@ -210,6 +245,28 @@ class SynthesisHyperNet(nn.Module):
 
         return formatted_weights
 
+    def get_flops(self) -> None:
+        # Count the number of floating point operations here. It must be done before
+        # torch scripting the different modules.
+
+        self = self.train(mode=False)
+
+        flops = FlopCountAnalysis(
+            self,
+            torch.zeros(1, self.n_input_features),  # output of backbone.
+        )
+        flops.unsupported_ops_warnings(False)
+        flops.uncalled_modules_warnings(False)
+
+        self.total_flops = flops.total()
+        for k in self.flops_per_module:
+            self.flops_per_module[k] = flops.by_module()[k]
+
+        self.flops_str = flop_count_table(flops)
+        del flops
+
+        self = self.train(mode=True)
+
 
 class ArmHyperNet(nn.Module):
     """Takes a latent tensor and outputs the filters of the ARM network."""
@@ -249,6 +306,9 @@ class ArmHyperNet(nn.Module):
             hidden_size=self.hidden_size,
             output_activation=nn.Tanh(),
         )
+
+        # For flop analysis.
+        self.flops_per_module = {k: 0 for k in ["mlp"]}
 
     def n_params_arm(self, biases: bool) -> int:
         """Calculates the number of parameters needed for the arm network.
@@ -310,6 +370,28 @@ class ArmHyperNet(nn.Module):
             formatted_weights[f"mlp.{2 * self.n_hidden_layers}.bias"] = bias
 
         return formatted_weights
+
+    def get_flops(self) -> None:
+        # Count the number of floating point operations here. It must be done before
+        # torch scripting the different modules.
+
+        self = self.train(mode=False)
+
+        flops = FlopCountAnalysis(
+            self,
+            torch.zeros(1, self.n_input_features),  # output of backbone.
+        )
+        flops.unsupported_ops_warnings(False)
+        flops.uncalled_modules_warnings(False)
+
+        self.total_flops = flops.total()
+        for k in self.flops_per_module:
+            self.flops_per_module[k] = flops.by_module()[k]
+
+        self.flops_str = flop_count_table(flops)
+        del flops
+
+        self = self.train(mode=True)
 
 
 class UpsamplingHyperNet(nn.Module):
