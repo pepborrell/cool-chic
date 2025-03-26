@@ -779,7 +779,10 @@ class LatentDecoder(CoolChicEncoder):
 
         self = self.train(mode=False)
 
-        mock_patch_size = (512, 512)
+        assert (
+            self.param.img_size is not None
+        ), "Image size must be set in the parameter."
+        mock_patch_size = self.param.img_size
 
         flops = FlopCountAnalysis(
             self,
