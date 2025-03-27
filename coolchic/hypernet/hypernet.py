@@ -847,7 +847,7 @@ class LatentDecoder(CoolChicEncoder):
         if arm_delta is not None:
             encoder.arm.add_delta(arm_delta)
 
-        return encoder
+        return encoder.to(next(self.parameters()).device)
 
     def get_flops(self) -> int:
         """Compute the number of MAC & parameters for the model.
