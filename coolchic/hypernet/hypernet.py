@@ -959,7 +959,6 @@ class NOWholeNet(WholeNet):
         self.eval()
         with torch.no_grad():
             latents = self.encoder.forward(img)
-            print(f"{latents[0].device=}")
             cc_enc = self.mean_decoder.as_coolchic(
                 latents=latents, synth_delta=None, arm_delta=None, stop_grads=stop_grads
             )
