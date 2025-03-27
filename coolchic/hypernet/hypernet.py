@@ -45,7 +45,7 @@ class LatentHyperNet(nn.Module):
             outputs.append(self.conv1ds[i](x))
         return outputs
 
-    def get_flops(self) -> None:
+    def get_flops(self) -> int:
         """Compute the number of MAC & parameters for the model.
         Update ``self.total_flops`` (integer describing the number of total MAC)
         and ``self.flops_str``, a pretty string allowing to print the model
@@ -82,6 +82,8 @@ class LatentHyperNet(nn.Module):
 
         self = self.train(mode=True)
 
+        return self.total_flops
+
 
 def get_backbone(
     pretrained: bool = True,
@@ -104,7 +106,7 @@ def get_backbone(
     model = torch.nn.Sequential(*list(model.children())[:-1], nn.Flatten(start_dim=1))
 
     # Strange aux method for flop analysis.
-    def get_backbone_flops(self):
+    def get_backbone_flops(self) -> int:
         # Count the number of floating point operations here. It must be done before
         # torch scripting the different modules.
 
@@ -126,6 +128,8 @@ def get_backbone(
         del flops
 
         self = self.train(mode=True)
+
+        return self.total_flops
 
     import types
 
@@ -245,7 +249,7 @@ class SynthesisHyperNet(nn.Module):
 
         return formatted_weights
 
-    def get_flops(self) -> None:
+    def get_flops(self) -> int:
         # Count the number of floating point operations here. It must be done before
         # torch scripting the different modules.
 
@@ -266,6 +270,8 @@ class SynthesisHyperNet(nn.Module):
         del flops
 
         self = self.train(mode=True)
+
+        return self.total_flops
 
 
 class ArmHyperNet(nn.Module):
@@ -371,7 +377,7 @@ class ArmHyperNet(nn.Module):
 
         return formatted_weights
 
-    def get_flops(self) -> None:
+    def get_flops(self) -> int:
         # Count the number of floating point operations here. It must be done before
         # torch scripting the different modules.
 
@@ -392,6 +398,8 @@ class ArmHyperNet(nn.Module):
         del flops
 
         self = self.train(mode=True)
+
+        return self.total_flops
 
 
 class UpsamplingHyperNet(nn.Module):
@@ -841,7 +849,7 @@ class LatentDecoder(CoolChicEncoder):
 
         return encoder
 
-    def get_flops(self) -> None:
+    def get_flops(self) -> int:
         """Compute the number of MAC & parameters for the model.
         Update ``self.total_flops`` (integer describing the number of total MAC)
         and ``self.flops_str``, a pretty string allowing to print the model
@@ -897,6 +905,8 @@ class LatentDecoder(CoolChicEncoder):
 
         self = self.train(mode=True)
 
+        return self.total_flops
+
 
 class NOWholeNet(WholeNet):
     def __init__(self, config: HyperNetConfig):
@@ -949,6 +959,7 @@ class NOWholeNet(WholeNet):
         self.eval()
         with torch.no_grad():
             latents = self.encoder.forward(img)
+            print(f"{latents[0].device=}")
             cc_enc = self.mean_decoder.as_coolchic(
                 latents=latents, synth_delta=None, arm_delta=None, stop_grads=stop_grads
             )

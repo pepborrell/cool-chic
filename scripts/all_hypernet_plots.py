@@ -7,8 +7,13 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 from coolchic.eval.bd_rate import bd_rates_summary_anchor_name
-from coolchic.eval.hypernet import plot_hypernet_rd
+from coolchic.eval.hypernet import get_hypernet_flops
 from coolchic.eval.results import SummaryEncodingMetrics
+from coolchic.hypernet.hypernet import (
+    CoolchicWholeNet,
+    DeltaWholeNet,
+    NOWholeNet,
+)
 from coolchic.utils.paths import ANCHOR_NAMES
 
 
@@ -64,6 +69,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--sweep_path", type=Path, required=True)
     parser.add_argument("--premature", action="store_true")
+    parser.add_argument("--wholenet_cls", type=str, default="NOWholeNet")
     args = parser.parse_args()
     if not args.sweep_path.exists():
         raise FileNotFoundError(f"Path not found: {args.sweep_path}")
@@ -74,6 +80,18 @@ if __name__ == "__main__":
     print_bd(metrics, "coolchic")
     print_bd(metrics, "hm")
     print_bd(metrics, "jpeg")
+
+    # BD rate vs computational cost
+    avg_bd = sum(
+        (bd_rates := bd_rates_summary_anchor_name(metrics, "hm").values())
+    ) / len(bd_rates)
+    wholenet_cls = {
+        "NOWholeNet": NOWholeNet,
+        "DeltaWholeNet": DeltaWholeNet,
+        "CoolchicWholeNet": CoolchicWholeNet,
+    }[args.wholenet_cls]
+    comp_cost = get_hypernet_flops(wholenet_cls)
+    print(f"{avg_bd=}, {comp_cost=:.3e}")
 
     # RD plots
     for i in range(1, 25):

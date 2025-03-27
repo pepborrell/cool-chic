@@ -9,10 +9,10 @@ from coolchic.enc.io.io import load_frame_data_from_file
 from coolchic.enc.training.presets import PresetC3x
 from coolchic.enc.training.test import FrameEncoderLogs, test
 from coolchic.eval.results import result_summary_to_df
-from coolchic.hypernet.hypernet import WholeNet
+from coolchic.hypernet.hypernet import CoolchicHyperNet, NOWholeNet, WholeNet
 from coolchic.utils.coolchic_types import get_coolchic_structs
 from coolchic.utils.paths import ALL_ANCHORS
-from coolchic.utils.types import PresetConfig
+from coolchic.utils.types import DecoderConfig, HyperNetConfig, PresetConfig
 
 
 def compare_kodak_res(results: pd.DataFrame) -> pd.DataFrame:
@@ -110,3 +110,23 @@ def coolchic_test_hypernet(
     )
     logs = test(frame_enc, frame, frame_encoder_manager)
     return logs
+
+
+def get_hypernet_flops(wholenet_cls: type[WholeNet]) -> int:
+    model = wholenet_cls(config=HyperNetConfig(dec_cfg=DecoderConfig()))
+    if not hasattr(model, "hypernet"):
+        # Dealing with NOWholeNet.
+        assert isinstance(model, NOWholeNet)  # For pyright to understand.
+        total_flops = model.encoder.get_flops()
+        return total_flops
+    # We either have a WholeNet or a DeltaWholeNet.
+    hnet = model.hypernet
+    assert isinstance(hnet, CoolchicHyperNet)  # For pyright to understand.
+
+    total_flops = (
+        hnet.latent_hn.get_flops()
+        + hnet.hn_backbone.get_flops()
+        + hnet.synthesis_hn.get_flops()
+        + hnet.arm_hn.get_flops()
+    )
+    return total_flops
