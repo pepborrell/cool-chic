@@ -25,7 +25,10 @@ if __name__ == "__main__":
     ]
 
     for run in runs:
-        latest_checkpoint = max(run.glob("*.pt"), key=lambda p: p.stat().st_ctime)
+        # checkpoints are formatted like epoch_5_batch_2570000.pt. Let's sort by sample number.
+        highest_checkpoint = max(
+            run.glob("*.pt"), key=lambda p: int(p.stem.split("_")[-1])
+        )
         config_path = CONFIG_DIR / run.absolute().relative_to(RESULTS_DIR).with_suffix(
             ".yaml"
         )
@@ -38,7 +41,7 @@ if __name__ == "__main__":
         premature_workdir = run / "premature_eval"
         premature_workdir.mkdir(exist_ok=True)
         hypernet_eval(
-            weight_paths=[latest_checkpoint],
+            weight_paths=[highest_checkpoint],
             lmbda=config.lmbda,
             img_num=None,
             img_path=None,
