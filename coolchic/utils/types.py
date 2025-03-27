@@ -7,6 +7,7 @@ from typing import Annotated, Any, Literal, Type, TypeVar
 import yaml
 from pydantic import BaseModel, BeforeValidator, Field, computed_field
 
+from coolchic.enc.component.core.quantizer import POSSIBLE_QUANTIZATION_NOISE_TYPE
 from coolchic.enc.training.presets import TrainerPhase, Warmup, WarmupPhase
 from coolchic.utils.paths import COOLCHIC_REPO_ROOT
 
@@ -300,6 +301,7 @@ class HypernetRunConfig(BaseModel):
 
     softround_temperature: tuple[float, float]
     noise_parameter: tuple[float, float]
+    quantizer_noise_type: POSSIBLE_QUANTIZATION_NOISE_TYPE = "gaussian"
     start_lr: float = 1e-3
     unfreeze_backbone: int
 

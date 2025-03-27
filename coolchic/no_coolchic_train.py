@@ -7,6 +7,7 @@ import torch
 
 import wandb
 from coolchic.enc.component.coolchic import CoolChicEncoderOutput
+from coolchic.enc.component.core.quantizer import POSSIBLE_QUANTIZATION_NOISE_TYPE
 from coolchic.enc.training.loss import LossFunctionOutput, loss_function
 from coolchic.enc.training.quantizemodel import quantize_model
 from coolchic.enc.utils.misc import POSSIBLE_DEVICE, get_best_device
@@ -109,6 +110,7 @@ def train(
     start_lr: float = 1e-3,
     softround_temperature: tuple[float, float] = (0.3, 0.3),
     noise_parameter: tuple[float, float] = (0.25, 0.25),
+    quantizer_noise_type: POSSIBLE_QUANTIZATION_NOISE_TYPE = "gaussian",
 ):
     wholenet = NOWholeNet(config)
     if torch.cuda.is_available():
@@ -145,6 +147,7 @@ def train(
                 img_batch,
                 softround_temperature=cur_softround_t,
                 noise_parameter=cur_noise_param,
+                quantizer_noise_type=quantizer_noise_type,
             )
             out_forward = CoolChicEncoderOutput(
                 raw_out=raw_out, rate=rate, additional_data=add_data
@@ -306,6 +309,7 @@ def main():
         device=device,
         softround_temperature=run_cfg.softround_temperature,
         noise_parameter=run_cfg.noise_parameter,
+        quantizer_noise_type=run_cfg.quantizer_noise_type,
     )
 
     # Eval on kodak at end of training.
