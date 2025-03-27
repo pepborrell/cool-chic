@@ -126,6 +126,8 @@ def train(
 
     train_losses = []
     samples_seen = 0
+    best_model = wholenet.state_dict()
+    best_test_loss = float("inf")
 
     wholenet.freeze_resnet()
     for epoch in range(n_epochs):
@@ -180,7 +182,9 @@ def train(
             batch_n += 1
             samples_seen += batch_size
 
-            if (samples_seen % 500) < batch_size:
+            # Updated logging, logging every 5k samples.
+            # This means we log once every 5 minutes, roughly.
+            if (samples_seen % 5000) < batch_size:
                 # Average train losses.
                 train_losses_avg = {
                     "train_loss": torch.mean(
@@ -208,15 +212,25 @@ def train(
                     {
                         "epoch": epoch,
                         "batch": batch_n,
+                        "samples_seen": samples_seen,
+                        "n_iterations": samples_seen // batch_size,
                         **train_losses_avg,
                         **eval_results,
                     }
                 )
 
-                # Save model, but only every 10k batches.
-                if (samples_seen % 10000) < batch_size:
-                    save_path = workdir / f"epoch_{epoch}_batch_{samples_seen}.pt"
-                    torch.save(wholenet.state_dict(), save_path)
+                # Save model, but only every 50k samples.
+                # That's slightly more frequent than 1 per hour.
+                if (samples_seen % 50000) < batch_size:
+                    # Only save if it's better than the best model so far.
+                    if eval_results["test_loss"] < best_test_loss:
+                        best_model = wholenet.state_dict()
+                        best_test_loss = eval_results["test_loss"]
+                        save_path = workdir / f"epoch_{epoch}_batch_{samples_seen}.pt"
+                        torch.save(wholenet.state_dict(), save_path)
+                    else:
+                        # Reset to last best model.
+                        wholenet.load_state_dict(best_model)
 
                 # Unfreeze backbone if needed
                 if samples_seen > unfreeze_backbone_samples:
