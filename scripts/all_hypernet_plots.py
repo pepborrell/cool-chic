@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 from coolchic.eval.bd_rate import bd_rates_summary_anchor_name
-from coolchic.eval.hypernet import get_hypernet_flops
+from coolchic.eval.hypernet import get_hypernet_flops, plot_hypernet_rd
 from coolchic.eval.results import SummaryEncodingMetrics
 from coolchic.hypernet.hypernet import (
     CoolchicWholeNet,
