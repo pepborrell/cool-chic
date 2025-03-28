@@ -1,10 +1,18 @@
 import argparse
 from pathlib import Path
 
+CONFIG_NUM_TO_LMBDA = {"00": 0.0001, "01": 0.0004, "02": 0.001, "03": 0.004, "04": 0.02}
+LMBDA_TO_CONFIG_NUM = {v: k for k, v in CONFIG_NUM_TO_LMBDA.items()}
+
 
 def cfg_str(lambda_value: float, template_file: Path) -> str:
     template = template_file.read_text()
     template = template.replace("{lambda_value}", str(lambda_value))
+
+    # Sometimes different lambdas need different weights to start from.
+    template = template.replace(
+        "{lmbda_config_num}", f"config_{LMBDA_TO_CONFIG_NUM[lambda_value]}"
+    )
     return template
 
 
