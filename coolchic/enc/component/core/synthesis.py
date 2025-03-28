@@ -150,8 +150,13 @@ class SynthesisConv2dDelta(SynthesisConv2d):
         else:
             return y
 
-    def set_delta(self, delta: torch.Tensor) -> None:
-        self.delta_weight = delta
+    def set_delta(self, delta: torch.Tensor, add_to_weight: bool) -> None:
+        if add_to_weight:
+            # This adds the delta to the weight, making it like a normal CoolChic encoder.
+            self.weight = nn.Parameter(self.weight + delta, requires_grad=True)
+            self.delta_weight = None
+        else:
+            self.delta_weight = delta
 
 
 class Synthesis(nn.Module):
@@ -290,11 +295,11 @@ class Synthesis(nn.Module):
     ):
         set_hypernet_weights(self, all_weights)
 
-    def add_delta(self, delta: list[Tensor]) -> None:
+    def add_delta(self, delta: list[Tensor], add_to_weight: bool = False) -> None:
         pointer = 0
         for layer in self.layers:
             if isinstance(layer, SynthesisConv2dDelta):
-                layer.set_delta(delta[pointer])
+                layer.set_delta(delta[pointer], add_to_weight=add_to_weight)
                 pointer += 1
         assert pointer == len(delta), (
             "Not all delta were used. " f"Used {pointer} out of {len(delta)}."

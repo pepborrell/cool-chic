@@ -843,9 +843,9 @@ class LatentDecoder(CoolChicEncoder):
 
         # This makes synthesis and arm happen with deltas added to the filters.
         if synth_delta is not None:
-            encoder.synthesis.add_delta(synth_delta)
+            encoder.synthesis.add_delta(synth_delta, add_to_weight=True)
         if arm_delta is not None:
-            encoder.arm.add_delta(arm_delta)
+            encoder.arm.add_delta(arm_delta, add_to_weight=True)
 
         return encoder.to(next(self.parameters()).device)
 
