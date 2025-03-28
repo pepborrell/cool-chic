@@ -123,6 +123,8 @@ def train(
 
     train_losses = []
     samples_seen = 0
+    best_model = wholenet.state_dict()
+    best_test_loss = float("inf")
 
     wholenet.freeze_resnet()
     for epoch in range(n_epochs):
@@ -177,7 +179,7 @@ def train(
             batch_n += 1
             samples_seen += 1
 
-            if batch_n % 500 == 0:
+            if batch_n % 1000 == 0:
                 # Average train losses.
                 train_losses_avg = {
                     "train_loss": torch.mean(
@@ -205,6 +207,7 @@ def train(
                     {
                         "epoch": epoch,
                         "batch": batch_n,
+                        "samples_seen": samples_seen,
                         **train_losses_avg,
                         **eval_results,
                     }
@@ -212,8 +215,15 @@ def train(
 
                 # Save model, but only every 10k batches.
                 if batch_n % 10000 == 0:
-                    save_path = workdir / f"epoch_{epoch}_batch_{batch_n}.pt"
-                    torch.save(wholenet.state_dict(), save_path)
+                    # Only save if it's better than the best model so far.
+                    if eval_results["test_loss"] < best_test_loss:
+                        best_model = wholenet.state_dict()
+                        best_test_loss = eval_results["test_loss"]
+                        save_path = workdir / f"epoch_{epoch}_batch_{samples_seen}.pt"
+                        torch.save(wholenet.state_dict(), save_path)
+                    else:
+                        # Reset to last best model.
+                        wholenet.load_state_dict(best_model)
 
                 # Unfreeze backbone if needed
                 if samples_seen > unfreeze_backbone_samples:
