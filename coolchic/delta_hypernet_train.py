@@ -269,7 +269,7 @@ def main():
         # If N-O coolchic model is given, we use it as init.
 
         # If model has name latest, take the latest in the folder.
-        if run_cfg.model_weights.stem == "latest":
+        if run_cfg.model_weights.stem == "__latest":
             # Weights formatted like epoch_7_batch_3550000.pt, we take the highest sample number.
             run_cfg.model_weights = max(
                 run_cfg.model_weights.parent.iterdir(),
