@@ -1092,3 +1092,8 @@ class DeltaWholeNet(WholeNet):
             param.requires_grad = False
         for param in self.hypernet.latent_hn.parameters():
             param.requires_grad = False
+
+        # Initialize deltas so that their original output is
+        # zero. (Output initially is the same as the NO CoolChic model
+        # we initialized with).
+        self.hypernet.init_deltas()
