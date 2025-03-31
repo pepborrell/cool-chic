@@ -235,11 +235,6 @@ def train(
                         # Reset to last best model.
                         wholenet.load_state_dict(best_model)
 
-                # Unfreeze backbone if needed
-                if samples_seen > unfreeze_backbone_samples:
-                    wholenet.unfreeze_resnet()
-                    print("Unfreezing backbone")
-
         scheduler.step()
 
     return wholenet
