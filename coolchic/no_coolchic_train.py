@@ -120,8 +120,9 @@ def train(
         wholenet = wholenet.to(device)
     optimizer = torch.optim.Adam(wholenet.parameters(), lr=start_lr)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-        optimizer, n_epochs, eta_min=1e-6
+        optimizer, len(train_data), eta_min=1e-6
     )
+
     batch_size = train_data.batch_size
     assert batch_size is not None, "Batch size must be set."
     total_iterations = len(train_data) * n_epochs * batch_size
@@ -185,6 +186,8 @@ def train(
             batch_n += 1
             samples_seen += batch_size
 
+            scheduler.step()
+
             # Updated logging, logging every 5k samples.
             # This means we log once every 5 minutes, roughly.
             if (samples_seen % 5000) < batch_size:
@@ -234,8 +237,6 @@ def train(
                     else:
                         # Reset to last best model.
                         wholenet.load_state_dict(best_model)
-
-        scheduler.step()
 
     return wholenet
 
