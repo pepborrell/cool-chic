@@ -10,7 +10,6 @@ from coolchic.hypernet.hypernet import DeltaWholeNet, NOWholeNet
 from coolchic.hypernet.inference import eval_on_all_kodak, load_hypernet
 from coolchic.hypernet.training import get_workdir_hypernet, train
 from coolchic.metalearning.data import OpenImagesDataset
-from coolchic.utils.structs import ConstantIterable
 from coolchic.utils.types import HypernetRunConfig, load_config
 
 
@@ -76,12 +75,6 @@ def main():
     for param in wholenet.mean_decoder.parameters():
         param.requires_grad = False
 
-    # Lambda definition logic.
-    if isinstance(run_cfg.lmbda, float):
-        lmbdas = ConstantIterable(run_cfg.lmbda)
-    else:
-        raise ValueError(f"Invalid lambda value: {run_cfg.lmbda}")
-
     ##### LOGGING #####
     # Setting up all logging using wandb.
     if run_cfg.disable_wandb:
@@ -98,7 +91,7 @@ def main():
         test_data_loader,
         wholenet=wholenet,
         n_epochs=run_cfg.n_epochs,
-        lmbdas=lmbdas,
+        lmbda=run_cfg.lmbda,
         unfreeze_backbone_samples=run_cfg.unfreeze_backbone,
         start_lr=run_cfg.start_lr,
         workdir=workdir,

@@ -9,7 +9,6 @@ from coolchic.enc.utils.misc import get_best_device
 from coolchic.hypernet.hypernet import CoolchicWholeNet
 from coolchic.hypernet.training import get_workdir_hypernet, train
 from coolchic.metalearning.data import OpenImagesDataset
-from coolchic.utils.structs import ConstantIterable
 from coolchic.utils.types import HypernetRunConfig, load_config
 
 
@@ -41,18 +40,6 @@ def main():
         test_data, batch_size=1, shuffle=False
     )
 
-    # Lambda definition logic.
-    if isinstance(run_cfg.lmbda, float):
-        lmbdas = ConstantIterable(run_cfg.lmbda)
-    elif run_cfg.lmbda == "random":
-        # In coolchic experiments, we ran these lambda values: [0.0001, 0.0004, 0.001, 0.004, 0.02].
-        lmbda_min, lmbda_max = 0.0001, 0.02
-        lmbdas = (
-            torch.rand(run_cfg.n_samples) * (lmbda_max - lmbda_min) + lmbda_min
-        ).tolist()
-    else:
-        raise ValueError(f"Invalid lambda value: {run_cfg.lmbda}")
-
     ##### LOGGING #####
     # Setting up all logging using wandb.
     if run_cfg.disable_wandb:
@@ -69,7 +56,7 @@ def main():
         test_data_loader,
         wholenet=CoolchicWholeNet(run_cfg.hypernet_cfg),
         n_epochs=run_cfg.n_epochs,
-        lmbdas=lmbdas,
+        lmbda=run_cfg.lmbda,
         unfreeze_backbone_samples=run_cfg.unfreeze_backbone,
         start_lr=run_cfg.start_lr,
         workdir=workdir,
