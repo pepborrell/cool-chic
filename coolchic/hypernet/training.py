@@ -210,8 +210,6 @@ def train(
                     wholenet.unfreeze_resnet()
                     print("Unfreezing backbone")
 
-        scheduler.step()
-
     return wholenet
 
 
