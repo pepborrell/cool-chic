@@ -62,7 +62,7 @@ def main():
         train_data=train_data_loader,
         test_data=test_data_loader,
         wholenet=model,
-        n_epochs=run_cfg.n_epochs,
+        recipe=run_cfg.recipe,
         lmbda=run_cfg.lmbda,
         unfreeze_backbone_samples=run_cfg.unfreeze_backbone,
         workdir=workdir,

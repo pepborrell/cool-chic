@@ -1,18 +1,17 @@
+from itertools import cycle
 from pathlib import Path
-from typing import Iterable
 
 import torch
 
 import wandb
 from coolchic.enc.component.coolchic import CoolChicEncoderOutput
-from coolchic.enc.component.core.quantizer import POSSIBLE_QUANTIZATION_NOISE_TYPE
 from coolchic.enc.training.loss import LossFunctionOutput, loss_function
 from coolchic.enc.training.quantizemodel import quantize_model
 from coolchic.enc.utils.misc import POSSIBLE_DEVICE
 from coolchic.hypernet.hypernet import WholeNet
 from coolchic.utils.nn import _linear_schedule, get_mlp_rate
 from coolchic.utils.paths import COOLCHIC_REPO_ROOT
-from coolchic.utils.types import HypernetRunConfig
+from coolchic.utils.types import HypernetRunConfig, PresetConfig
 
 
 def evaluate_wholenet(
@@ -76,48 +75,59 @@ def train(
     train_data: torch.utils.data.DataLoader,
     test_data: torch.utils.data.DataLoader,
     wholenet: WholeNet,
-    n_epochs: int,
-    lmbdas: Iterable[float],
+    recipe: PresetConfig,
+    lmbda: float,
     workdir: Path,
     device: POSSIBLE_DEVICE,
     unfreeze_backbone_samples: int,
-    start_lr: float = 1e-3,
-    softround_temperature: tuple[float, float] = (0.3, 0.3),
-    noise_parameter: tuple[float, float] = (0.25, 0.25),
-    quantizer_noise_type: POSSIBLE_QUANTIZATION_NOISE_TYPE = "gaussian",
 ):
     wholenet = wholenet.to(device)
-    optimizer = torch.optim.Adam(wholenet.parameters(), lr=start_lr)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-        optimizer, len(train_data), eta_min=1e-6
-    )
-
-    batch_size = train_data.batch_size
-    assert batch_size is not None, "Batch size is None"
-    total_iterations = len(train_data) * batch_size * n_epochs
-
-    train_losses = []
     samples_seen = 0
+    batch_n = 0
     best_model = wholenet.state_dict()
     best_test_loss = float("inf")
+    batch_size = train_data.batch_size
+    assert batch_size is not None, "Batch size is None"
 
+    # We cycle through the training data until necessary.
+    train_iter = cycle(train_data)
+
+    # Starting training.
     wholenet.freeze_resnet()
-    for epoch in range(n_epochs):
-        print(f"Epoch {epoch}")
-        batch_n = 0
-        for img_batch, lmbda in zip(train_data, lmbdas):
+    for phase_num, training_phase in enumerate(recipe.all_phases):
+        print(f"Starting phase {phase_num + 1}/{len(recipe.all_phases)}")
+        print(training_phase)
+        phase_total_it = training_phase.max_itr
+        optimizer = torch.optim.Adam(wholenet.parameters(), lr=training_phase.lr)
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimizer,
+            phase_total_it,
+            eta_min=training_phase.end_lr
+            if training_phase.end_lr is not None
+            else 1e-6,
+        )
+
+        train_losses = []
+        for phase_it in range(phase_total_it):
+            # Iterate over the training data.
+            # When we run out of batches, we start from the beginning.
+            img_batch = next(train_iter)
             img_batch = img_batch.to(device)
             cur_softround_t = _linear_schedule(
-                *softround_temperature, samples_seen, total_iterations
+                *training_phase.softround_temperature,
+                samples_seen,
+                phase_total_it * batch_size,
             )
             cur_noise_param = _linear_schedule(
-                *noise_parameter, samples_seen, total_iterations
+                *training_phase.noise_parameter,
+                samples_seen,
+                phase_total_it * batch_size,
             )
             raw_out, rate, add_data = wholenet.forward(
                 img_batch,
                 softround_temperature=cur_softround_t,
                 noise_parameter=cur_noise_param,
-                quantizer_noise_type=quantizer_noise_type,
+                quantizer_noise_type=training_phase.quantizer_noise_type,
             )
             out_forward = CoolChicEncoderOutput(
                 raw_out=raw_out, rate=rate, additional_data=add_data
@@ -136,9 +146,6 @@ def train(
             ), "Loss is not a tensor"
             train_losses.append(
                 {
-                    "epoch": epoch,
-                    "samples_seen": samples_seen,
-                    "batch": batch_n,
                     "train_loss": loss_function_output.loss.item(),
                     "train_mse": loss_function_output.mse,
                     "train_total_rate_bpp": loss_function_output.total_rate_bpp,
@@ -183,9 +190,9 @@ def train(
                 print(eval_results)
                 wandb.log(
                     {
-                        "epoch": epoch,
-                        "batch": batch_n,
                         "samples_seen": samples_seen,
+                        "batch": batch_n,
+                        "phase_iteration": phase_it,
                         "n_iterations": samples_seen // batch_size,
                         **train_losses_avg,
                         **eval_results,
@@ -199,7 +206,7 @@ def train(
                     if eval_results["test_loss"] < best_test_loss:
                         best_model = wholenet.state_dict()
                         best_test_loss = eval_results["test_loss"]
-                        save_path = workdir / f"epoch_{epoch}_batch_{samples_seen}.pt"
+                        save_path = workdir / f"samples_{samples_seen}.pt"
                         torch.save(wholenet.state_dict(), save_path)
                     else:
                         # Reset to last best model.
