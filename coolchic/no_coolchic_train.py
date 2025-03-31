@@ -8,27 +8,13 @@ import wandb
 from coolchic.enc.utils.misc import get_best_device
 from coolchic.hypernet.hypernet import NOWholeNet
 from coolchic.hypernet.inference import eval_on_all_kodak
-from coolchic.hypernet.training import train
+from coolchic.hypernet.training import get_workdir_hypernet, train
 from coolchic.metalearning.data import OpenImagesDataset
-from coolchic.utils.paths import COOLCHIC_REPO_ROOT
 from coolchic.utils.structs import ConstantIterable
 from coolchic.utils.types import (
     HypernetRunConfig,
     load_config,
 )
-
-
-def get_workdir_hypernet(config: HypernetRunConfig, config_path: Path) -> Path:
-    workdir = (
-        config.workdir
-        if config.workdir is not None
-        # If no workdir is specified, results will be saved in results/{path_to_config_relative_to_cfg}/
-        else COOLCHIC_REPO_ROOT
-        / "results"
-        / config_path.relative_to("cfg").with_suffix("")
-    )
-    workdir.mkdir(parents=True, exist_ok=True)
-    return workdir
 
 
 def main():
