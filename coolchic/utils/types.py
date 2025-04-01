@@ -24,6 +24,9 @@ class PresetConfig(BaseModel):
     all_phases: list[TrainerPhase]
 
     def model_post_init(self, __context: Any) -> None:
+        if "hnet" in self.preset_name:
+            # Skip the quantization check when training a hypernet.
+            return
         # Check that we do quantize the model at least once during the training
         flag_quantize_model = False
         for training_phase in self.all_phases:

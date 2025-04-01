@@ -1,24 +1,26 @@
 n_samples: 500000
-batch_size: 16
+batch_size: 1
 patch_size: [256, 256]
-unfreeze_backbone: 20000 # After 20k samples, training is stable.
+unfreeze_backbone: 10000
 workdir: null
+model_weights: /itet-stor/jborrell/net_scratch/cool-chic/results/exps/no-cchic/batch-sweep/config_02/__latest
 disable_wandb: False
 lmbda: 1e-3
-user_tag: no-cchic-replication
+start_lr: 1e-3
+user_tag: delta-hn
 
 recipe:
-  preset_name: NO coolchic hnet training
+  preset_name: delta hnet training
   warmup:
     empty: True # This is a placeholder for the warmup phase.
   all_phases:
-    - lr: 1e-3
+    - lr: 1e-4
       max_itr: 4000000 # 500000 * 8 epochs
       quantize_model: False
       schedule_lr: True
       end_lr: 1e-6
       softround_temperature: [0.3, 0.1]
-      noise_parameter: [2.0, 1.0]
+      noise_parameter: [1.5, 1.0]
       quantizer_noise_type: "kumaraswamy"
       quantizer_type: "softround"
 
@@ -26,9 +28,11 @@ hypernet_cfg:
   synthesis:
     hidden_dim: 1024
     n_layers: 3
+    biases: False
   arm:
     hidden_dim: 1024
     n_layers: 3
+    biases: False
   upsampling:
     hidden_dim: 256
     n_layers: 1
