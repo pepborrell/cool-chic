@@ -82,15 +82,18 @@ def train(
     unfreeze_backbone_samples: int,
 ):
     wholenet = wholenet.to(device)
-    samples_seen = 0
-    batch_n = 0
-    best_model = wholenet.state_dict()
-    best_test_loss = float("inf")
     batch_size = train_data.batch_size
     assert batch_size is not None, "Batch size is None"
 
+    # Preliminary eval, to have a baseline of test loss.
+    best_model = wholenet.state_dict()
+    prelim_eval = evaluate_wholenet(wholenet, test_data, lmbda=lmbda, device=device)
+    best_test_loss = prelim_eval["test_loss"]
+
     # We cycle through the training data until necessary.
     train_iter = cycle(train_data)
+    samples_seen = 0
+    batch_n = 0
 
     # Starting training.
     wholenet.freeze_resnet()
