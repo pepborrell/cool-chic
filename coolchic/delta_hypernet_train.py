@@ -90,14 +90,11 @@ def main():
         train_data_loader,
         test_data_loader,
         wholenet=wholenet,
-        n_epochs=run_cfg.n_epochs,
+        recipe=run_cfg.recipe,
         lmbda=run_cfg.lmbda,
         unfreeze_backbone_samples=run_cfg.unfreeze_backbone,
-        start_lr=run_cfg.start_lr,
         workdir=workdir,
         device=device,
-        softround_temperature=run_cfg.softround_temperature,
-        noise_parameter=run_cfg.noise_parameter,
     )
 
     # Eval on kodak at end of training.
