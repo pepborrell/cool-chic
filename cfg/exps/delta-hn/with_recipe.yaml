@@ -6,7 +6,6 @@ workdir: null
 model_weights: /itet-stor/jborrell/net_scratch/cool-chic/results/exps/no-cchic/batch-sweep/config_02/__latest
 disable_wandb: False
 lmbda: 1e-3
-start_lr: 1e-3
 user_tag: delta-hn
 
 recipe:
