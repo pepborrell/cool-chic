@@ -166,6 +166,8 @@ def train(
             samples_seen += batch_size
             scheduler.step()
 
+            eval_results = None  # To make sure we only take fresh eval results.
+
             # In NO coolchic, logging every 5k samples means roughly every 5 mins.
             if (samples_seen % training_phase.freq_valid) < batch_size:
                 # Average train losses.
@@ -202,23 +204,30 @@ def train(
                     }
                 )
 
-                # Patience: save model every `patience` samples if it's better than the best model so far.
-                # In NO coolchic we go over 50k samples every hour.
-                if (samples_seen % training_phase.patience) < batch_size:
-                    # Only save if it's better than the best model so far.
-                    if eval_results["test_loss"] < best_test_loss:
-                        best_model = wholenet.state_dict()
-                        best_test_loss = eval_results["test_loss"]
-                        save_path = workdir / f"samples_{samples_seen}.pt"
-                        torch.save(wholenet.state_dict(), save_path)
-                    else:
-                        # Reset to last best model.
-                        wholenet.load_state_dict(best_model)
+            # Patience: save model every `patience` samples if it's better than the best model so far.
+            # In NO coolchic we go over 50k samples every hour.
+            if (samples_seen % training_phase.patience) < batch_size:
+                if eval_results is None:
+                    # Evaluate on test data
+                    eval_results = evaluate_wholenet(
+                        wholenet, test_data, lmbda=lmbda, device=device
+                    )
+                    print(eval_results)
+                # Only save if it's better than the best model so far.
+                if eval_results["test_loss"] < best_test_loss:
+                    best_model = wholenet.state_dict()
+                    best_test_loss = eval_results["test_loss"]
+                else:
+                    # Reset to last best model.
+                    wholenet.load_state_dict(best_model)
 
-                # Unfreeze backbone if needed
-                if samples_seen > unfreeze_backbone_samples:
-                    wholenet.unfreeze_resnet()
-                    print("Unfreezing backbone")
+            if (samples_seen % training_phase.checkpointing_freq) < batch_size:
+                save_path = workdir / f"samples_{samples_seen}.pt"
+                torch.save(best_model, save_path)
+
+            # Unfreeze backbone if needed
+            if samples_seen > unfreeze_backbone_samples:
+                wholenet.unfreeze_resnet()
 
     return wholenet
 

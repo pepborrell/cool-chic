@@ -23,6 +23,7 @@ recipe:
       quantizer_type: "softround"
       patience: 5000
       freq_valid: 1000
+      checkpointing_freq: 100000
 
 hypernet_cfg:
   synthesis:
