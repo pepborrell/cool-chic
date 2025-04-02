@@ -166,8 +166,8 @@ def train(
             samples_seen += batch_size
             scheduler.step()
 
-            # In NO coolchic, this means logging roughly every 5 mins.
-            if (samples_seen % 5000) < batch_size:
+            # In NO coolchic, logging every 5k samples means roughly every 5 mins.
+            if (samples_seen % training_phase.freq_valid) < batch_size:
                 # Average train losses.
                 train_losses_avg = {
                     "train_loss": torch.mean(
@@ -202,9 +202,9 @@ def train(
                     }
                 )
 
-                # Patience: save model every 50k samples if it's better than the best model so far.
-                # In NO coolchic this happens every hour.
-                if (samples_seen % 50000) < batch_size:
+                # Patience: save model every `patience` samples if it's better than the best model so far.
+                # In NO coolchic we go over 50k samples every hour.
+                if (samples_seen % training_phase.patience) < batch_size:
                     # Only save if it's better than the best model so far.
                     if eval_results["test_loss"] < best_test_loss:
                         best_model = wholenet.state_dict()
