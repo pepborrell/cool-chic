@@ -2,6 +2,7 @@ from itertools import cycle
 from pathlib import Path
 
 import torch
+from pydantic import BaseModel
 
 import wandb
 from coolchic.enc.component.coolchic import CoolChicEncoderOutput
@@ -12,6 +13,35 @@ from coolchic.hypernet.hypernet import WholeNet
 from coolchic.utils.nn import _linear_schedule, get_mlp_rate
 from coolchic.utils.paths import COOLCHIC_REPO_ROOT
 from coolchic.utils.types import HypernetRunConfig, PresetConfig
+
+
+class RunningTrainLoss(BaseModel):
+    run_loss: float = 0
+    run_mse: float = 0
+    run_total_rate_bpp: float = 0
+    run_psnr_db: float = 0
+    n_samples: int = 0
+
+    def add(self, loss_output: LossFunctionOutput) -> None:
+        # To make pyright happy.
+        assert isinstance(loss_output.loss, torch.Tensor), "Loss is not a tensor"
+        assert loss_output.mse is not None, "MSE is None"
+        assert loss_output.total_rate_bpp is not None, "Total rate bpp is None"
+        assert loss_output.psnr_db is not None, "PSNR db is None"
+
+        self.run_loss += loss_output.loss.detach().cpu().item()
+        self.run_mse += loss_output.mse
+        self.run_total_rate_bpp += loss_output.total_rate_bpp
+        self.run_psnr_db += loss_output.psnr_db
+        self.n_samples += 1
+
+    def average(self) -> dict[str, float]:
+        return {
+            "train_loss": self.run_loss / self.n_samples,
+            "train_mse": self.run_mse / self.n_samples,
+            "train_total_rate_bpp": self.run_total_rate_bpp / self.n_samples,
+            "train_psnr_db": self.run_psnr_db / self.n_samples,
+        }
 
 
 def evaluate_wholenet(
@@ -110,7 +140,7 @@ def train(
             else 1e-6,
         )
 
-        train_losses = []
+        train_losses = RunningTrainLoss()
         for phase_it in range(phase_total_it):
             # Iterate over the training data.
             # When we run out of batches, we start from the beginning.
@@ -147,14 +177,7 @@ def train(
             assert isinstance(
                 loss_function_output.loss, torch.Tensor
             ), "Loss is not a tensor"
-            train_losses.append(
-                {
-                    "train_loss": loss_function_output.loss.detach().cpu().item(),
-                    "train_mse": loss_function_output.mse,
-                    "train_total_rate_bpp": loss_function_output.total_rate_bpp,
-                    "train_psnr_db": loss_function_output.psnr_db,
-                }
-            )
+            train_losses.add(loss_function_output)
             total_loss = loss_function_output.loss
             optimizer.zero_grad()
             total_loss.backward()
@@ -171,23 +194,6 @@ def train(
             # In NO coolchic, logging every 5k samples means roughly every 5 mins.
             if (samples_seen % training_phase.freq_valid) < batch_size:
                 # Average train losses.
-                train_losses_avg = {
-                    "train_loss": torch.mean(
-                        torch.tensor([loss["train_loss"] for loss in train_losses])
-                    ),
-                    "train_mse": torch.mean(
-                        torch.tensor([loss["train_mse"] for loss in train_losses])
-                    ),
-                    "train_psnr_db": torch.mean(
-                        torch.tensor([loss["train_psnr_db"] for loss in train_losses])
-                    ),
-                    "train_total_rate_bpp": torch.mean(
-                        torch.tensor(
-                            [loss["train_total_rate_bpp"] for loss in train_losses]
-                        )
-                    ),
-                }
-                train_losses = []
                 # Evaluate on test data
                 eval_results = evaluate_wholenet(
                     wholenet, test_data, lmbda=lmbda, device=device
@@ -199,10 +205,11 @@ def train(
                         "batch": batch_n,
                         "phase_iteration": phase_it,
                         "n_iterations": samples_seen // batch_size,
-                        **train_losses_avg,
+                        **train_losses.average(),
                         **eval_results,
                     }
                 )
+                train_losses = RunningTrainLoss()
 
             # Patience: save model every `patience` samples if it's better than the best model so far.
             # In NO coolchic we go over 50k samples every hour.
