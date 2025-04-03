@@ -149,7 +149,7 @@ def train(
             ), "Loss is not a tensor"
             train_losses.append(
                 {
-                    "train_loss": loss_function_output.loss.item(),
+                    "train_loss": loss_function_output.loss.detach().cpu().item(),
                     "train_mse": loss_function_output.mse,
                     "train_total_rate_bpp": loss_function_output.total_rate_bpp,
                     "train_psnr_db": loss_function_output.psnr_db,
