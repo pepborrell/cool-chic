@@ -21,8 +21,8 @@ recipe:
       noise_parameter: [2.0, 1.0]
       quantizer_noise_type: "kumaraswamy"
       quantizer_type: "softround"
-      patience: 50000
-      freq_valid: 1000
+      patience: 100
+      freq_valid: 10000
       checkpointing_freq: 100000
 
 hypernet_cfg:
