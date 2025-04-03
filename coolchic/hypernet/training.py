@@ -236,9 +236,6 @@ def train(
             if samples_seen > unfreeze_backbone_samples:
                 wholenet.unfreeze_resnet()
 
-            # Remove previous batch from memory, to avoid memory leaks.
-            del img_batch
-
     return wholenet
 
 
