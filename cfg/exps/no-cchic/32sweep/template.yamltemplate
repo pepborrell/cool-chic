@@ -36,6 +36,7 @@ hypernet_cfg:
     hidden_dim: 256
     n_layers: 1
   backbone_arch: resnet50
+  n_hidden_channels: 32
 
   dec_cfg:
     config_name: hop

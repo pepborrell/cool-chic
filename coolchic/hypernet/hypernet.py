@@ -19,20 +19,26 @@ from coolchic.utils.types import HyperNetConfig
 
 
 class LatentHyperNet(nn.Module):
-    def __init__(self, n_latents: int = 7) -> None:
+    def __init__(self, n_latents: int = 7, n_hidden_channels: int = 64) -> None:
         super().__init__()
         self.n_latents = n_latents
+        self.n_hidden_channels = n_hidden_channels
 
         self.residual_blocks = nn.ModuleList(
             [
-                ResidualBlockDown(64, 64, downsample_n=2)
+                ResidualBlockDown(
+                    self.n_hidden_channels, self.n_hidden_channels, downsample_n=2
+                )
                 if i > 0
-                else ResidualBlockDown(3, 64, downsample_n=1)
+                else ResidualBlockDown(3, self.n_hidden_channels, downsample_n=1)
                 for i in range(self.n_latents)
             ]
         )
         self.conv1ds = nn.ModuleList(
-            [nn.Conv2d(64, 1, kernel_size=1, padding=0) for _ in range(self.n_latents)]
+            [
+                nn.Conv2d(self.n_hidden_channels, 1, kernel_size=1, padding=0)
+                for _ in range(self.n_latents)
+            ]
         )
 
         # For flop analysis.
@@ -917,7 +923,10 @@ class NOWholeNet(WholeNet):
         )
         coolchic_encoder_parameter.set_image_size(config.patch_size)
 
-        self.encoder = LatentHyperNet(n_latents=self.config.n_latents)
+        self.encoder = LatentHyperNet(
+            n_latents=self.config.n_latents,
+            n_hidden_channels=self.config.n_hidden_channels,
+        )
         self.mean_decoder = LatentDecoder(param=coolchic_encoder_parameter)
 
     def forward(
