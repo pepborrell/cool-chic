@@ -30,7 +30,7 @@ def main():
 
     # Automatic device detection
     device = get_best_device()
-    print(f'{"Device":<20}: {device}')
+    print(f"{device=}")
 
     # Load data
     train_data = OpenImagesDataset(
