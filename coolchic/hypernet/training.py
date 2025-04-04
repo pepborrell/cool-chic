@@ -52,7 +52,11 @@ def evaluate_wholenet(
 ) -> dict[str, float]:
     net.eval()
     with torch.no_grad():
-        all_losses: list[LossFunctionOutput] = []
+        all_losses: list[float] = []
+        all_mse_losses: list[float] = []
+        all_psnr_db: list[float] = []
+        all_total_rate_bpp: list[float] = []
+
         rate_mlp: float | None = None
         for test_img in test_data:
             test_img = test_img.to(device)
@@ -74,6 +78,7 @@ def evaluate_wholenet(
                 cc_enc = quantize_model(encoder=cc_enc, input_img=test_img, lmbda=lmbda)
                 rate_mlp = get_mlp_rate(cc_enc)
                 del cc_enc  # I suspect cc_enc has memory leaks, so we delete it.
+                torch.cuda.empty_cache()
 
             test_loss = loss_function(
                 test_out.raw_out,
@@ -83,18 +88,15 @@ def evaluate_wholenet(
                 rate_mlp_bit=rate_mlp,
                 compute_logs=True,
             )
-            all_losses.append(test_loss)
+            assert isinstance(test_loss.loss, torch.Tensor), "Loss is not a tensor"
+            all_losses.append(test_loss.loss.detach().cpu().item())
 
-        loss_tensor = torch.stack([loss.loss for loss in all_losses])  # pyright: ignore
+        loss_tensor = torch.tensor(all_losses)
         avg_loss = torch.mean(loss_tensor).item()
         std_loss = torch.std(loss_tensor).item()
-        avg_mse = torch.mean(torch.tensor([loss.mse for loss in all_losses])).item()
-        avg_psnr_db = torch.mean(
-            torch.tensor([loss.psnr_db for loss in all_losses])
-        ).item()
-        avg_total_rate_bpp = torch.mean(
-            torch.tensor([loss.total_rate_bpp for loss in all_losses])
-        ).item()
+        avg_mse = torch.mean(torch.tensor(all_mse_losses)).item()
+        avg_psnr_db = torch.mean(torch.tensor(all_psnr_db)).item()
+        avg_total_rate_bpp = torch.mean(torch.tensor(all_total_rate_bpp)).item()
     # Switch back to training mode.
     net.train()
     return {
