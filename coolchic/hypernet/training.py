@@ -102,6 +102,14 @@ def evaluate_wholenet(
             )
             assert isinstance(test_loss.loss, torch.Tensor), "Loss is not a tensor"
             all_losses.append(test_loss.loss.detach().cpu().item())
+            assert (
+                test_loss.mse is not None
+                and test_loss.psnr_db is not None
+                and test_loss.total_rate_bpp is not None
+            ), "Either MSE, PSNR db or total rate bpp is None"
+            all_mse_losses.append(test_loss.mse)
+            all_psnr_db.append(test_loss.psnr_db)
+            all_total_rate_bpp.append(test_loss.total_rate_bpp)
 
         loss_tensor = torch.tensor(all_losses)
         avg_loss = torch.mean(loss_tensor).item()
