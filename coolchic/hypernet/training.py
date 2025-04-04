@@ -53,6 +53,7 @@ def evaluate_wholenet(
     net.eval()
     with torch.no_grad():
         all_losses: list[LossFunctionOutput] = []
+        rate_mlp: float | None = None
         for test_img in test_data:
             test_img = test_img.to(device)
             raw_out, rate, add_data = net.forward(
@@ -64,11 +65,15 @@ def evaluate_wholenet(
                 raw_out=raw_out, rate=rate, additional_data=add_data
             )
 
-            # getting mlp rate involves "mocking" a model quantization.
-            cc_enc = net.image_to_coolchic(test_img, stop_grads=True)
-            cc_enc._store_full_precision_param()
-            cc_enc = quantize_model(encoder=cc_enc, input_img=test_img, lmbda=lmbda)
-            rate_mlp = get_mlp_rate(cc_enc)
+            # The MLP rate is very roughly the same for all images, so we calculate it
+            # once for the whole batch.
+            if not rate_mlp:
+                # getting mlp rate involves "mocking" a model quantization.
+                cc_enc = net.image_to_coolchic(test_img, stop_grads=True)
+                cc_enc._store_full_precision_param()
+                cc_enc = quantize_model(encoder=cc_enc, input_img=test_img, lmbda=lmbda)
+                rate_mlp = get_mlp_rate(cc_enc)
+                del cc_enc  # I suspect cc_enc has memory leaks, so we delete it.
 
             test_loss = loss_function(
                 test_out.raw_out,
