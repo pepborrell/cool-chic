@@ -1,4 +1,3 @@
-from itertools import cycle
 from pathlib import Path
 
 import torch
@@ -13,6 +12,19 @@ from coolchic.hypernet.hypernet import WholeNet
 from coolchic.utils.nn import _linear_schedule, get_mlp_rate
 from coolchic.utils.paths import COOLCHIC_REPO_ROOT
 from coolchic.utils.types import HypernetRunConfig, PresetConfig
+
+
+def cycle(iterable):
+    """Cycle through an iterable indefinitely.
+    Implemented here because itertools.cycle saves all elements,
+    introducing memory leaks.
+    """
+    iterator = iter(iterable)
+    while True:
+        try:
+            yield next(iterator)
+        except StopIteration:
+            iterator = iter(iterable)
 
 
 class RunningTrainLoss(BaseModel):
