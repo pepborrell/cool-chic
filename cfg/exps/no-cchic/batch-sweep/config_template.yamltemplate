@@ -21,7 +21,7 @@ recipe:
       noise_parameter: [2.0, 1.0]
       quantizer_noise_type: "kumaraswamy"
       quantizer_type: "softround"
-      patience: 5000
+      patience: 10000
       freq_valid: 5000
       checkpointing_freq: 100000
 
