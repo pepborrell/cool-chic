@@ -3,9 +3,9 @@ batch_size: 1
 patch_size: [256, 256]
 unfreeze_backbone: 10000
 workdir: null
-model_weights: /itet-stor/jborrell/net_scratch/cool-chic/results/exps/no-cchic/batch-sweep/{lmbda_config_num}/__latest
+model_weights: /itet-stor/jborrell/net_scratch/cool-chic/results/exps/no-cchic/batch-sweep/config_02/__latest
 disable_wandb: False
-lmbda: {lambda_value}
+lmbda: 1e-3
 user_tag: delta-hn
 
 recipe:
@@ -14,7 +14,7 @@ recipe:
     empty: True # This is a placeholder for the warmup phase.
   all_phases:
     - lr: 1e-4
-      max_itr: 1000000
+      max_itr: 4000000 # 500000 * 8 epochs
       quantize_model: False
       schedule_lr: True
       end_lr: 1e-6
@@ -22,9 +22,9 @@ recipe:
       noise_parameter: [1.5, 1.0]
       quantizer_noise_type: "kumaraswamy"
       quantizer_type: "softround"
-      patience: 1000
-      freq_valid: 1000
-      checkpointing_freq: 10000
+      patience: 50000
+      freq_valid: 5000
+      checkpointing_freq: 100000
 
 hypernet_cfg:
   synthesis:

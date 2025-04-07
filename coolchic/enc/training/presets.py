@@ -81,6 +81,7 @@ class TrainerPhase(BaseModel):
     max_itr: int = 5000
     freq_valid: int = 100
     patience: int = 10000
+    checkpointing_freq: int = 10000
     quantize_model: bool = False
     schedule_lr: bool = False
     end_lr: float | None = None
