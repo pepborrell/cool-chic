@@ -82,6 +82,7 @@ class TrainerPhase(BaseModel):
     freq_valid: int = 100
     patience: int = 10000
     checkpointing_freq: int = 10000
+    gradient_accumulation: int = 1
     quantize_model: bool = False
     schedule_lr: bool = False
     end_lr: float | None = None
