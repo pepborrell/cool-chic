@@ -1106,3 +1106,20 @@ class DeltaWholeNet(WholeNet):
         # zero. (Output initially is the same as the NO CoolChic model
         # we initialized with).
         self.hypernet.init_deltas()
+
+        # Check outputs are the same. Otherwise it means it wasn't learned properly.
+        img = torch.randn(1, 3, 256, 256)
+        img = img.to(next(self.parameters()).device)
+        no_output, _, _ = no_coolchic.forward(
+            img,
+            quantizer_noise_type="none",
+            quantizer_type="hardround",
+        )
+        output, _, _ = self.forward(
+            img,
+            quantizer_noise_type="none",
+            quantizer_type="hardround",
+        )
+        assert torch.allclose(
+            no_output, output, atol=1e-6
+        ), "Outputs are not the same. Something went wrong."
