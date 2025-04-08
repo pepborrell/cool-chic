@@ -1122,5 +1122,5 @@ class DeltaWholeNet(WholeNet):
             quantizer_type="hardround",
         )
         assert torch.allclose(
-            no_output, output, atol=1e-6
+            no_output.cpu().detach(), output.cpu().detach(), atol=1e-6
         ), "Outputs are not the same. Something went wrong."
