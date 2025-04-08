@@ -48,7 +48,7 @@ def main():
 
         # If model has name latest, take the latest in the folder.
         if run_cfg.model_weights.stem == "__latest":
-            # Weights formatted like epoch_7_batch_3550000.pt, we take the highest sample number.
+            # Weights formatted like samples_130000.pt, we take the highest sample number.
             checkpoints = [
                 file
                 for file in run_cfg.model_weights.parent.iterdir()
