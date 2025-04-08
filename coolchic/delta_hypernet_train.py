@@ -73,11 +73,6 @@ def main():
         # We don't want to train this from scratch anymore.
         raise ValueError("Model weights must be provided.")
 
-    # The part that comes from NO coolchic is already trained.
-    # Let's freeze that.
-    for param in wholenet.mean_decoder.parameters():
-        param.requires_grad = False
-
     ##### LOGGING #####
     # Setting up all logging using wandb.
     if run_cfg.disable_wandb:
