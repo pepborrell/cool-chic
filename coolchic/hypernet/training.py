@@ -151,7 +151,6 @@ def train(
     train_iter = cycle(train_data)
     samples_seen = 0
     batch_n = 0
-    total_loss = 0.0
 
     # Starting training.
     wholenet.freeze_resnet()
@@ -206,16 +205,14 @@ def train(
                 loss_function_output.loss, torch.Tensor
             ), "Loss is not a tensor"
             train_losses.add(loss_function_output)
-            total_loss += loss_function_output.loss
+            loss_function_output.loss.backward()
 
             # Gradient accumulation. Probably not a good idea to use with batches larger than 1.
             if (samples_seen % training_phase.gradient_accumulation) < batch_size:
-                optimizer.zero_grad()
-                total_loss.backward()
                 # Clip gradients to avoid exploding gradients.
                 torch.nn.utils.clip_grad_norm_(wholenet.parameters(), 1.0)
                 optimizer.step()
-                total_loss = 0.0
+                optimizer.zero_grad()
 
             batch_n += 1
             samples_seen += batch_size
