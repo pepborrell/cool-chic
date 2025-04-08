@@ -1109,12 +1109,13 @@ class DeltaWholeNet(WholeNet):
 
         # Check outputs are the same. Otherwise it means it wasn't learned properly.
         img = torch.randn(1, 3, 256, 256)
-        img = img.to(next(self.parameters()).device)
+        img = img.to(next(no_coolchic.parameters()).device)
         no_output, _, _ = no_coolchic.forward(
             img,
             quantizer_noise_type="none",
             quantizer_type="hardround",
         )
+        img = img.to(next(self.parameters()).device)
         output, _, _ = self.forward(
             img,
             quantizer_noise_type="none",
