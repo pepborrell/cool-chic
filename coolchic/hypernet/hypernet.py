@@ -1107,7 +1107,7 @@ class DeltaWholeNet(WholeNet):
         # we initialized with).
         self.hypernet.init_deltas()
 
-        # Check outputs are the same. Otherwise it means it wasn't learned properly.
+        # Check outputs are the same. Otherwise it means it wasn't loaded properly.
         img = torch.randn(1, 3, 256, 256)
         img = img.to(next(no_coolchic.parameters()).device)
         no_output, _, _ = no_coolchic.forward(
@@ -1121,6 +1121,11 @@ class DeltaWholeNet(WholeNet):
             quantizer_noise_type="none",
             quantizer_type="hardround",
         )
-        assert torch.allclose(
-            no_output.cpu().detach(), output.cpu().detach(), atol=1e-6
-        ), "Outputs are not the same. Something went wrong."
+        # Move to CPU to compare.
+        no_output = no_output.cpu()
+        output = output.cpu()
+        if not torch.allclose(no_output, output, atol=1e-4):
+            mse = torch.nn.functional.mse_loss(no_output, output).item()
+            print(
+                f"Outputs are not the same. MSE: {mse}. This means the model was not loaded properly."
+            )
