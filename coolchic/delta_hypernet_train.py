@@ -61,6 +61,9 @@ def main():
         assert (
             run_cfg.model_weights.exists()
         ), "Specified model weights path doesn't exist."
+        assert (
+            run_cfg.model_weights.suffix == ".pt"
+        ), "Model weights must be a .pt file."
         print(f"Loading model weights from {run_cfg.model_weights}")
         no_model = load_hypernet(
             weights_path=run_cfg.model_weights, config=run_cfg, wholenet_cls=NOWholeNet
