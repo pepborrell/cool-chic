@@ -1019,13 +1019,17 @@ class DeltaWholeNet(WholeNet):
             synth_deltas = [delta for delta in s_delta_dict.values()]
             # arm_deltas = [delta for delta in arm_delta_dict.values()]
             # arm deltas will be zeros instead.
-            arm_deltas = [torch.tensor(0)] * (self.hypernet.arm_hn.n_hidden_layers + 1)
+            arm_deltas = [torch.tensor(0.0)] * (
+                self.hypernet.arm_hn.n_hidden_layers + 1
+            )
         else:
             latents = self.hypernet.latent_forward(img)
-            synth_deltas = [torch.tensor(0)] * len(
+            synth_deltas = [torch.tensor(0.0)] * len(
                 self.hypernet.synthesis_hn.layer_info
             )
-            arm_deltas = [torch.tensor(0)] * (self.hypernet.arm_hn.n_hidden_layers + 1)
+            arm_deltas = [torch.tensor(0.0)] * (
+                self.hypernet.arm_hn.n_hidden_layers + 1
+            )
 
         return self.mean_decoder.forward(
             latents=latents,
@@ -1048,13 +1052,17 @@ class DeltaWholeNet(WholeNet):
             synth_deltas = [delta for delta in s_delta_dict.values()]
             # arm_deltas = [delta for delta in arm_delta_dict.values()]
             # arm deltas will be zeros instead.
-            arm_deltas = [torch.tensor(0)] * (self.hypernet.arm_hn.n_hidden_layers + 1)
+            arm_deltas = [torch.tensor(0.0)] * (
+                self.hypernet.arm_hn.n_hidden_layers + 1
+            )
         else:
             latents = self.hypernet.latent_forward(img)
-            synth_deltas = [torch.tensor(0)] * len(
+            synth_deltas = [torch.tensor(0.0)] * len(
                 self.hypernet.synthesis_hn.layer_info
             )
-            arm_deltas = [torch.tensor(0)] * (self.hypernet.arm_hn.n_hidden_layers + 1)
+            arm_deltas = [torch.tensor(0.0)] * (
+                self.hypernet.arm_hn.n_hidden_layers + 1
+            )
 
         return self.mean_decoder.as_coolchic(
             latents=latents,
