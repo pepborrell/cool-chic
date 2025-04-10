@@ -1,13 +1,29 @@
 n_samples: 10
-n_epochs: 1
 batch_size: 2
-softround_temperature: [0.3, 0.3]
-noise_parameter: [0.25, 0.25]
+patch_size: [128, 128]
 unfreeze_backbone: 0
 workdir: null
 disable_wandb: True
 lmbda: 1e-3
 user_tag: no-cchic-debug
+
+recipe:
+  preset_name: NO coolchic hnet debugging
+  warmup:
+    empty: True # This is a placeholder for the warmup phase.
+  all_phases:
+    - lr: 1e-3
+      max_itr: 100
+      quantize_model: False
+      schedule_lr: True
+      end_lr: 1e-6
+      softround_temperature: [0.3, 0.1]
+      noise_parameter: [2.0, 1.0]
+      quantizer_noise_type: "kumaraswamy"
+      quantizer_type: "softround"
+      patience: 100
+      freq_valid: 10000
+      checkpointing_freq: 100000
 
 hypernet_cfg:
   synthesis:

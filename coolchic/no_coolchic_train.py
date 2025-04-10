@@ -56,6 +56,7 @@ def main():
 
     ##### INSTANTIATE MODEL #####
     model = NOWholeNet(run_cfg.hypernet_cfg)
+    model = torch.compile(model)
 
     # Train
     net = train(
