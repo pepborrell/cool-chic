@@ -163,9 +163,10 @@ def warmup(
                 img_batch = img_batch.to(device)
                 raw_out, rate, add_data = model.forward(
                     img_batch,
-                    softround_temperature=0.0,
-                    noise_parameter=0.0,
-                    quantizer_noise_type="none",
+                    softround_temperature=0.3,
+                    noise_parameter=2.0,
+                    quantizer_noise_type="kumaraswamy",
+                    quantizer_type="softround",
                 )
                 out_forward = CoolChicEncoderOutput(
                     raw_out=raw_out, rate=rate, additional_data=add_data
