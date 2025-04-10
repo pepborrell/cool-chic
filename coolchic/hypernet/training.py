@@ -141,6 +141,8 @@ def train(
     wholenet = wholenet.to(device)
     batch_size = train_data.batch_size
     assert batch_size is not None, "Batch size is None"
+    # If model is compiled, set precision to high for extra performance.
+    torch.set_float32_matmul_precision("high")
 
     # Preliminary eval, to have a baseline of test loss.
     best_model = wholenet.state_dict()
