@@ -8,7 +8,7 @@ from coolchic.enc.component.coolchic import CoolChicEncoderOutput
 from coolchic.enc.training.loss import LossFunctionOutput, loss_function
 from coolchic.enc.training.quantizemodel import quantize_model
 from coolchic.enc.utils.misc import POSSIBLE_DEVICE
-from coolchic.hypernet.hypernet import WholeNet
+from coolchic.hypernet.hypernet import NOWholeNet, WholeNet
 from coolchic.utils.nn import _linear_schedule, get_mlp_rate
 from coolchic.utils.paths import COOLCHIC_REPO_ROOT
 from coolchic.utils.types import HypernetRunConfig, PresetConfig
@@ -128,6 +128,74 @@ def evaluate_wholenet(
     }
 
 
+def warmup(
+    model: WholeNet,
+    train_data: torch.utils.data.DataLoader,
+    recipe: PresetConfig,
+    lmbda: float,
+    test_data: torch.utils.data.DataLoader,
+    device: POSSIBLE_DEVICE,
+) -> tuple[WholeNet, float]:
+    """Warmup the model by training it for a few iterations on the training data.
+    This is done to find the best initialization for the model before training it.
+    Currently only works for NOWholeNet.
+    """
+    if len(recipe.warmup.phases) == 0:
+        print("No warmup phase specified. Skipping warmup.")
+        return model, float("inf")
+    best_warmup_loss = float("inf")
+    best_candidate = model.state_dict()
+
+    print("Starting warmup.")
+    if isinstance(model, NOWholeNet):
+        warmup_optim = torch.optim.Adam(model.parameters(), lr=1e-3)
+        assert len(recipe.warmup.phases) == 1, "Warmup only works for one phase."
+        warmup_phase = recipe.warmup.phases[0]
+        for i_cand in range(warmup_phase.candidates):
+            print(f"Candidate {i_cand + 1}/{warmup_phase.candidates}")
+            model.mean_decoder.reinitialize_parameters()
+            # TODO: implement init of analysis transform weights.
+            # model.encoder.init_weights()
+
+            for i, img_batch in enumerate(train_data):
+                if i >= warmup_phase.training_phase.max_itr:
+                    break
+                img_batch = img_batch.to(device)
+                raw_out, rate, add_data = model.forward(
+                    img_batch,
+                    softround_temperature=0.0,
+                    noise_parameter=0.0,
+                    quantizer_noise_type="none",
+                )
+                out_forward = CoolChicEncoderOutput(
+                    raw_out=raw_out, rate=rate, additional_data=add_data
+                )
+                loss_function_output = loss_function(
+                    out_forward.raw_out,
+                    out_forward.rate,
+                    img_batch,
+                    lmbda=lmbda,
+                    rate_mlp_bit=0.0,
+                    compute_logs=True,
+                )
+                assert isinstance(
+                    loss_function_output.loss, torch.Tensor
+                ), "Loss is not a tensor"
+                loss_function_output.loss.backward()
+                warmup_optim.step()
+                warmup_optim.zero_grad()
+
+            eval_results = evaluate_wholenet(
+                model, test_data, lmbda=lmbda, device=device
+            )
+            if eval_results["test_loss"] < best_warmup_loss:
+                best_candidate = model.state_dict()
+                best_warmup_loss = eval_results["test_loss"]
+
+    model.load_state_dict(best_candidate)
+    return model, best_warmup_loss
+
+
 def train(
     train_data: torch.utils.data.DataLoader,
     test_data: torch.utils.data.DataLoader,
@@ -156,6 +224,11 @@ def train(
 
     # Starting training.
     wholenet.freeze_resnet()
+    # Try several model inits, then take the best one to train from it.
+    wholenet, best_test_loss = warmup(
+        wholenet, train_data, recipe, lmbda, test_data, device
+    )
+    # Proper training.
     for phase_num, training_phase in enumerate(recipe.all_phases):
         print(f"Starting phase {phase_num + 1}/{len(recipe.all_phases)}")
         print(training_phase)
