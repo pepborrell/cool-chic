@@ -192,6 +192,9 @@ def warmup(
             if eval_results["test_loss"] < best_warmup_loss:
                 best_candidate = model.state_dict()
                 best_warmup_loss = eval_results["test_loss"]
+            print(
+                f"Candidate {i_cand + 1}/{warmup_phase.candidates} loss: {eval_results['test_loss']:.4e}, best loss: {best_warmup_loss:.4e}"
+            )
 
     model.load_state_dict(best_candidate)
     return model, best_warmup_loss
