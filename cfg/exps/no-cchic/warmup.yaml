@@ -13,7 +13,7 @@ recipe:
     phases:
       - candidates: 3
         training_phase:
-          max_itr: 100
+          max_itr: 400 # This is cheap(ish).
   all_phases:
     - lr: 1e-3
       max_itr: 1000000 # 1M iterations.

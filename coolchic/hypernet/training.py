@@ -215,11 +215,6 @@ def train(
     # If model is compiled, set precision to high for extra performance.
     torch.set_float32_matmul_precision("high")
 
-    # Preliminary eval, to have a baseline of test loss.
-    best_model = wholenet.state_dict()
-    prelim_eval = evaluate_wholenet(wholenet, test_data, lmbda=lmbda, device=device)
-    best_test_loss = prelim_eval["test_loss"]
-
     # We cycle through the training data until necessary.
     train_iter = cycle(train_data)
     samples_seen = 0
@@ -231,6 +226,14 @@ def train(
     wholenet, best_test_loss = warmup(
         wholenet, train_data, recipe, lmbda, test_data, device
     )
+    # Best model so far is the one selected after warmup.
+    best_model = wholenet.state_dict()
+    # In case warmup didn't run for this.
+    if best_test_loss == float("inf"):
+        # Preliminary eval, to have a baseline of test loss.
+        prelim_eval = evaluate_wholenet(wholenet, test_data, lmbda=lmbda, device=device)
+        best_test_loss = prelim_eval["test_loss"]
+
     # Proper training.
     for phase_num, training_phase in enumerate(recipe.all_phases):
         print(f"Starting phase {phase_num + 1}/{len(recipe.all_phases)}")
