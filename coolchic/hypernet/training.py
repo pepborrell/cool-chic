@@ -154,8 +154,7 @@ def warmup(
         for i_cand in range(warmup_phase.candidates):
             print(f"Candidate {i_cand + 1}/{warmup_phase.candidates}")
             model.mean_decoder.reinitialize_parameters()
-            # TODO: implement init of analysis transform weights.
-            # model.encoder.init_weights()
+            model.encoder.reinitialize_parameters()
 
             for i, img_batch in enumerate(train_data):
                 if i >= warmup_phase.training_phase.max_itr:

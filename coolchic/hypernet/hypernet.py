@@ -51,6 +51,18 @@ class LatentHyperNet(nn.Module):
             outputs.append(self.conv1ds[i](x))
         return outputs
 
+    def _init_weights(self, m: nn.Module) -> None:
+        if isinstance(m, ResidualBlockDown):
+            m.reset_weights()
+        elif isinstance(m, nn.Conv2d):
+            # Initialize the conv layers with a normal distribution.
+            nn.init.trunc_normal_(m.weight, std=0.02)
+            if m.bias is not None:
+                nn.init.zeros_(m.bias)
+
+    def reinitialize_parameters(self) -> None:
+        self.apply(self._init_weights)
+
     def get_flops(self) -> int:
         """Compute the number of MAC & parameters for the model.
         Update ``self.total_flops`` (integer describing the number of total MAC)
