@@ -3,7 +3,7 @@ batch_size: 1
 patch_size: [256, 256]
 unfreeze_backbone: 10000
 workdir: null
-model_weights: /itet-stor/jborrell/net_scratch/cool-chic/results/exps/no-cchic/batch-sweep/config_02/samples_1000000.pt # Init with a model that's trained but not too much (1M samples).
+model_weights: /itet-stor/jborrell/net_scratch/cool-chic/results/exps/no-cchic/warmup-sweep/config_02/samples_1000000.pt # Init with a model that's trained but not too much (1M samples).
 disable_wandb: False
 lmbda: 0.001
 user_tag: delta-hn
