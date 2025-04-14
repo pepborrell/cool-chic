@@ -30,6 +30,9 @@ def build_mlp(
     return nn.Sequential(*layers_list)
 
 
+CONV_NEXT_BLOCK_SCALE_INIT = 1e-6
+
+
 class ConvNextBlock(nn.Module):
     def __init__(self, n_channels: int) -> None:
         super().__init__()
@@ -52,18 +55,35 @@ class ConvNextBlock(nn.Module):
         self.layer_norm = nn.GroupNorm(num_groups=1, num_channels=self.n_channels)
         self.gelu = nn.GELU()
 
+        self.gamma = nn.Parameter(
+            torch.full((self.n_channels,), CONV_NEXT_BLOCK_SCALE_INIT)
+        )  # Scale parameter for the residual connection
+
         ### INITIALIZATION ###
+        self._init_weights()
+
+    def _init_weights(self):
         nn.init.kaiming_normal_(self.dw_conv.weight, mode="fan_in")
         nn.init.kaiming_normal_(self.conv1.weight, mode="fan_in")
-        # Last layer is initialized to zero, so that the block is an identity function by default.
-        nn.init.zeros_(self.conv2.weight)
+        nn.init.kaiming_normal_(self.conv2.weight, mode="fan_in")
+        assert self.dw_conv.bias is not None, "dw_conv bias is None."
+        nn.init.zeros_(self.dw_conv.bias)
+        # conv1 and conv2 have no bias.
+
+        # Initialize the scale parameter
+        nn.init.constant_(self.gamma, CONV_NEXT_BLOCK_SCALE_INIT)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # Input has size (B, C, H, W)
         z = self.dw_conv(x)
         z = self.layer_norm(z)
         z = self.conv1(z)
         z = self.gelu(z)
-        z = self.conv2(z)
+        z = self.conv2(z)  # (B, C, H, W)
+        # Scale the output.
+        z = (
+            self.gamma.view(1, self.n_channels, 1, 1) * z
+        )  # Broadcasting to make multiplication work.
         return z + x  # Residual connection
 
 
@@ -109,6 +129,8 @@ class ResidualBlockDown(nn.Module):
             2, stride=self.downsample_n, padding=0, ceil_mode=True
         )
 
+        self.reset_weights()
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # Branch 1
         z = self.strided_conv(x)
@@ -123,6 +145,22 @@ class ResidualBlockDown(nn.Module):
         z = z + y
         z = self.convnexts_post(z)
         return z
+
+    def _init_weights(self, m: nn.Module) -> None:
+        """Initialize the weights as done in the ConvNeXt paper.
+        https://github.com/facebookresearch/ConvNeXt/blob/main/models/convnext.py#L103
+        """
+        if isinstance(m, (nn.Conv2d, nn.Linear)):
+            nn.init.trunc_normal_(m.weight, std=0.02)
+            if m.bias is not None:
+                nn.init.constant_(m.bias, 0)
+
+        elif isinstance(m, ConvNextBlock):
+            m._init_weights()
+
+    def reset_weights(self):
+        """Reset the weights of the model."""
+        self.apply(self._init_weights)
 
 
 def select_param_from_name(obj: nn.Module, name: str) -> tuple[torch.Tensor, nn.Module]:

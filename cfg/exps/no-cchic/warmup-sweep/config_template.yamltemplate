@@ -1,19 +1,22 @@
-n_samples: 10
-batch_size: 2
-patch_size: [128, 128]
-unfreeze_backbone: 0
+n_samples: 500000
+batch_size: 16
+patch_size: [256, 256]
+unfreeze_backbone: 20000 # After 20k samples, training is stable.
 workdir: null
-disable_wandb: True
-lmbda: 1e-3
-user_tag: no-cchic-debug
+disable_wandb: False
+lmbda: {lambda_value}
+user_tag: no-cchic-replication
 
 recipe:
-  preset_name: NO coolchic hnet debugging
+  preset_name: NO coolchic hnet training
   warmup:
-    empty: True # This is a placeholder for the warmup phase.
+    phases:
+      - candidates: 3
+        training_phase:
+          max_itr: 400 # This is cheap(ish).
   all_phases:
     - lr: 1e-3
-      max_itr: 100
+      max_itr: 1000000 # 1M iterations.
       quantize_model: False
       schedule_lr: True
       end_lr: 1e-6
@@ -21,9 +24,9 @@ recipe:
       noise_parameter: [2.0, 1.0]
       quantizer_noise_type: "kumaraswamy"
       quantizer_type: "softround"
-      patience: 100
-      freq_valid: 10000
-      checkpointing_freq: 100000
+      patience: 50000 # every 15 mins or so.
+      freq_valid: 50000 # every 15 mins or so.
+      checkpointing_freq: 50000
 
 hypernet_cfg:
   synthesis:
@@ -36,7 +39,7 @@ hypernet_cfg:
     hidden_dim: 256
     n_layers: 1
   backbone_arch: resnet50
-  
+
   dec_cfg:
     config_name: hop
     arm: 16,2
