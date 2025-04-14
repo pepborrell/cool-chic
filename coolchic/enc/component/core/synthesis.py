@@ -202,7 +202,7 @@ class Synthesis(nn.Module):
     possible_non_linearity = {
         "none": nn.Identity,
         "relu": nn.ReLU,
-        # "leakyrelu": nn.LeakyReLU,    # Unsupported by the decoder
+        "leakyrelu": nn.LeakyReLU,  # Unsupported by the decoder
         # "gelu": nn.GELU,              # Unsupported by the decoder
     }
 
