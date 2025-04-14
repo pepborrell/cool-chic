@@ -1120,11 +1120,12 @@ class DeltaWholeNet(WholeNet):
 
         # we want deltas to be trainable.
         self.use_delta = True
+        # TODO: make them back to requires_grad = True.
         # and N-O coolchic weights shouldn't be trainable.
         for param in self.mean_decoder.parameters():
-            param.requires_grad = False
+            param.requires_grad = True
         for param in self.hypernet.latent_hn.parameters():
-            param.requires_grad = False
+            param.requires_grad = True
 
         # Initialize deltas so that their original output is
         # zero. (Output initially is the same as the NO CoolChic model
