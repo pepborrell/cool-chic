@@ -6,7 +6,7 @@ import torch
 
 import wandb
 from coolchic.enc.utils.misc import get_best_device
-from coolchic.hypernet.hypernet import DeltaWholeNet, NOWholeNet
+from coolchic.hypernet.hypernet import DeltaWholeNet, DiffWholeNet, NOWholeNet
 from coolchic.hypernet.inference import eval_on_all_kodak, load_hypernet
 from coolchic.hypernet.training import get_workdir_hypernet, train
 from coolchic.metalearning.data import OpenImagesDataset
@@ -18,6 +18,11 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--config", help="Specifies the path to the config file that will be used."
+    )
+    parser.add_argument(
+        "--diff_network",
+        action="store_true",
+        help="Use diff network instead of delta hypernet.",
     )
     args = parser.parse_args()
 
@@ -42,7 +47,10 @@ def main():
     )
 
     #### LOADING HYPERNET ####
-    wholenet = DeltaWholeNet(run_cfg.hypernet_cfg)
+    if args.diff_network:
+        wholenet = DiffWholeNet(run_cfg.hypernet_cfg)
+    else:
+        wholenet = DeltaWholeNet(run_cfg.hypernet_cfg)
     if run_cfg.model_weights is not None:
         # If N-O coolchic model is given, we use it as init.
 

@@ -221,3 +221,17 @@ def upsample_latents(
         ],
         dim=1,
     )
+
+
+def get_mlp_rate_encoder(cc_encoder) -> float:
+    """Get the rate of the MLP decoder in NO CoolChic-like architectures.
+
+    cc_encoder is a CoolChicEncoder or a LatentDecoder object.
+    We don't name the real class to avoid circular imports.
+    """
+    rate_mlp = 0.0
+    rate_per_module = wholenet.mean_decoder.get_network_rate()
+    for _, module_rate in rate_per_module.items():  # pyright: ignore
+        for _, param_rate in module_rate.items():  # weight, bias
+            rate_mlp += param_rate
+    return rate_mlp

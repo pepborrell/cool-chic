@@ -13,7 +13,11 @@ from coolchic.enc.component.core.quantizer import (
     POSSIBLE_QUANTIZER_TYPE,
 )
 from coolchic.enc.utils.parsecli import get_coolchic_param_from_args
-from coolchic.hypernet.common import ResidualBlockDown, build_mlp
+from coolchic.hypernet.common import (
+    ResidualBlockDown,
+    build_mlp,
+    get_mlp_rate_encoder,
+)
 from coolchic.utils.nn import get_num_of_params
 from coolchic.utils.types import HyperNetConfig
 
@@ -656,6 +660,7 @@ class WholeNet(nn.Module, abc.ABC):
     def image_to_coolchic(self, img: torch.Tensor, stop_grads: bool) -> CoolChicEncoder:
         pass
 
+    # TODO: I think this method isn't used. Remove it? (and from all subclasses)
     @abc.abstractmethod
     def get_mlp_rate(self) -> float:
         pass
@@ -731,13 +736,7 @@ class CoolchicWholeNet(WholeNet):
         )
 
     def get_mlp_rate(self) -> float:
-        # Get MLP rate.
-        rate_mlp = 0.0
-        rate_per_module = self.cc_encoder.get_network_rate()
-        for _, module_rate in rate_per_module.items():  # pyright: ignore
-            for _, param_rate in module_rate.items():  # weight, bias
-                rate_mlp += param_rate
-        return rate_mlp
+        return get_mlp_rate_encoder(self.cc_encoder)
 
     def freeze_resnet(self):
         for param in self.hypernet.hn_backbone.parameters():
@@ -987,13 +986,7 @@ class NOWholeNet(WholeNet):
         return cc_enc
 
     def get_mlp_rate(self) -> float:
-        # Get MLP rate.
-        rate_mlp = 0.0
-        rate_per_module = self.mean_decoder.get_network_rate()
-        for _, module_rate in rate_per_module.items():  # pyright: ignore
-            for _, param_rate in module_rate.items():  # weight, bias
-                rate_mlp += param_rate
-        return rate_mlp
+        return get_mlp_rate_encoder(self.mean_decoder)
 
     def freeze_resnet(self):
         """Not implemented."""
@@ -1072,13 +1065,7 @@ class DeltaWholeNet(WholeNet):
         )
 
     def get_mlp_rate(self) -> float:
-        # Get MLP rate.
-        rate_mlp = 0.0
-        rate_per_module = self.mean_decoder.get_network_rate()
-        for _, module_rate in rate_per_module.items():  # pyright: ignore
-            for _, param_rate in module_rate.items():  # weight, bias
-                rate_mlp += param_rate
-        return rate_mlp
+        return get_mlp_rate_encoder(self.mean_decoder)
 
     def freeze_resnet(self):
         for param in self.hypernet.hn_backbone.parameters():
@@ -1141,3 +1128,126 @@ class DeltaWholeNet(WholeNet):
             print(
                 f"Outputs are not the same. MSE: {mse}. This means the model was not loaded properly."
             )
+
+
+class DiffWholeNet(WholeNet):
+    def __init__(self, config: HyperNetConfig):
+        super().__init__()
+        self.config = config
+        coolchic_encoder_parameter = CoolChicEncoderParameter(
+            **get_coolchic_param_from_args(config.dec_cfg)
+        )
+        coolchic_encoder_parameter.set_image_size(config.patch_size)
+
+        self.encoder = LatentHyperNet(
+            n_latents=self.config.n_latents,
+            n_hidden_channels=self.config.n_hidden_channels,
+        )
+        self.mean_decoder = LatentDecoder(param=coolchic_encoder_parameter)
+
+        self.diff_encoder = LatentHyperNet(
+            n_latents=self.config.n_latents,
+            n_hidden_channels=self.config.n_hidden_channels,
+        )
+
+    def forward(
+        self,
+        img: torch.Tensor,
+        quantizer_noise_type: POSSIBLE_QUANTIZATION_NOISE_TYPE = "gaussian",
+        quantizer_type: POSSIBLE_QUANTIZER_TYPE = "softround",
+        softround_temperature: float = 0.3,
+        noise_parameter: float = 0.25,
+    ) -> tuple[torch.Tensor, torch.Tensor, dict[str, Any]]:
+        # input has shape (batch_size, 3, H, W)
+        latents = self.encoder.forward(img)  # list of tensors (batch_size, 1, H, W)
+
+        output0 = self.mean_decoder.forward(
+            latents=latents,
+            synth_delta=None,
+            arm_delta=None,
+            quantizer_noise_type=quantizer_noise_type,
+            quantizer_type=quantizer_type,
+            soft_round_temperature=torch.tensor(softround_temperature),
+            noise_parameter=torch.tensor(noise_parameter),
+            AC_MAX_VAL=-1,
+            flag_additional_outputs=False,
+        )
+        diff = output0 - img
+        latents_diff = self.diff_encoder.forward(diff)
+
+        return self.mean_decoder.forward(
+            latents=latents + latents_diff,
+            synth_delta=None,
+            arm_delta=None,
+            quantizer_noise_type=quantizer_noise_type,
+            quantizer_type=quantizer_type,
+            soft_round_temperature=torch.tensor(softround_temperature),
+            noise_parameter=torch.tensor(noise_parameter),
+            AC_MAX_VAL=-1,
+            flag_additional_outputs=False,
+        )
+
+    def load_from_no_coolchic(self, no_coolchic: NOWholeNet) -> None:
+        # Necessary because there are no latents stored in the N-O coolchic model.
+        for i in range(len(self.mean_decoder.latent_grids)):
+            self.mean_decoder.latent_grids[i].data = None  # pyright: ignore
+
+        # load state dict normally.
+        self.mean_decoder.load_state_dict(no_coolchic.mean_decoder.state_dict())
+        self.encoder.load_state_dict(no_coolchic.encoder.state_dict())
+
+        # N-O coolchic weights shouldn't be trainable.
+        for param in self.mean_decoder.parameters():
+            param.requires_grad = False
+        for param in self.encoder.parameters():
+            param.requires_grad = False
+
+        # Initialize analysis transform.
+        self.diff_encoder.reinitialize_parameters()
+
+    def image_to_coolchic(
+        self,
+        img: torch.Tensor,
+        stop_grads: bool = False,
+    ) -> CoolChicEncoder:
+        img = img.to(self.encoder.conv1ds[0].weight.device)
+        if not stop_grads:
+            raise NotImplementedError(
+                "This method is only implemented for stop_grads=True."
+            )
+
+        self.eval()
+        with torch.no_grad():
+            latents = self.encoder.forward(img)
+            output0 = self.mean_decoder.forward(
+                latents=latents,
+                synth_delta=None,
+                arm_delta=None,
+                quantizer_noise_type="none",
+                quantizer_type="hardround",
+                soft_round_temperature=torch.tensor(0.3),
+                noise_parameter=torch.tensor(0.1),
+                AC_MAX_VAL=-1,
+                flag_additional_outputs=False,
+            )
+            diff = output0 - img
+            latents_diff = self.diff_encoder.forward(diff)
+            cc_enc = self.mean_decoder.as_coolchic(
+                latents=latents + latents_diff,
+                synth_delta=None,
+                arm_delta=None,
+                stop_grads=stop_grads,
+            )
+        self.train()
+        return cc_enc
+
+    def get_mlp_rate(self) -> float:
+        return get_mlp_rate_encoder(self.mean_decoder)
+
+    def freeze_resnet(self):
+        """Not implemented (bc there is no resnet)."""
+        pass
+
+    def unfreeze_resnet(self):
+        """Not implemented (bc there is no resnet)."""
+        pass
