@@ -39,7 +39,7 @@ hypernet_cfg:
   upsampling:
     hidden_dim: 256
     n_layers: 1
-  backbone_arch: small # Not taken into account for now.
+  backbone_arch: resnet50 # Not taken into account for now.
 
   dec_cfg:
     config_name: hop
