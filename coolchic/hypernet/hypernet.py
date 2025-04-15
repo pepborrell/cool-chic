@@ -639,8 +639,7 @@ class CoolchicHyperNet(nn.Module):
 
 class SmallCoolchicHyperNet(CoolchicHyperNet):
     def __init__(self, config: HyperNetConfig) -> None:
-        super().__init__(config)
-        del self.hn_backbone  # We redefine the backbone for the small model.
+        nn.Module.__init__(self)
         self.config = config
 
         # Instantiate all the hypernetworks.
@@ -697,7 +696,7 @@ class SmallCoolchicHyperNet(CoolchicHyperNet):
             mode="bicubic",
             img_size=(img.shape[-2], img.shape[-1]),
         ).detach()
-        features = self.backbone.forward(torch.cat([img, *upsampled_latents], dim=1))
+        features = self.backbone.forward(torch.cat([img, upsampled_latents], dim=1))
 
         # Use features to get synthesis and arm weights.
         synthesis_weights = self.synthesis_hn.forward(features)
@@ -1248,3 +1247,11 @@ class SmallDeltaWholeNet(DeltaWholeNet):
         self.mean_decoder = LatentDecoder(param=coolchic_encoder_parameter)
 
         self.use_delta = False
+
+    def freeze_resnet(self):
+        """We don't want to freeze the backbone when using the small hypernet."""
+        pass
+
+    def unfreeze_resnet(self):
+        """We don't want to unfreeze the backbone when using the small hypernet."""
+        pass
