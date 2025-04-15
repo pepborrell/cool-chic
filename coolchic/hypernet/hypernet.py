@@ -13,7 +13,7 @@ from coolchic.enc.component.core.quantizer import (
     POSSIBLE_QUANTIZER_TYPE,
 )
 from coolchic.enc.utils.parsecli import get_coolchic_param_from_args
-from coolchic.hypernet.common import ResidualBlockDown, build_mlp
+from coolchic.hypernet.common import ResidualBlockDown, build_mlp, upsample_latents
 from coolchic.utils.nn import get_num_of_params
 from coolchic.utils.types import HyperNetConfig
 
@@ -637,6 +637,98 @@ class CoolchicHyperNet(nn.Module):
         zero_out_last_layer(self.arm_hn.mlp)
 
 
+class SmallCoolchicHyperNet(CoolchicHyperNet):
+    def __init__(self, config: HyperNetConfig) -> None:
+        super().__init__(config)
+        del self.hn_backbone  # We redefine the backbone for the small model.
+        self.config = config
+
+        # Instantiate all the hypernetworks.
+        self.latent_hn = LatentHyperNet(n_latents=self.config.n_latents)
+
+        # One whole conv backbone, simple.
+        n_input_channels = 3 + self.config.n_latents
+        self.backbone = nn.Sequential(
+            nn.Conv2d(n_input_channels, 64, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(128, 256, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(256, 512, kernel_size=3, stride=1, padding=1),
+            # To get a fixed size representation and flatten it, use average pooling.
+            nn.AdaptiveAvgPool2d((1, 1)),
+            nn.Flatten(start_dim=1),
+        )
+        backbone_n_features = 512
+
+        self.synthesis_hn = SynthesisHyperNet(
+            n_latents=self.config.n_latents,
+            layers_dim=self.config.dec_cfg.parsed_layers_synthesis,
+            n_input_features=backbone_n_features,
+            hypernet_hidden_dim=self.config.synthesis.hidden_dim,
+            hypernet_n_layers=self.config.synthesis.n_layers,
+            biases=self.config.synthesis.biases,
+        )
+        self.arm_hn = ArmHyperNet(
+            dim_arm=self.config.dec_cfg.dim_arm,
+            n_hidden_layers=self.config.dec_cfg.n_hidden_layers_arm,
+            n_input_features=backbone_n_features,
+            hypernet_hidden_dim=self.config.arm.hidden_dim,
+            hypernet_n_layers=self.config.arm.n_layers,
+            biases=self.config.arm.biases,
+        )
+
+        self.print_n_params_submodule()
+
+    def forward(
+        self, img: torch.Tensor
+    ) -> tuple[
+        list[torch.Tensor],
+        OrderedDict[str, torch.Tensor],
+        OrderedDict[str, torch.Tensor],
+    ]:
+        """This strings together all hypernetwork components."""
+        latent_weights = self.latent_hn.forward(img)
+
+        # Get features from backbone.
+        upsampled_latents = upsample_latents(
+            latent_weights,
+            mode="bicubic",
+            img_size=(img.shape[-2], img.shape[-1]),
+        ).detach()
+        features = self.backbone.forward(torch.cat([img, *upsampled_latents], dim=1))
+
+        # Use features to get synthesis and arm weights.
+        synthesis_weights = self.synthesis_hn.forward(features)
+        arm_weights = self.arm_hn.forward(features)
+
+        return (
+            latent_weights,
+            self.synthesis_hn.shape_outputs(synthesis_weights),
+            self.arm_hn.shape_outputs(arm_weights),
+        )
+
+    def print_n_params_submodule(self):
+        """Had to change this method because we changed some names."""
+        total_params = get_num_of_params(self)
+
+        def format_param_str(subm_name: str, n_params: int) -> str:
+            return f"{subm_name}: {n_params}, {100 * n_params / total_params:.2f}%\n"
+
+        output_str = (
+            f"NUMBER OF PARAMETERS:\nTotal number of parameters: {total_params}\n"
+        )
+
+        output_str += format_param_str("latent", get_num_of_params(self.latent_hn))
+        output_str += format_param_str("backbone", get_num_of_params(self.backbone))
+        output_str += format_param_str(
+            "synthesis", get_num_of_params(self.synthesis_hn)
+        )
+        output_str += format_param_str("arm", get_num_of_params(self.arm_hn))
+        print(output_str)
+
+
 # Abstract WholeNet class, to indicate that the class is a whole network.
 class WholeNet(nn.Module, abc.ABC):
     config: HyperNetConfig
@@ -1141,3 +1233,18 @@ class DeltaWholeNet(WholeNet):
             print(
                 f"Outputs are not the same. MSE: {mse}. This means the model was not loaded properly."
             )
+
+
+class SmallDeltaWholeNet(DeltaWholeNet):
+    def __init__(self, config: HyperNetConfig):
+        super().__init__(config)
+        self.config = config
+        coolchic_encoder_parameter = CoolChicEncoderParameter(
+            **get_coolchic_param_from_args(config.dec_cfg)
+        )
+        coolchic_encoder_parameter.set_image_size(config.patch_size)
+
+        self.hypernet = SmallCoolchicHyperNet(config=config)
+        self.mean_decoder = LatentDecoder(param=coolchic_encoder_parameter)
+
+        self.use_delta = False
