@@ -1161,7 +1161,7 @@ class DiffWholeNet(WholeNet):
         # input has shape (batch_size, 3, H, W)
         latents = self.encoder.forward(img)  # list of tensors (batch_size, 1, H, W)
 
-        output0 = self.mean_decoder.forward(
+        output0, _, _ = self.mean_decoder.forward(
             latents=latents,
             synth_delta=None,
             arm_delta=None,
@@ -1219,7 +1219,7 @@ class DiffWholeNet(WholeNet):
         self.eval()
         with torch.no_grad():
             latents = self.encoder.forward(img)
-            output0 = self.mean_decoder.forward(
+            output0, _, _ = self.mean_decoder.forward(
                 latents=latents,
                 synth_delta=None,
                 arm_delta=None,
