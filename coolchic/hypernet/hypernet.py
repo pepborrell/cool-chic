@@ -1174,9 +1174,11 @@ class DiffWholeNet(WholeNet):
         )
         diff = output0 - img
         latents_diff = self.diff_encoder.forward(diff)
+        # Latents are lists, need to add each element of the list.
+        new_latents = [latents[i] + latents_diff[i] for i in range(len(latents))]
 
         return self.mean_decoder.forward(
-            latents=latents + latents_diff,
+            latents=new_latents,
             synth_delta=None,
             arm_delta=None,
             quantizer_noise_type=quantizer_noise_type,
@@ -1232,8 +1234,11 @@ class DiffWholeNet(WholeNet):
             )
             diff = output0 - img
             latents_diff = self.diff_encoder.forward(diff)
+            # Latents are lists, need to add each element of the list.
+            new_latents = [latents[i] + latents_diff[i] for i in range(len(latents))]
+
             cc_enc = self.mean_decoder.as_coolchic(
-                latents=latents + latents_diff,
+                latents=new_latents,
                 synth_delta=None,
                 arm_delta=None,
                 stop_grads=stop_grads,
