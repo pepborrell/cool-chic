@@ -1254,5 +1254,10 @@ class DiffWholeNet(WholeNet):
         pass
 
     def unfreeze_resnet(self):
-        """Not implemented (bc there is no resnet)."""
-        pass
+        """A bit of a method abuse here, but unfreezing the resnet in the DiffWholeNet
+        means to unfreeze the NO CoolChic encoder it was initialised with.
+        """
+        for param in self.encoder.parameters():
+            param.requires_grad = True
+        for param in self.mean_decoder.parameters():
+            param.requires_grad = True
