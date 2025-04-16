@@ -309,7 +309,7 @@ class Synthesis(nn.Module):
         set_hypernet_weights(self, all_weights)
 
     def add_delta(
-        self, delta: list[Tensor], add_to_weight: bool = False, bias_only: bool = False
+        self, delta: list[Tensor], add_to_weight: bool, bias_only: bool
     ) -> None:
         pointer = 0
         for layer in self.layers:
