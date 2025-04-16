@@ -961,9 +961,9 @@ class LatentDecoder(CoolChicEncoder):
 
         # This makes synthesis and arm happen with deltas added to the filters.
         if synth_delta is not None:
-            self.synthesis.add_delta(synth_delta, bias_only=only_delta_biases)
+            self.synthesis.add_delta(synth_delta, bias_only=self.only_delta_biases)
         if arm_delta is not None:
-            self.arm.add_delta(arm_delta, bias_only=only_delta_biases)
+            self.arm.add_delta(arm_delta, bias_only=self.only_delta_biases)
 
         # Forward pass (latents are in the class already).
         return super().forward(
