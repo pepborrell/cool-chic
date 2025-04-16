@@ -6,7 +6,12 @@ import torch
 
 import wandb
 from coolchic.enc.utils.misc import get_best_device
-from coolchic.hypernet.hypernet import DeltaWholeNet, NOWholeNet, SmallDeltaWholeNet
+from coolchic.hypernet.hypernet import (
+    DeltaWholeNet,
+    NOWholeNet,
+    SmallAdditiveDeltaWholeNet,
+    SmallDeltaWholeNet,
+)
 from coolchic.hypernet.inference import eval_on_all_kodak, load_hypernet
 from coolchic.hypernet.training import get_workdir_hypernet, train
 from coolchic.metalearning.data import OpenImagesDataset
@@ -20,6 +25,9 @@ def main():
         "--config", help="Specifies the path to the config file that will be used."
     )
     parser.add_argument("--small", action="store_true", help="Use small model.")
+    parser.add_argument(
+        "--additive", action="store_true", help="Use additive hypernet model."
+    )
     args = parser.parse_args()
 
     config_path = Path(args.config)
@@ -45,6 +53,8 @@ def main():
     #### LOADING HYPERNET ####
     if args.small:
         wholenet = SmallDeltaWholeNet(run_cfg.hypernet_cfg)
+    if args.additive:
+        wholenet = SmallAdditiveDeltaWholeNet(run_cfg.hypernet_cfg)
     else:
         wholenet = DeltaWholeNet(run_cfg.hypernet_cfg)
     if run_cfg.model_weights is not None:

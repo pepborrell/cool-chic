@@ -177,13 +177,27 @@ class SynthesisHyperNet(nn.Module):
         hypernet_hidden_dim: int,
         hypernet_n_layers: int,
         biases: bool,
+        only_biases: bool = False,
     ) -> None:
+        """
+        Args:
+            n_latents: Number of latents.
+            layers_dim: List of strings with the format "out_ft-k_size-mode-non_linearity".
+                The mode can be "conv" or "conv_transpose". The non_linearity can be
+                "relu", "leaky_relu", "tanh", or "sigmoid".
+            n_input_features: Number of input features to the hypernetwork.
+            hypernet_hidden_dim: Hidden dimension of the hypernetwork.
+            hypernet_n_layers: Number of hidden layers in the hypernetwork.
+            biases: Whether to use biases in the synthesis network.
+            only_biases: If True, only output biases, similar to what is used in COIN++.
+        """
         super().__init__()
         self.n_input_features = n_input_features
 
         self.n_latents = n_latents
         self.layers_dim = layers_dim
         self.biases = biases
+        self.only_biases = only_biases
         self.layer_info = self.parse_layers_dim(biases=self.biases)
 
         # For hop config, this will be 642 parameters.
@@ -225,17 +239,17 @@ class SynthesisHyperNet(nn.Module):
     def n_params_synthesis(self) -> int:
         """Calculates the number of parameters needed for the synthesis network."""
         return sum(
-            self.n_params_synthesis_layer(layer_info) for layer_info in self.layer_info
+            self.n_params_synthesis_layer(layer_info, self.only_biases)
+            for layer_info in self.layer_info
         )
 
     @staticmethod
-    def n_params_synthesis_layer(layer: SynthesisLayerInfo) -> int:
+    def n_params_synthesis_layer(layer: SynthesisLayerInfo, only_biases: bool) -> int:
         """Every synthesis layer has out_channels conv kernels of size in_channels x k x k."""
+        if only_biases:
+            return layer.out_ft
         n_params_kernels = layer.in_ft * layer.out_ft * layer.k_size * layer.k_size
-        if layer.bias:
-            n_params_bias = layer.out_ft
-        else:
-            n_params_bias = 0
+        n_params_bias = layer.out_ft if layer.bias else 0
         return n_params_kernels + n_params_bias
 
     def forward(self, latent: torch.Tensor) -> torch.Tensor:
@@ -247,23 +261,30 @@ class SynthesisHyperNet(nn.Module):
         formatted_weights = OrderedDict()
         for layer_num, layer in enumerate(self.layer_info):
             # Select weights for the current layer.
-            n_params = self.n_params_synthesis_layer(layer)
+            n_params = self.n_params_synthesis_layer(layer, self.only_biases)
             layer_params = x[:, weight_count : weight_count + n_params]
+            weight_count += n_params
             layer_name = f"layers.{2 * layer_num}"  # Multiply by 2 because of the non-linearity layers.
 
             # Adding weight.
-            weight = layer_params[
-                :, : layer.out_ft * layer.in_ft * layer.k_size * layer.k_size
-            ].view(layer.out_ft, layer.in_ft, layer.k_size, layer.k_size)
+            if self.only_biases:
+                # Only biases, no weights.
+                weight = None
+                bias = layer_params.view(layer.out_ft)
+            else:
+                weight = layer_params[
+                    :, : layer.out_ft * layer.in_ft * layer.k_size * layer.k_size
+                ].view(layer.out_ft, layer.in_ft, layer.k_size, layer.k_size)
+                bias = None
+                # Adding bias if needed.
+                if layer.bias:
+                    bias = layer_params[:, -layer.out_ft :].view(layer.out_ft)
+
             # Adding to the dictionary
-            formatted_weights[f"{layer_name}.weight"] = weight
-
-            # Adding bias, if needed.
-            if layer.bias:
-                bias = layer_params[:, -layer.out_ft :].view(layer.out_ft)
+            if weight is not None:
+                formatted_weights[f"{layer_name}.weight"] = weight
+            if bias is not None:
                 formatted_weights[f"{layer_name}.bias"] = bias
-
-            weight_count += n_params
 
         return formatted_weights
 
@@ -303,6 +324,7 @@ class ArmHyperNet(nn.Module):
         hypernet_hidden_dim: int,
         hypernet_n_layers: int,
         biases: bool,
+        only_biases: bool = False,
     ) -> None:
         """
         Args:
@@ -310,6 +332,11 @@ class ArmHyperNet(nn.Module):
                 layers.
             n_hidden_layers_arm: Number of hidden layers. Set it to 0 for
                 a linear ARM.
+            n_input_features: Number of input features to the hypernetwork.
+            hypernet_hidden_dim: Hidden dimension of the hypernetwork.
+            hypernet_n_layers: Number of hidden layers in the hypernetwork.
+            biases: Whether to use biases in the synthesis network.
+            only_biases: If True, only output biases, similar to what is used in COIN++.
         """
         super().__init__()
         self.n_input_features = n_input_features
@@ -317,8 +344,11 @@ class ArmHyperNet(nn.Module):
         self.dim_arm = dim_arm
         self.n_hidden_layers = n_hidden_layers
         self.biases = biases
+        self.only_biases = only_biases
         # For hop config, this will be 544 parameters.
-        self.n_output_features = self.n_params_arm(biases=self.biases)
+        self.n_output_features = self.n_params_arm(
+            biases=self.biases, only_biases=self.only_biases
+        )
 
         # The layers we need: an MLP with hypernet_n_layers hidden layers.
         self.hidden_size = hypernet_hidden_dim
@@ -334,10 +364,13 @@ class ArmHyperNet(nn.Module):
         # For flop analysis.
         self.flops_per_module = {k: 0 for k in ["mlp"]}
 
-    def n_params_arm(self, biases: bool) -> int:
+    def n_params_arm(self, biases: bool, only_biases: bool) -> int:
         """Calculates the number of parameters needed for the arm network.
         An arm network is an MLP with n_hidden_layers of size dim_arm->dim_arm.
         The output layer outputs 2 values (mu and sigma)."""
+        if only_biases:
+            return self.n_hidden_layers * self.dim_arm + 2
+
         n_params_interm_layer = (
             self.dim_arm * self.dim_arm + self.dim_arm
             if biases
@@ -363,35 +396,52 @@ class ArmHyperNet(nn.Module):
         weight_count = 0
         formatted_weights = OrderedDict()
         for layer in range(self.n_hidden_layers):
-            # Select weights for the current layer.
-            n_params = self.dim_arm * self.dim_arm
-            n_params += self.dim_arm if self.biases else 0
-            layer_params = x[weight_count : weight_count + n_params]
             layer_name = f"mlp.{2 * layer}"  # Multiplying by 2 because we have activations interleaved.
+            if self.only_biases:
+                # Only biases, no weights.
+                n_params = self.dim_arm
+                weight = None
+                bias = x[weight_count : weight_count + n_params].view(self.dim_arm)
+            else:
+                n_params = self.dim_arm * self.dim_arm
+                n_params += self.dim_arm if self.biases else 0
+                # Select weights for the current layer.
+                layer_params = x[weight_count : weight_count + n_params]
 
-            # Adding weight.
-            weight = layer_params[: self.dim_arm**2].view(self.dim_arm, self.dim_arm)
+                # Adding weight.
+                weight = layer_params[: self.dim_arm**2].view(
+                    self.dim_arm, self.dim_arm
+                )
+                bias = None
+                # Adding bias, if needed.
+                if self.biases:
+                    bias = layer_params[self.dim_arm**2 :].view(self.dim_arm)
             # Adding to the dictionary
-            formatted_weights[f"{layer_name}.weight"] = weight
-
-            # Adding bias, if needed.
-            if self.biases:
-                bias = layer_params[self.dim_arm**2 :].view(self.dim_arm)
+            if weight is not None:
+                formatted_weights[f"{layer_name}.weight"] = weight
+            if bias is not None:
                 formatted_weights[f"{layer_name}.bias"] = bias
 
             weight_count += n_params
 
         # Output layer
-        n_params = self.dim_arm * 2
-        n_params += 2 if self.biases else 0
-        layer_params = x[weight_count : weight_count + n_params]
-        # Adding weight.
-        weight = layer_params[: self.dim_arm * 2].view(2, self.dim_arm)
-        formatted_weights[f"mlp.{2 * self.n_hidden_layers}.weight"] = weight
-        # Adding bias, if needed.
-        if self.biases:
-            bias = layer_params[self.dim_arm * 2 :].view(2)
+        if self.only_biases:
+            # Only biases, no weights.
+            n_params = 2
+            weight = None
+            bias = x[weight_count : weight_count + n_params].view(2)
             formatted_weights[f"mlp.{2 * self.n_hidden_layers}.bias"] = bias
+        else:
+            n_params = self.dim_arm * 2
+            n_params += 2 if self.biases else 0
+            layer_params = x[weight_count : weight_count + n_params]
+            # Adding weight.
+            weight = layer_params[: self.dim_arm * 2].view(2, self.dim_arm)
+            formatted_weights[f"mlp.{2 * self.n_hidden_layers}.weight"] = weight
+            # Adding bias, if needed.
+            if self.biases:
+                bias = layer_params[self.dim_arm * 2 :].view(2)
+                formatted_weights[f"mlp.{2 * self.n_hidden_layers}.bias"] = bias
 
         return formatted_weights
 
@@ -655,16 +705,18 @@ class SmallCoolchicHyperNet(CoolchicHyperNet):
             nn.Conv2d(128, 256, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
             nn.Conv2d(256, 512, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(512, 1024, kernel_size=1, stride=1, padding=0),
             # To get a fixed size representation and flatten it, use average pooling.
             nn.AdaptiveAvgPool2d((1, 1)),
             nn.Flatten(start_dim=1),
         )
-        backbone_n_features = 512
+        self.backbone_n_features = 1024
 
         self.synthesis_hn = SynthesisHyperNet(
             n_latents=self.config.n_latents,
             layers_dim=self.config.dec_cfg.parsed_layers_synthesis,
-            n_input_features=backbone_n_features,
+            n_input_features=self.backbone_n_features,
             hypernet_hidden_dim=self.config.synthesis.hidden_dim,
             hypernet_n_layers=self.config.synthesis.n_layers,
             biases=self.config.synthesis.biases,
@@ -672,7 +724,7 @@ class SmallCoolchicHyperNet(CoolchicHyperNet):
         self.arm_hn = ArmHyperNet(
             dim_arm=self.config.dec_cfg.dim_arm,
             n_hidden_layers=self.config.dec_cfg.n_hidden_layers_arm,
-            n_input_features=backbone_n_features,
+            n_input_features=self.backbone_n_features,
             hypernet_hidden_dim=self.config.arm.hidden_dim,
             hypernet_n_layers=self.config.arm.n_layers,
             biases=self.config.arm.biases,
@@ -726,6 +778,33 @@ class SmallCoolchicHyperNet(CoolchicHyperNet):
         )
         output_str += format_param_str("arm", get_num_of_params(self.arm_hn))
         print(output_str)
+
+
+class SmallAdditiveHyperNet(SmallCoolchicHyperNet):
+    def __init__(self, config: HyperNetConfig) -> None:
+        super().__init__(config)
+
+        # Redefine the prediction heads so that they only output biases.
+        self.synthesis_hn = SynthesisHyperNet(
+            n_latents=self.config.n_latents,
+            layers_dim=self.config.dec_cfg.parsed_layers_synthesis,
+            n_input_features=self.backbone_n_features,
+            hypernet_hidden_dim=self.config.synthesis.hidden_dim,
+            hypernet_n_layers=self.config.synthesis.n_layers,
+            biases=self.config.synthesis.biases,
+            only_biases=True,
+        )
+        self.arm_hn = ArmHyperNet(
+            dim_arm=self.config.dec_cfg.dim_arm,
+            n_hidden_layers=self.config.dec_cfg.n_hidden_layers_arm,
+            n_input_features=self.backbone_n_features,
+            hypernet_hidden_dim=self.config.arm.hidden_dim,
+            hypernet_n_layers=self.config.arm.n_layers,
+            biases=self.config.arm.biases,
+            only_biases=True,
+        )
+
+        self.print_n_params_submodule()
 
 
 # Abstract WholeNet class, to indicate that the class is a whole network.
@@ -852,9 +931,12 @@ class LatentDecoder(CoolChicEncoder):
     and allows the user to pass them as arguments.
     """
 
-    def __init__(self, param: CoolChicEncoderParameter):
+    def __init__(
+        self, param: CoolChicEncoderParameter, only_delta_biases: bool = False
+    ):
         super().__init__(param)
         self.param = param
+        self.only_delta_biases = only_delta_biases
 
     def forward(  # pyright: ignore
         self,
@@ -879,9 +961,9 @@ class LatentDecoder(CoolChicEncoder):
 
         # This makes synthesis and arm happen with deltas added to the filters.
         if synth_delta is not None:
-            self.synthesis.add_delta(synth_delta)
+            self.synthesis.add_delta(synth_delta, bias_only=only_delta_biases)
         if arm_delta is not None:
-            self.arm.add_delta(arm_delta)
+            self.arm.add_delta(arm_delta, bias_only=only_delta_biases)
 
         # Forward pass (latents are in the class already).
         return super().forward(
@@ -1246,7 +1328,7 @@ class SmallDeltaWholeNet(DeltaWholeNet):
         self.hypernet = SmallCoolchicHyperNet(config=config)
         self.mean_decoder = LatentDecoder(param=coolchic_encoder_parameter)
 
-        self.use_delta = False
+        self.use_delta = True
 
     def freeze_resnet(self):
         """We don't want to freeze the backbone when using the small hypernet."""
@@ -1255,3 +1337,19 @@ class SmallDeltaWholeNet(DeltaWholeNet):
     def unfreeze_resnet(self):
         """We don't want to unfreeze the backbone when using the small hypernet."""
         pass
+
+
+class SmallAdditiveDeltaWholeNet(SmallDeltaWholeNet):
+    def __init__(self, config: HyperNetConfig):
+        super().__init__(config)
+
+        # Modify the prediction heads so that they only output biases.
+        self.hypernet = SmallAdditiveHyperNet(config=config)
+        coolchic_encoder_parameter = CoolChicEncoderParameter(
+            **get_coolchic_param_from_args(config.dec_cfg)
+        )
+        coolchic_encoder_parameter.set_image_size(config.patch_size)
+        self.mean_decoder = LatentDecoder(
+            param=coolchic_encoder_parameter, only_delta_biases=True
+        )
+        self.use_delta = True

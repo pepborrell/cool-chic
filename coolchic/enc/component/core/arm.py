@@ -105,6 +105,7 @@ class ArmLinearDelta(ArmLinear):
     def __init__(self, in_channels: int, out_channels: int, residual: bool = False):
         super().__init__(in_channels, out_channels, residual)
         self.delta_weight: torch.Tensor | None = None
+        self.delta_bias: torch.Tensor | None = None
 
     def forward(self, x: Tensor) -> Tensor:
         """Perform the forward pass of this layer.
@@ -122,27 +123,37 @@ class ArmLinearDelta(ArmLinear):
             if self.delta_weight is None
             else self.weight + self.delta_weight
         )
+        bias = self.bias if self.delta_bias is None else self.bias + self.delta_bias
+        mlp_out = F.linear(x, weight, bias=bias)
         if self.residual:
-            return F.linear(x, weight, bias=self.bias) + x
-
+            return mlp_out + x
         # Not residual
-        else:
-            return F.linear(x, weight, bias=self.bias)
+        return mlp_out
 
-    def set_delta(self, delta: torch.Tensor, add_to_weight: bool) -> None:
+    def set_delta(
+        self, delta: torch.Tensor, add_to_weight: bool, bias_only: bool = False
+    ) -> None:
         """Set the delta of the weight.
 
         Args:
             delta: Delta to be set.
             add_to_weight: If True, the delta is added to the weight. If False, delta
-            is added on the fly, so it can be optimised.
+                is added on the fly, so it can be optimised.
+            bias_only: If True, the delta is only added to the bias.
         """
-        if add_to_weight:
-            # This adds the delta to the weight, making it like a normal CoolChic encoder.
-            self.weight = nn.Parameter(self.weight + delta, requires_grad=True)
-            self.delta_weight = None
+        if bias_only:
+            if add_to_weight:
+                self.bias = nn.Parameter(self.bias + delta, requires_grad=True)
+                self.delta_bias = None
+            else:
+                self.delta_bias = delta
         else:
-            self.delta_weight = delta
+            if add_to_weight:
+                # This adds the delta to the weight, making it like a normal CoolChic encoder.
+                self.weight = nn.Parameter(self.weight + delta, requires_grad=True)
+                self.delta_weight = None
+            else:
+                self.delta_weight = delta
 
 
 class Arm(nn.Module):
@@ -286,11 +297,15 @@ class Arm(nn.Module):
     ):
         set_hypernet_weights(self, all_weights)
 
-    def add_delta(self, delta: list[Tensor], add_to_weight: bool = False) -> None:
+    def add_delta(
+        self, delta: list[Tensor], add_to_weight: bool = False, bias_only: bool = False
+    ) -> None:
         pointer = 0
         for layer in self.mlp:
             if isinstance(layer, ArmLinearDelta):
-                layer.set_delta(delta[pointer], add_to_weight=add_to_weight)
+                layer.set_delta(
+                    delta[pointer], add_to_weight=add_to_weight, bias_only=bias_only
+                )
                 pointer += 1
         assert pointer == len(delta), (
             "Not all delta were used. " f"Used {pointer} out of {len(delta)}."
