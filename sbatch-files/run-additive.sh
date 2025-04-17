@@ -6,7 +6,7 @@
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=4
 #SBATCH --gres=gpu:1
-#SBATCH --nodelist=tikgpu09
+#SBATCH --nodelist=tikgpu04
 
 ETH_USERNAME=jborrell
 PROJECT_NAME=cool-chic
