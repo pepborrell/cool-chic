@@ -30,9 +30,6 @@ def build_mlp(
     return nn.Sequential(*layers_list)
 
 
-CONV_NEXT_BLOCK_SCALE_INIT = 1e-6
-
-
 class ConvNextBlock(nn.Module):
     def __init__(self, n_channels: int) -> None:
         super().__init__()
@@ -55,10 +52,6 @@ class ConvNextBlock(nn.Module):
         self.layer_norm = nn.GroupNorm(num_groups=1, num_channels=self.n_channels)
         self.gelu = nn.GELU()
 
-        self.gamma = nn.Parameter(
-            torch.full((self.n_channels,), CONV_NEXT_BLOCK_SCALE_INIT)
-        )  # Scale parameter for the residual connection
-
         ### INITIALIZATION ###
         self._init_weights()
 
@@ -70,6 +63,31 @@ class ConvNextBlock(nn.Module):
         nn.init.zeros_(self.dw_conv.bias)
         # conv1 and conv2 have no bias.
 
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # Input has size (B, C, H, W)
+        z = self.dw_conv(x)
+        z = self.layer_norm(z)
+        z = self.conv1(z)
+        z = self.gelu(z)
+        z = self.conv2(z)  # (B, C, H, W)
+        return z + x  # Residual connection
+
+
+CONV_NEXT_BLOCK_SCALE_INIT = 1e-6
+
+
+class ConvNextBlockGamma(ConvNextBlock):
+    def __init__(self, n_channels: int) -> None:
+        super().__init__(n_channels)
+        self.gamma = nn.Parameter(
+            torch.full((self.n_channels,), CONV_NEXT_BLOCK_SCALE_INIT)
+        )  # Scale parameter for the residual connection
+
+        ### INITIALIZATION ###
+        self._init_weights()
+
+    def _init_weights(self):
+        super()()._init_weights()
         # Initialize the scale parameter
         nn.init.constant_(self.gamma, CONV_NEXT_BLOCK_SCALE_INIT)
 
