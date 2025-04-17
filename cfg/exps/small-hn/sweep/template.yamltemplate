@@ -3,7 +3,7 @@ batch_size: 1
 patch_size: [256, 256]
 unfreeze_backbone: 10000
 workdir: null
-model_weights: /itet-stor/jborrell/net_scratch/cool-chic/results/exps/no-cchic/warmup-sweep/{lmbda_config_num}/__latest
+model_weights: /itet-stor/jborrell/net_scratch/cool-chic/results/exps/no-cchic/batch-sweep/{lmbda_config_num}/__latest
 disable_wandb: False
 lmbda: {lambda_value}
 user_tag: small-hn
