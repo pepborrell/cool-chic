@@ -30,10 +30,53 @@ def build_mlp(
     return nn.Sequential(*layers_list)
 
 
+class ConvNextBlock(nn.Module):
+    def __init__(self, n_channels: int) -> None:
+        super().__init__()
+        self.n_channels = n_channels
+        ### ALL LAYERS ###
+        self.dw_conv = nn.Conv2d(
+            self.n_channels,
+            self.n_channels,
+            kernel_size=7,
+            groups=self.n_channels,
+            padding="same",
+            bias=True,
+        )
+        self.conv1 = nn.Conv2d(
+            self.n_channels, self.n_channels, kernel_size=1, padding=0, bias=False
+        )
+        self.conv2 = nn.Conv2d(
+            self.n_channels, self.n_channels, kernel_size=1, padding=0, bias=False
+        )
+        self.layer_norm = nn.GroupNorm(num_groups=1, num_channels=self.n_channels)
+        self.gelu = nn.GELU()
+
+        ### INITIALIZATION ###
+        self._init_weights()
+
+    def _init_weights(self):
+        nn.init.kaiming_normal_(self.dw_conv.weight, mode="fan_in")
+        nn.init.kaiming_normal_(self.conv1.weight, mode="fan_in")
+        nn.init.kaiming_normal_(self.conv2.weight, mode="fan_in")
+        assert self.dw_conv.bias is not None, "dw_conv bias is None."
+        nn.init.zeros_(self.dw_conv.bias)
+        # conv1 and conv2 have no bias.
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # Input has size (B, C, H, W)
+        z = self.dw_conv(x)
+        z = self.layer_norm(z)
+        z = self.conv1(z)
+        z = self.gelu(z)
+        z = self.conv2(z)  # (B, C, H, W)
+        return z + x  # Residual connection
+
+
 CONV_NEXT_BLOCK_SCALE_INIT = 1e-6
 
 
-class ConvNextBlock(nn.Module):
+class ConvNextBlockGamma(nn.Module):
     def __init__(self, n_channels: int) -> None:
         super().__init__()
         self.n_channels = n_channels
