@@ -613,8 +613,6 @@ class CoolchicHyperNet(nn.Module):
             biases=self.config.arm.biases,
         )
 
-        self.print_n_params_submodule()
-
     def forward(
         self, img: torch.Tensor
     ) -> tuple[
@@ -656,7 +654,8 @@ class CoolchicHyperNet(nn.Module):
             return f"{subm_name}: {n_params}, {100 * n_params / total_params:.2f}%\n"
 
         output_str = (
-            f"NUMBER OF PARAMETERS:\nTotal number of parameters: {total_params}\n"
+            "NUMBER OF (TRAINABLE) PARAMETERS:\n"
+            f"Total number of parameters: {total_params}\n"
         )
 
         output_str += format_param_str("latent", get_num_of_params(self.latent_hn))
@@ -730,8 +729,6 @@ class SmallCoolchicHyperNet(CoolchicHyperNet):
             biases=self.config.arm.biases,
         )
 
-        self.print_n_params_submodule()
-
     def forward(
         self, img: torch.Tensor
     ) -> tuple[
@@ -768,7 +765,8 @@ class SmallCoolchicHyperNet(CoolchicHyperNet):
             return f"{subm_name}: {n_params}, {100 * n_params / total_params:.2f}%\n"
 
         output_str = (
-            f"NUMBER OF PARAMETERS:\nTotal number of parameters: {total_params}\n"
+            "NUMBER OF (TRAINABLE) PARAMETERS:\n"
+            f"Total number of parameters: {total_params}\n"
         )
 
         output_str += format_param_str("latent", get_num_of_params(self.latent_hn))
@@ -1336,7 +1334,7 @@ class SmallDeltaWholeNet(DeltaWholeNet):
         self.hypernet = SmallCoolchicHyperNet(config=config)
         self.mean_decoder = LatentDecoder(param=coolchic_encoder_parameter)
 
-        self.use_delta = True
+        self.use_delta = False
 
     def freeze_resnet(self):
         """We don't want to freeze the backbone when using the small hypernet."""
@@ -1360,4 +1358,4 @@ class SmallAdditiveDeltaWholeNet(SmallDeltaWholeNet):
         self.mean_decoder = LatentDecoder(
             param=coolchic_encoder_parameter, only_delta_biases=True
         )
-        self.use_delta = True
+        self.use_delta = False

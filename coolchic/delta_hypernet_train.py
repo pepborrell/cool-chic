@@ -53,7 +53,7 @@ def main():
     #### LOADING HYPERNET ####
     if args.small:
         wholenet = SmallDeltaWholeNet(run_cfg.hypernet_cfg)
-    if args.additive:
+    elif args.additive:
         wholenet = SmallAdditiveDeltaWholeNet(run_cfg.hypernet_cfg)
     else:
         wholenet = DeltaWholeNet(run_cfg.hypernet_cfg)

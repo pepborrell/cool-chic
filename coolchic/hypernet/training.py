@@ -220,6 +220,11 @@ def train(
     samples_seen = 0
     batch_n = 0
 
+    # Print info about the model.
+    if not isinstance(wholenet, NOWholeNet):
+        # Then wholenet has a hypernet.
+        wholenet.hypernet.print_n_params_submodule()
+
     # Starting training.
     wholenet.freeze_resnet()
     # Try several model inits, then take the best one to train from it.
