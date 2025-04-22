@@ -1,20 +1,43 @@
 import argparse
 from pathlib import Path
 
-from coolchic.hypernet.hypernet import NOWholeNet
+from coolchic.hypernet.hypernet import (
+    CoolchicWholeNet,
+    DeltaWholeNet,
+    NOWholeNet,
+    SmallAdditiveDeltaWholeNet,
+    SmallDeltaWholeNet,
+)
 from coolchic.hypernet.inference import main_eval as hypernet_eval
 from coolchic.utils.paths import CONFIG_DIR, RESULTS_DIR
 from coolchic.utils.types import HypernetRunConfig, load_config
-
-HNET_CLS = NOWholeNet
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--sweep_path", type=Path, required=True)
+    parser.add_argument("--hypernet", type=str, default="full")
     args = parser.parse_args()
     if not args.sweep_path.exists():
         raise FileNotFoundError(f"Path not found: {args.sweep_path}")
+
+    hnet_cls = (
+        CoolchicWholeNet
+        if args.hypernet == "full"
+        else DeltaWholeNet
+        if args.hypernet == "delta"
+        else NOWholeNet
+        if args.hypernet == "nocchic"
+        else SmallDeltaWholeNet
+        if args.hypernet == "small"
+        else SmallAdditiveDeltaWholeNet
+        if args.hypernet == "additive"
+        else None
+    )
+    if hnet_cls is None:
+        raise ValueError(
+            "Invalid hypernet type. Choose from ['full', 'delta', 'nocchic', 'small', 'additive']."
+        )
 
     sweep_path: Path = args.sweep_path
 
@@ -46,6 +69,6 @@ if __name__ == "__main__":
             img_num=None,
             img_path=None,
             cfg=config,
-            wholenet_cls=HNET_CLS,
+            wholenet_cls=hnet_cls,
             workdir=premature_workdir,
         )
