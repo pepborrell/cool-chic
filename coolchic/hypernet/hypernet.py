@@ -1212,6 +1212,11 @@ class DeltaWholeNet(WholeNet):
 
     def init_parameters(self) -> list[nn.Parameter]:
         """Get all parameters of the model."""
+        self.mean_decoder_parameters = dict(self.mean_decoder.named_parameters())
+        # delete mean decoder parameters to avoid errors.
+        for k in self.mean_decoder.parameters():
+            del k
+
         return list(self.hypernet.parameters()) + list(
             self.mean_decoder_parameters.values()
         )
@@ -1315,11 +1320,6 @@ class DeltaWholeNet(WholeNet):
         self.use_delta = True
 
     def load_from_no_coolchic(self, no_coolchic: NOWholeNet) -> None:
-        # TODO: remove these lines.
-        # # Necessary because there are no latents stored in the N-O coolchic model.
-        # for i in range(len(self.mean_decoder.latent_grids)):
-        #     self.mean_decoder.latent_grids[i].data = None  # pyright: ignore
-
         # load state dict normally.
         self.mean_decoder.load_state_dict(no_coolchic.mean_decoder.state_dict())
         self.hypernet.latent_hn.load_state_dict(no_coolchic.encoder.state_dict())
