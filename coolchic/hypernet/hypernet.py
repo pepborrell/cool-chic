@@ -1246,35 +1246,10 @@ class DeltaWholeNet(WholeNet):
         # vmap they still have a singleton batch dimension.
         latents = [lat.unsqueeze(1) for lat in latents]
 
-        return torch.vmap(get_forward_pass, randomness="different")(
-            latents, forward_params
-        )
-
-        # return functional_call(
-        #     self.mean_decoder,
-        #     forward_params,
-        #     (latents,),
-        #     kwargs={
-        #         "quantizer_noise_type": quantizer_noise_type,
-        #         "quantizer_type": quantizer_type,
-        #         "soft_round_temperature": torch.tensor(softround_temperature),
-        #         "noise_parameter": torch.tensor(noise_parameter),
-        #         "AC_MAX_VAL": -1,
-        #         "flag_additional_outputs": False,
-        #     },
-        # )
-
-        # return self.mean_decoder.forward(
-        #     latents=latents,
-        #     synth_delta=synth_deltas,
-        #     arm_delta=arm_deltas,
-        #     quantizer_noise_type=quantizer_noise_type,
-        #     quantizer_type=quantizer_type,
-        #     soft_round_temperature=torch.tensor(softround_temperature),
-        #     noise_parameter=torch.tensor(noise_parameter),
-        #     AC_MAX_VAL=-1,
-        #     flag_additional_outputs=False,
-        # )
+        raw_out, rate, additional_data = torch.vmap(
+            get_forward_pass, randomness="different"
+        )(latents, forward_params)
+        return raw_out.squeeze(1), rate.squeeze(1), additional_data
 
     def image_to_coolchic(
         self, img: torch.Tensor, stop_grads: bool = False

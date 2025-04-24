@@ -78,9 +78,7 @@ def evaluate_wholenet(
                 quantizer_type="hardround",
             )
             test_out = CoolChicEncoderOutput(
-                raw_out=raw_out.squeeze(1),
-                rate=rate.squeeze(1),
-                additional_data=add_data,
+                raw_out=raw_out, rate=rate, additional_data=add_data
             )
 
             # The MLP rate is very roughly the same for all images, so we calculate it
@@ -279,9 +277,7 @@ def train(
                 quantizer_noise_type=training_phase.quantizer_noise_type,
             )
             out_forward = CoolChicEncoderOutput(
-                raw_out=raw_out.squeeze(1),
-                rate=rate.squeeze(1),
-                additional_data=add_data,
+                raw_out=raw_out, rate=rate, additional_data=add_data
             )
             loss_function_output = loss_function(
                 out_forward.raw_out,
