@@ -245,7 +245,7 @@ def train(
         print(f"Starting phase {phase_num + 1}/{len(recipe.all_phases)}")
         print(training_phase)
         phase_total_it = training_phase.max_itr
-        optimizer = torch.optim.Adam(wholenet.init_parameters(), lr=training_phase.lr)
+        optimizer = torch.optim.Adam(wholenet.parameters(), lr=training_phase.lr)
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
             optimizer,
             phase_total_it,

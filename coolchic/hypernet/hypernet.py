@@ -1206,20 +1206,8 @@ class DeltaWholeNet(WholeNet):
 
         self.hypernet = CoolchicHyperNet(config=config)
         self.mean_decoder = LatentFreeCoolChicEncoder(param=coolchic_encoder_parameter)
-        self.mean_decoder_parameters = dict(self.mean_decoder.named_parameters())
 
         self.use_delta = False
-
-    def init_parameters(self) -> list[nn.Parameter]:
-        """Get all parameters of the model."""
-        self.mean_decoder_parameters = dict(self.mean_decoder.named_parameters())
-        # delete mean decoder parameters to avoid errors.
-        for k in self.mean_decoder.parameters():
-            del k
-
-        return list(self.hypernet.parameters()) + list(
-            self.mean_decoder_parameters.values()
-        )
 
     def forward(
         self,
@@ -1238,7 +1226,7 @@ class DeltaWholeNet(WholeNet):
 
         # Adding deltas.
         forward_params = {}
-        for k, v in self.mean_decoder_parameters.items():
+        for k, v in dict(self.mean_decoder.named_parameters()):
             if (inner_key := k.removeprefix("synthesis.")) in s_delta_dict:
                 forward_params[k] = s_delta_dict[inner_key] + v
             elif (inner_key := k.removeprefix("arm.")) in arm_delta_dict:
