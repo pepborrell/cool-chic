@@ -7,7 +7,11 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 from coolchic.eval.bd_rate import bd_rates_summary_anchor_name
-from coolchic.eval.hypernet import get_hypernet_flops, plot_hypernet_rd
+from coolchic.eval.hypernet import (
+    get_hypernet_flops,
+    plot_hypernet_rd,
+    plot_hypernet_rd_avg,
+)
 from coolchic.eval.results import SummaryEncodingMetrics
 from coolchic.hypernet.hypernet import (
     CoolchicWholeNet,
@@ -70,6 +74,8 @@ if __name__ == "__main__":
     parser.add_argument("--sweep_path", type=Path, required=True)
     parser.add_argument("--premature", action="store_true")
     parser.add_argument("--wholenet_cls", type=str, default="NOWholeNet")
+    parser.add_argument("--compare_no_path", type=Path, default=None)
+    parser.add_argument("--compare_premature", action="store_true", default=False)
     args = parser.parse_args()
     if not args.sweep_path.exists():
         raise FileNotFoundError(f"Path not found: {args.sweep_path}")
@@ -93,13 +99,28 @@ if __name__ == "__main__":
     comp_cost = get_hypernet_flops(wholenet_cls)
     print(f"{avg_bd=}, {comp_cost=:.3e}")
 
-    # RD plots
+    ###### RD PLOTS ######
+    # Compare with NO coolchic, if provided.
+    if args.compare_no_path:
+        no_metrics = parse_hypernet_metrics(
+            args.compare_no_path, args.compare_premature
+        )
+        no_df = pd.DataFrame(
+            [s.model_dump() for seq_res in no_metrics.values() for s in seq_res]
+        )
+        no_df["anchor"] = "NOCoolChic"
+    else:
+        no_df = pd.DataFrame()
+
+    df = pd.DataFrame([s.model_dump() for seq_res in metrics.values() for s in seq_res])
+    df["anchor"] = "hnet"
+    df = pd.concat([df, no_df])
+    df = df.sort_values(by=["seq_name", "lmbda"])  # So plot comes out nice.
+
     for i in range(1, 25):
         seq_name = f"kodim{i:02d}"
-        df = pd.DataFrame(
-            [s.model_dump() for seq_res in metrics.values() for s in seq_res]
-        )
-        df["anchor"] = "hnet"
-        df = df.sort_values(by=["seq_name", "lmbda"])  # So plot comes out nice.
         plot_hypernet_rd(seq_name, df)
+
+    plot_hypernet_rd_avg(df)
+
     plt.show()

@@ -48,6 +48,30 @@ def plot_hypernet_rd(kodim_name: str, results: pd.DataFrame):
     return fig, ax
 
 
+def plot_hypernet_rd_avg(results: pd.DataFrame):
+    """Plots the average RD plot for the whole dataset in results."""
+    all_df = compare_kodak_res(results)
+    mean_df = (
+        all_df.groupby(["anchor", "lmbda"])
+        .agg({"rate_bpp": "mean", "psnr_db": "mean"})
+        .reset_index()
+    )
+    print(mean_df)
+    fig, ax = plt.subplots()
+    sns.lineplot(
+        mean_df,
+        x="rate_bpp",
+        y="psnr_db",
+        hue="anchor",
+        marker="o",
+        markeredgecolor="none",
+        ax=ax,
+        sort=False,
+    )
+    ax.set_title("Average RD curve for all kodim images")
+    return fig, ax
+
+
 def is_above_anchor_curve(
     point: tuple[float, float], anchor_curve: list[tuple[float, float]]
 ):
