@@ -236,15 +236,16 @@ def train(
     # In case warmup didn't run for this.
     if best_test_loss == float("inf"):
         # Preliminary eval, to have a baseline of test loss.
-        prelim_eval = evaluate_wholenet(wholenet, test_data, lmbda=lmbda, device=device)
-        best_test_loss = prelim_eval["test_loss"]
+        # prelim_eval = evaluate_wholenet(wholenet, test_data, lmbda=lmbda, device=device)
+        # best_test_loss = prelim_eval["test_loss"]
+        pass
 
     # Proper training.
     for phase_num, training_phase in enumerate(recipe.all_phases):
         print(f"Starting phase {phase_num + 1}/{len(recipe.all_phases)}")
         print(training_phase)
         phase_total_it = training_phase.max_itr
-        optimizer = torch.optim.Adam(wholenet.parameters(), lr=training_phase.lr)
+        optimizer = torch.optim.Adam(wholenet.init_parameters(), lr=training_phase.lr)
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
             optimizer,
             phase_total_it,

@@ -648,8 +648,6 @@ class LatentFreeCoolChicEncoder(nn.Module):
     def as_coolchic(
         self,
         latents: list[torch.Tensor],
-        synth_delta: list[torch.Tensor] | None,
-        arm_delta: list[torch.Tensor] | None,
         stop_grads: bool = False,
     ) -> CoolChicEncoder:
         """Returns a CoolChicEncoder with the latents and deltas set."""
@@ -684,16 +682,6 @@ class LatentFreeCoolChicEncoder(nn.Module):
         assert all(
             lat.is_leaf for lat in latents
         ), "Latents are not leaves. They still carry gradients back."
-        synth_delta = (
-            [nn.Parameter(delta) for delta in synth_delta]
-            if synth_delta is not None
-            else None
-        )
-        arm_delta = (
-            [nn.Parameter(delta) for delta in arm_delta]
-            if arm_delta is not None
-            else None
-        )
 
         # Something like self.latent_grids = nn.ParameterList(latents)
         # would break the computation graph. This doesn't. Following tips in:
@@ -701,15 +689,5 @@ class LatentFreeCoolChicEncoder(nn.Module):
         for i in range(len(latents)):
             del encoder.latent_grids[i].data
             encoder.latent_grids[i].data = latents[i]
-
-        # This makes synthesis and arm happen with deltas added to the filters.
-        if synth_delta is not None:
-            encoder.synthesis.add_delta(
-                synth_delta, add_to_weight=True, bias_only=self.only_delta_biases
-            )
-        if arm_delta is not None:
-            encoder.arm.add_delta(
-                arm_delta, add_to_weight=True, bias_only=self.only_delta_biases
-            )
 
         return encoder.to(next(self.parameters()).device)

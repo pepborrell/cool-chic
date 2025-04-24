@@ -5,6 +5,7 @@ import torch
 from fvcore.nn import FlopCountAnalysis, flop_count_table
 from pydantic import BaseModel
 from torch import nn
+from torch.func import functional_call
 from torchvision.models import ResNet18_Weights, ResNet50_Weights, resnet18, resnet50
 
 from coolchic.enc.component.coolchic import CoolChicEncoder, CoolChicEncoderParameter
@@ -12,6 +13,7 @@ from coolchic.enc.component.core.quantizer import (
     POSSIBLE_QUANTIZATION_NOISE_TYPE,
     POSSIBLE_QUANTIZER_TYPE,
 )
+from coolchic.enc.component.nlcoolchic import LatentFreeCoolChicEncoder
 from coolchic.enc.utils.parsecli import get_coolchic_param_from_args
 from coolchic.hypernet.common import ResidualBlockDown, build_mlp, upsample_latents
 from coolchic.utils.nn import get_num_of_params
@@ -821,6 +823,10 @@ class WholeNet(nn.Module, abc.ABC):
         pass
 
     @abc.abstractmethod
+    def init_parameters(self) -> list[nn.Parameter]:
+        pass
+
+    @abc.abstractmethod
     def image_to_coolchic(self, img: torch.Tensor, stop_grads: bool) -> CoolChicEncoder:
         pass
 
@@ -1118,7 +1124,10 @@ class NOWholeNet(WholeNet):
             n_latents=self.config.n_latents,
             n_hidden_channels=self.config.n_hidden_channels,
         )
-        self.mean_decoder = LatentDecoder(param=coolchic_encoder_parameter)
+        self.mean_decoder = LatentFreeCoolChicEncoder(param=coolchic_encoder_parameter)
+
+    def init_parameters(self) -> list[nn.Parameter]:
+        return list(self.encoder.parameters()) + list(self.mean_decoder.parameters())
 
     def forward(
         self,
@@ -1135,8 +1144,8 @@ class NOWholeNet(WholeNet):
 
         return self.mean_decoder.forward(
             latents=latents,
-            synth_delta=None,
-            arm_delta=None,
+            # synth_delta=None,
+            # arm_delta=None,
             quantizer_noise_type=quantizer_noise_type,
             quantizer_type=quantizer_type,
             soft_round_temperature=torch.tensor(softround_temperature),
@@ -1160,7 +1169,10 @@ class NOWholeNet(WholeNet):
         with torch.no_grad():
             latents = self.encoder.forward(img)
             cc_enc = self.mean_decoder.as_coolchic(
-                latents=latents, synth_delta=None, arm_delta=None, stop_grads=stop_grads
+                latents=latents,
+                # synth_delta=None,
+                # arm_delta=None,
+                stop_grads=stop_grads,
             )
         self.train()
         return cc_enc
@@ -1193,9 +1205,16 @@ class DeltaWholeNet(WholeNet):
         coolchic_encoder_parameter.set_image_size(config.patch_size)
 
         self.hypernet = CoolchicHyperNet(config=config)
-        self.mean_decoder = LatentDecoder(param=coolchic_encoder_parameter)
+        self.mean_decoder = LatentFreeCoolChicEncoder(param=coolchic_encoder_parameter)
+        self.mean_decoder_parameters = dict(self.mean_decoder.named_parameters())
 
         self.use_delta = False
+
+    def init_parameters(self) -> list[nn.Parameter]:
+        """Get all parameters of the model."""
+        return list(self.hypernet.parameters()) + list(
+            self.mean_decoder_parameters.values()
+        )
 
     def forward(
         self,
@@ -1207,28 +1226,45 @@ class DeltaWholeNet(WholeNet):
     ) -> tuple[torch.Tensor, torch.Tensor, dict[str, Any]]:
         if self.use_delta:
             latents, s_delta_dict, arm_delta_dict = self.hypernet.forward(img)
-            synth_deltas = [delta for delta in s_delta_dict.values()]
-            arm_deltas = [delta for delta in arm_delta_dict.values()]
         else:
             latents = self.hypernet.latent_forward(img)
-            synth_deltas = [torch.tensor(0.0)] * len(
-                self.hypernet.synthesis_hn.layer_info
-            )
-            arm_deltas = [torch.tensor(0.0)] * (
-                self.hypernet.arm_hn.n_hidden_layers + 1
-            )
+            s_delta_dict = {}
+            arm_delta_dict = {}
 
-        return self.mean_decoder.forward(
-            latents=latents,
-            synth_delta=synth_deltas,
-            arm_delta=arm_deltas,
-            quantizer_noise_type=quantizer_noise_type,
-            quantizer_type=quantizer_type,
-            soft_round_temperature=torch.tensor(softround_temperature),
-            noise_parameter=torch.tensor(noise_parameter),
-            AC_MAX_VAL=-1,
-            flag_additional_outputs=False,
+        # Adding deltas.
+        forward_params = {}
+        for k, v in self.mean_decoder_parameters.items():
+            if (inner_key := k.removeprefix("synthesis.")) in s_delta_dict:
+                forward_params[k] = s_delta_dict[inner_key] + v
+            elif (inner_key := k.removeprefix("arm.")) in arm_delta_dict:
+                forward_params[k] = arm_delta_dict[inner_key] + v
+            else:
+                forward_params[k] = v
+
+        return functional_call(
+            self.mean_decoder,
+            forward_params,
+            (latents,),
+            kwargs={
+                "quantizer_noise_type": quantizer_noise_type,
+                "quantizer_type": quantizer_type,
+                "soft_round_temperature": torch.tensor(softround_temperature),
+                "noise_parameter": torch.tensor(noise_parameter),
+                "AC_MAX_VAL": -1,
+                "flag_additional_outputs": False,
+            },
         )
+        # return self.mean_decoder.forward(
+        #     latents=latents,
+        #     synth_delta=synth_deltas,
+        #     arm_delta=arm_deltas,
+        #     quantizer_noise_type=quantizer_noise_type,
+        #     quantizer_type=quantizer_type,
+        #     soft_round_temperature=torch.tensor(softround_temperature),
+        #     noise_parameter=torch.tensor(noise_parameter),
+        #     AC_MAX_VAL=-1,
+        #     flag_additional_outputs=False,
+        # )
 
     def image_to_coolchic(
         self, img: torch.Tensor, stop_grads: bool = False
@@ -1249,8 +1285,6 @@ class DeltaWholeNet(WholeNet):
 
         return self.mean_decoder.as_coolchic(
             latents=latents,
-            synth_delta=synth_deltas,
-            arm_delta=arm_deltas,
             stop_grads=stop_grads,
         )
 
@@ -1281,9 +1315,10 @@ class DeltaWholeNet(WholeNet):
         self.use_delta = True
 
     def load_from_no_coolchic(self, no_coolchic: NOWholeNet) -> None:
-        # Necessary because there are no latents stored in the N-O coolchic model.
-        for i in range(len(self.mean_decoder.latent_grids)):
-            self.mean_decoder.latent_grids[i].data = None  # pyright: ignore
+        # TODO: remove these lines.
+        # # Necessary because there are no latents stored in the N-O coolchic model.
+        # for i in range(len(self.mean_decoder.latent_grids)):
+        #     self.mean_decoder.latent_grids[i].data = None  # pyright: ignore
 
         # load state dict normally.
         self.mean_decoder.load_state_dict(no_coolchic.mean_decoder.state_dict())
