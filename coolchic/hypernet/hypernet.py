@@ -272,15 +272,15 @@ class SynthesisHyperNet(nn.Module):
             if self.only_biases:
                 # Only biases, no weights.
                 weight = None
-                bias = layer_params.view(layer.out_ft)
+                bias = layer_params.view(-1, layer.out_ft)  # Keeping a batch dimension.
             else:
                 weight = layer_params[
                     :, : layer.out_ft * layer.in_ft * layer.k_size * layer.k_size
-                ].view(layer.out_ft, layer.in_ft, layer.k_size, layer.k_size)
+                ].view(-1, layer.out_ft, layer.in_ft, layer.k_size, layer.k_size)
                 bias = None
                 # Adding bias if needed.
                 if layer.bias:
-                    bias = layer_params[:, -layer.out_ft :].view(layer.out_ft)
+                    bias = layer_params[:, -layer.out_ft :].view(-1, layer.out_ft)
 
             # Adding to the dictionary
             if weight is not None:
@@ -392,9 +392,6 @@ class ArmHyperNet(nn.Module):
 
     def shape_outputs(self, x: torch.Tensor) -> OrderedDict[str, torch.Tensor]:
         """Reshape the output of the hypernetwork to match the shape of the arm mlp layers."""
-        # Batch dimension shouldn't be there when passing to the model.
-        x = x.squeeze(0)
-
         weight_count = 0
         formatted_weights = OrderedDict()
         for layer in range(self.n_hidden_layers):
@@ -403,21 +400,23 @@ class ArmHyperNet(nn.Module):
                 # Only biases, no weights.
                 n_params = self.dim_arm
                 weight = None
-                bias = x[weight_count : weight_count + n_params].view(self.dim_arm)
+                bias = x[:, weight_count : weight_count + n_params].view(
+                    -1, self.dim_arm
+                )  # Keeping a batch dimension.
             else:
                 n_params = self.dim_arm * self.dim_arm
                 n_params += self.dim_arm if self.biases else 0
                 # Select weights for the current layer.
-                layer_params = x[weight_count : weight_count + n_params]
+                layer_params = x[:, weight_count : weight_count + n_params]
 
                 # Adding weight.
-                weight = layer_params[: self.dim_arm**2].view(
-                    self.dim_arm, self.dim_arm
+                weight = layer_params[:, : self.dim_arm**2].view(
+                    -1, self.dim_arm, self.dim_arm
                 )
                 bias = None
                 # Adding bias, if needed.
                 if self.biases:
-                    bias = layer_params[self.dim_arm**2 :].view(self.dim_arm)
+                    bias = layer_params[:, self.dim_arm**2 :].view(-1, self.dim_arm)
             # Adding to the dictionary
             if weight is not None:
                 formatted_weights[f"{layer_name}.weight"] = weight
@@ -431,18 +430,18 @@ class ArmHyperNet(nn.Module):
             # Only biases, no weights.
             n_params = 2
             weight = None
-            bias = x[weight_count : weight_count + n_params].view(2)
+            bias = x[:, weight_count : weight_count + n_params].view(-1, 2)
             formatted_weights[f"mlp.{2 * self.n_hidden_layers}.bias"] = bias
         else:
             n_params = self.dim_arm * 2
             n_params += 2 if self.biases else 0
-            layer_params = x[weight_count : weight_count + n_params]
+            layer_params = x[:, weight_count : weight_count + n_params]
             # Adding weight.
-            weight = layer_params[: self.dim_arm * 2].view(2, self.dim_arm)
+            weight = layer_params[:, : self.dim_arm * 2].view(-1, 2, self.dim_arm)
             formatted_weights[f"mlp.{2 * self.n_hidden_layers}.weight"] = weight
             # Adding bias, if needed.
             if self.biases:
-                bias = layer_params[self.dim_arm * 2 :].view(2)
+                bias = layer_params[:, self.dim_arm * 2 :].view(-1, 2)
                 formatted_weights[f"mlp.{2 * self.n_hidden_layers}.bias"] = bias
 
         return formatted_weights
@@ -532,7 +531,7 @@ class UpsamplingHyperNet(nn.Module):
         """
         return (target_size + 1) // 2
 
-    def shape_output(self, x: torch.Tensor) -> OrderedDict[str, torch.Tensor]:
+    def shape_outputs(self, x: torch.Tensor) -> OrderedDict[str, torch.Tensor]:
         """Reshape the output of the hypernetwork to match the shape of the upsampling filters."""
         weight_count = 0
         formatted_weights = OrderedDict()
@@ -554,8 +553,8 @@ class UpsamplingHyperNet(nn.Module):
                 transpose_params[:, -1],
             )
             # Reshaping
-            transpose_weight = transpose_weight.view(self.ups_n_params)
-            transpose_bias = transpose_bias.view(1)
+            transpose_weight = transpose_weight.view(-1, self.ups_n_params)
+            transpose_bias = transpose_bias.view(-1, 1)
             formatted_weights[f"conv_transpose2ds.{n_stage}.bias"] = transpose_bias
             formatted_weights[
                 f"conv_transpose2ds.{n_stage}.parametrizations.weight.original"
@@ -567,8 +566,8 @@ class UpsamplingHyperNet(nn.Module):
                 preconcat_params[:, -1],
             )
             # Reshaping
-            preconcat_weight = preconcat_weight.view(self.ups_preconcat_n_params)
-            preconcat_bias = preconcat_bias.view(1)
+            preconcat_weight = preconcat_weight.view(-1, self.ups_preconcat_n_params)
+            preconcat_bias = preconcat_bias.view(-1, 1)
             formatted_weights[f"conv2ds.{n_stage}.bias"] = preconcat_bias
             formatted_weights[f"conv2ds.{n_stage}.parametrizations.weight.original"] = (
                 preconcat_weight
@@ -1218,28 +1217,53 @@ class DeltaWholeNet(WholeNet):
             arm_delta_dict = {}
 
         # Adding deltas.
-        forward_params = {}
+        B = latents[0].shape[0]
+        forward_params: dict[str, torch.Tensor] = {}
         for k, v in self.mean_decoder.named_parameters():
             if (inner_key := k.removeprefix("synthesis.")) in s_delta_dict:
                 forward_params[k] = s_delta_dict[inner_key] + v
             elif (inner_key := k.removeprefix("arm.")) in arm_delta_dict:
                 forward_params[k] = arm_delta_dict[inner_key] + v
             else:
-                forward_params[k] = v
+                forward_params[k] = v.unsqueeze(0).expand(B, *v.shape)
 
-        return functional_call(
-            self.mean_decoder,
-            forward_params,
-            (latents,),
-            kwargs={
-                "quantizer_noise_type": quantizer_noise_type,
-                "quantizer_type": quantizer_type,
-                "soft_round_temperature": torch.tensor(softround_temperature),
-                "noise_parameter": torch.tensor(noise_parameter),
-                "AC_MAX_VAL": -1,
-                "flag_additional_outputs": False,
-            },
+        def get_forward_pass(lats: list[torch.Tensor], params: dict[str, torch.Tensor]):
+            return functional_call(
+                self.mean_decoder,
+                params,
+                (lats,),
+                kwargs={
+                    "quantizer_noise_type": quantizer_noise_type,
+                    "quantizer_type": quantizer_type,
+                    "soft_round_temperature": torch.tensor(softround_temperature),
+                    "noise_parameter": torch.tensor(noise_parameter),
+                    "AC_MAX_VAL": -1,
+                    "flag_additional_outputs": False,
+                },
+            )
+
+        # We need to add an additional batch dimension to latents so that after
+        # vmap they still have a singleton batch dimension.
+        latents = [lat.unsqueeze(1) for lat in latents]
+
+        return torch.vmap(get_forward_pass, randomness="different")(
+            latents, forward_params
         )
+
+        # return functional_call(
+        #     self.mean_decoder,
+        #     forward_params,
+        #     (latents,),
+        #     kwargs={
+        #         "quantizer_noise_type": quantizer_noise_type,
+        #         "quantizer_type": quantizer_type,
+        #         "soft_round_temperature": torch.tensor(softround_temperature),
+        #         "noise_parameter": torch.tensor(noise_parameter),
+        #         "AC_MAX_VAL": -1,
+        #         "flag_additional_outputs": False,
+        #     },
+        # )
+
         # return self.mean_decoder.forward(
         #     latents=latents,
         #     synth_delta=synth_deltas,

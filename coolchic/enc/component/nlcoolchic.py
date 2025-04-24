@@ -218,11 +218,11 @@ class LatentFreeCoolChicEncoder(nn.Module):
         # Convert the N [B, C, H_i, W_i] 4d latents with different resolutions
         # to a 2d [B, N*C*H*W] tensor. This allows to call the quantization
         # only once, which is faster.
-        B = latents[0].data.shape[0]
-        size_per_latent = [latent.data.shape for latent in latents]
+        B = latents[0].shape[0]
+        size_per_latent = [latent.shape for latent in latents]
 
         encoder_side_flat_latent = torch.cat(
-            [latent_i.data.view(B, -1) for latent_i in latents], dim=1
+            [latent_i.view(B, -1) for latent_i in latents], dim=1
         )
 
         flat_decoder_side_latent = quantize(
