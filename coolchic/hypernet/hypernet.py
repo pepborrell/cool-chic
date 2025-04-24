@@ -823,10 +823,6 @@ class WholeNet(nn.Module, abc.ABC):
         pass
 
     @abc.abstractmethod
-    def init_parameters(self) -> list[nn.Parameter]:
-        pass
-
-    @abc.abstractmethod
     def image_to_coolchic(self, img: torch.Tensor, stop_grads: bool) -> CoolChicEncoder:
         pass
 
@@ -1126,9 +1122,6 @@ class NOWholeNet(WholeNet):
         )
         self.mean_decoder = LatentFreeCoolChicEncoder(param=coolchic_encoder_parameter)
 
-    def init_parameters(self) -> list[nn.Parameter]:
-        return list(self.encoder.parameters()) + list(self.mean_decoder.parameters())
-
     def forward(
         self,
         img: torch.Tensor,
@@ -1226,7 +1219,7 @@ class DeltaWholeNet(WholeNet):
 
         # Adding deltas.
         forward_params = {}
-        for k, v in dict(self.mean_decoder.named_parameters()):
+        for k, v in self.mean_decoder.named_parameters():
             if (inner_key := k.removeprefix("synthesis.")) in s_delta_dict:
                 forward_params[k] = s_delta_dict[inner_key] + v
             elif (inner_key := k.removeprefix("arm.")) in arm_delta_dict:
