@@ -649,6 +649,7 @@ class LatentFreeCoolChicEncoder(nn.Module):
         self,
         latents: list[torch.Tensor],
         stop_grads: bool = False,
+        new_parameters: dict[str, torch.Tensor] | None = None,
     ) -> CoolChicEncoder:
         """Returns a CoolChicEncoder with the latents and deltas set."""
         if not stop_grads:
@@ -666,12 +667,35 @@ class LatentFreeCoolChicEncoder(nn.Module):
             # This should not happen if stop grads is True.
             return OrderedDict({k: nn.Parameter(v) for k, v in state.items()})
 
+        if new_parameters is not None:
+
+            def extract_component_params_from_state(
+                params: dict[str, torch.Tensor], comp_prefix: str
+            ) -> dict[str, torch.Tensor]:
+                return {
+                    k.removeprefix(comp_prefix): v
+                    for k, v in params.items()
+                    if k.startswith(comp_prefix)
+                }
+
+            synthesis_state_dict = extract_component_params_from_state(
+                new_parameters, "synthesis."
+            )
+            arm_state_dict = extract_component_params_from_state(new_parameters, "arm.")
+            upsampling_state_dict = extract_component_params_from_state(
+                new_parameters, "upsampling."
+            )
+        else:
+            synthesis_state_dict = self.synthesis.state_dict()
+            arm_state_dict = self.arm.state_dict()
+            upsampling_state_dict = self.upsampling.state_dict()
+
         encoder.synthesis.set_hypernet_weights(
-            state_dict_to_param(self.synthesis.state_dict())
+            state_dict_to_param(synthesis_state_dict)
         )
-        encoder.arm.set_hypernet_weights(state_dict_to_param(self.arm.state_dict()))
+        encoder.arm.set_hypernet_weights(state_dict_to_param(arm_state_dict))
         encoder.upsampling.set_hypernet_weights(
-            state_dict_to_param(self.upsampling.state_dict())
+            state_dict_to_param(upsampling_state_dict)
         )
         # Replace latents in CoolChicEncoder.
         encoder.size_per_latent = [lat.shape for lat in latents]

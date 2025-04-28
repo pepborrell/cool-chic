@@ -15,7 +15,12 @@ from coolchic.enc.component.core.quantizer import (
 )
 from coolchic.enc.component.nlcoolchic import LatentFreeCoolChicEncoder
 from coolchic.enc.utils.parsecli import get_coolchic_param_from_args
-from coolchic.hypernet.common import ResidualBlockDown, build_mlp, upsample_latents
+from coolchic.hypernet.common import (
+    ResidualBlockDown,
+    add_deltas,
+    build_mlp,
+    upsample_latents,
+)
 from coolchic.utils.nn import get_num_of_params
 from coolchic.utils.types import HyperNetConfig
 
@@ -1216,16 +1221,13 @@ class DeltaWholeNet(WholeNet):
             s_delta_dict = {}
             arm_delta_dict = {}
 
-        # Adding deltas.
-        B = latents[0].shape[0]
-        forward_params: dict[str, torch.Tensor] = {}
-        for k, v in self.mean_decoder.named_parameters():
-            if (inner_key := k.removeprefix("synthesis.")) in s_delta_dict:
-                forward_params[k] = s_delta_dict[inner_key] + v
-            elif (inner_key := k.removeprefix("arm.")) in arm_delta_dict:
-                forward_params[k] = arm_delta_dict[inner_key] + v
-            else:
-                forward_params[k] = v.unsqueeze(0).expand(B, *v.shape)
+        # Combine deltas with the parameters of the decoder.
+        forward_params = add_deltas(
+            self.mean_decoder.named_parameters(),
+            s_delta_dict,
+            arm_delta_dict,
+            batch_size=latents[0].shape[0],
+        )
 
         def get_forward_pass(lats: list[torch.Tensor], params: dict[str, torch.Tensor]):
             return functional_call(

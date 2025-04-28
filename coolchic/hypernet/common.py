@@ -1,4 +1,4 @@
-from typing import Literal, OrderedDict
+from typing import Iterator, Literal, OrderedDict
 
 import torch
 from torch import nn
@@ -239,3 +239,22 @@ def upsample_latents(
         ],
         dim=1,
     )
+
+
+def add_deltas(
+    decoder_params: Iterator[tuple[str, torch.Tensor]],
+    synth_delta_dict: dict[str, torch.Tensor],
+    arm_delta_dict: dict[str, torch.Tensor],
+    batch_size: int,
+):
+    # Adding deltas.
+    forward_params: dict[str, torch.Tensor] = {}
+    for k, v in decoder_params:
+        if (inner_key := k.removeprefix("synthesis.")) in synth_delta_dict:
+            forward_params[k] = synth_delta_dict[inner_key] + v
+        elif (inner_key := k.removeprefix("arm.")) in arm_delta_dict:
+            forward_params[k] = arm_delta_dict[inner_key] + v
+        else:
+            forward_params[k] = v.unsqueeze(0).expand(batch_size, *v.shape)
+
+    return forward_params
