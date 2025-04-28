@@ -1259,16 +1259,18 @@ class DeltaWholeNet(WholeNet):
         img = img.to(next(self.parameters()).device)
         if self.use_delta:
             latents, s_delta_dict, arm_delta_dict = self.hypernet.forward(img)
-            synth_deltas = [delta for delta in s_delta_dict.values()]
-            arm_deltas = [delta for delta in arm_delta_dict.values()]
         else:
             latents = self.hypernet.latent_forward(img)
-            synth_deltas = [torch.tensor(0.0)] * len(
-                self.hypernet.synthesis_hn.layer_info
-            )
-            arm_deltas = [torch.tensor(0.0)] * (
-                self.hypernet.arm_hn.n_hidden_layers + 1
-            )
+            s_delta_dict = {}
+            arm_delta_dict = {}
+
+        # Combine deltas with the parameters of the decoder.
+        forward_params = add_deltas(
+            self.mean_decoder.named_parameters(),
+            s_delta_dict,
+            arm_delta_dict,
+            batch_size=latents[0].shape[0],
+        )
 
         return self.mean_decoder.as_coolchic(
             latents=latents,
