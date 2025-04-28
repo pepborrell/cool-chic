@@ -15,12 +15,7 @@ from coolchic.enc.component.core.quantizer import (
 )
 from coolchic.enc.component.nlcoolchic import LatentFreeCoolChicEncoder
 from coolchic.enc.utils.parsecli import get_coolchic_param_from_args
-from coolchic.hypernet.common import (
-    ResidualBlockDown,
-    add_deltas,
-    build_mlp,
-    upsample_latents,
-)
+from coolchic.hypernet.common import ResidualBlockDown, build_mlp, upsample_latents
 from coolchic.utils.nn import get_num_of_params
 from coolchic.utils.types import HyperNetConfig
 
@@ -1222,8 +1217,7 @@ class DeltaWholeNet(WholeNet):
             arm_delta_dict = {}
 
         # Combine deltas with the parameters of the decoder.
-        forward_params = add_deltas(
-            self.mean_decoder.named_parameters(),
+        forward_params = self.add_deltas(
             s_delta_dict,
             arm_delta_dict,
             batch_size=latents[0].shape[0],
@@ -1253,6 +1247,33 @@ class DeltaWholeNet(WholeNet):
         )(latents, forward_params)
         return raw_out.squeeze(1), rate.squeeze(1), additional_data
 
+    def add_deltas(
+        self,
+        synth_delta_dict: dict[str, torch.Tensor],
+        arm_delta_dict: dict[str, torch.Tensor],
+        batch_size: int,
+        remove_batch_dim: bool = False,
+    ) -> dict[str, torch.Tensor]:
+        if remove_batch_dim and batch_size != 1:
+            raise ValueError(
+                "Batch size should be 0 if we want to remove batch dimension."
+            )
+
+        # Adding deltas.
+        forward_params: dict[str, torch.Tensor] = {}
+        for k, v in self.mean_decoder.named_parameters():
+            if (inner_key := k.removeprefix("synthesis.")) in synth_delta_dict:
+                forward_params[k] = synth_delta_dict[inner_key] + v
+            elif (inner_key := k.removeprefix("arm.")) in arm_delta_dict:
+                forward_params[k] = arm_delta_dict[inner_key] + v
+            else:
+                forward_params[k] = v.unsqueeze(0).expand(batch_size, *v.shape)
+
+            if remove_batch_dim:
+                forward_params[k] = forward_params[k].squeeze(0)
+
+        return forward_params
+
     def image_to_coolchic(
         self, img: torch.Tensor, stop_grads: bool = False
     ) -> CoolChicEncoder:
@@ -1265,16 +1286,15 @@ class DeltaWholeNet(WholeNet):
             arm_delta_dict = {}
 
         # Combine deltas with the parameters of the decoder.
-        forward_params = add_deltas(
-            self.mean_decoder.named_parameters(),
+        forward_params = self.add_deltas(
             s_delta_dict,
             arm_delta_dict,
             batch_size=latents[0].shape[0],
+            remove_batch_dim=True,
         )
 
         return self.mean_decoder.as_coolchic(
-            latents=latents,
-            stop_grads=stop_grads,
+            latents=latents, stop_grads=stop_grads, new_parameters=forward_params
         )
 
     def get_mlp_rate(self) -> float:
@@ -1355,7 +1375,7 @@ class SmallDeltaWholeNet(DeltaWholeNet):
         coolchic_encoder_parameter.set_image_size(config.patch_size)
 
         self.hypernet = SmallCoolchicHyperNet(config=config)
-        self.mean_decoder = LatentDecoder(param=coolchic_encoder_parameter)
+        self.mean_decoder = LatentFreeCoolChicEncoder(param=coolchic_encoder_parameter)
 
         self.use_delta = False
 
@@ -1378,7 +1398,5 @@ class SmallAdditiveDeltaWholeNet(SmallDeltaWholeNet):
             **get_coolchic_param_from_args(config.dec_cfg)
         )
         coolchic_encoder_parameter.set_image_size(config.patch_size)
-        self.mean_decoder = LatentDecoder(
-            param=coolchic_encoder_parameter, only_delta_biases=True
-        )
+        self.mean_decoder = LatentFreeCoolChicEncoder(param=coolchic_encoder_parameter)
         self.use_delta = False
