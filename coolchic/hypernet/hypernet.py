@@ -1363,6 +1363,11 @@ class DeltaWholeNet(WholeNet):
             print(
                 f"Outputs are not the same. MSE: {mse}. This means the model was not loaded properly."
             )
+        else:
+            print(
+                "Outputs in the NO CoolChic checkpoints "
+                "and the hypernet created from it match as expected."
+            )
 
 
 class SmallDeltaWholeNet(DeltaWholeNet):
