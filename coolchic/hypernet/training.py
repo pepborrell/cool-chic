@@ -236,9 +236,8 @@ def train(
     # In case warmup didn't run for this.
     if best_test_loss == float("inf"):
         # Preliminary eval, to have a baseline of test loss.
-        # prelim_eval = evaluate_wholenet(wholenet, test_data, lmbda=lmbda, device=device)
-        # best_test_loss = prelim_eval["test_loss"]
-        pass
+        prelim_eval = evaluate_wholenet(wholenet, test_data, lmbda=lmbda, device=device)
+        best_test_loss = prelim_eval["test_loss"]
 
     # Proper training.
     for phase_num, training_phase in enumerate(recipe.all_phases):
