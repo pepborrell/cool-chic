@@ -55,7 +55,7 @@ class RunningTrainLoss(BaseModel):
             "train_psnr_db": self.run_psnr_db / self.n_samples,
         }
 
-
+@torch.compiler.disable(recursive=False)
 def evaluate_wholenet(
     net: WholeNet,
     test_data: torch.utils.data.DataLoader,
@@ -210,6 +210,7 @@ def train(
     unfreeze_backbone_samples: int,
 ):
     wholenet = wholenet.to(device)
+    wholenet = torch.compile(wholenet)
     batch_size = train_data.batch_size
     assert batch_size is not None, "Batch size is None"
     # If model is compiled, set precision to high for extra performance.
@@ -236,8 +237,9 @@ def train(
     # In case warmup didn't run for this.
     if best_test_loss == float("inf"):
         # Preliminary eval, to have a baseline of test loss.
-        prelim_eval = evaluate_wholenet(wholenet, test_data, lmbda=lmbda, device=device)
-        best_test_loss = prelim_eval["test_loss"]
+        # prelim_eval = evaluate_wholenet(wholenet, test_data, lmbda=lmbda, device=device)
+        # best_test_loss = prelim_eval["test_loss"]
+        pass
 
     # Proper training.
     for phase_num, training_phase in enumerate(recipe.all_phases):

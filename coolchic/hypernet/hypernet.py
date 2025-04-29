@@ -816,8 +816,8 @@ class WholeNet(nn.Module, abc.ABC):
         img: torch.Tensor,
         quantizer_noise_type: POSSIBLE_QUANTIZATION_NOISE_TYPE = "gaussian",
         quantizer_type: POSSIBLE_QUANTIZER_TYPE = "softround",
-        softround_temperature: float = 0.3,
-        noise_parameter: float = 0.25,
+        softround_temperature: torch.Tensor = torch.tensor(0.3),
+        noise_parameter: torch.Tensor = torch.tensor(0.25),
     ) -> tuple[torch.Tensor, torch.Tensor, dict[str, Any]]:
         pass
 
@@ -887,14 +887,14 @@ class CoolchicWholeNet(WholeNet):
         img: torch.Tensor,
         quantizer_noise_type: POSSIBLE_QUANTIZATION_NOISE_TYPE = "gaussian",
         quantizer_type: POSSIBLE_QUANTIZER_TYPE = "softround",
-        softround_temperature: float = 0.3,
-        noise_parameter: float = 0.25,
+        softround_temperature: torch.Tensor = torch.tensor(0.3),
+        noise_parameter: torch.Tensor = torch.tensor(0.25),
     ) -> tuple[torch.Tensor, torch.Tensor, dict[str, Any]]:
         return self.image_to_coolchic(img).forward(
             quantizer_noise_type=quantizer_noise_type,
             quantizer_type=quantizer_type,
-            soft_round_temperature=torch.tensor(softround_temperature),
-            noise_parameter=torch.tensor(noise_parameter),
+            soft_round_temperature=softround_temperature,
+            noise_parameter=noise_parameter,
             AC_MAX_VAL=-1,
             flag_additional_outputs=False,
         )
@@ -1126,8 +1126,8 @@ class NOWholeNet(WholeNet):
         img: torch.Tensor,
         quantizer_noise_type: POSSIBLE_QUANTIZATION_NOISE_TYPE = "gaussian",
         quantizer_type: POSSIBLE_QUANTIZER_TYPE = "softround",
-        softround_temperature: float = 0.3,
-        noise_parameter: float = 0.25,
+        softround_temperature:torch.Tensor = torch.tensor(0.3),
+        noise_parameter: torch.Tensor = torch.tensor(0.25),
     ) -> tuple[torch.Tensor, torch.Tensor, dict[str, Any]]:
         # input tensor is of the shape (batch_size, 3, H, W)
         latents = self.encoder.forward(img)
@@ -1140,8 +1140,8 @@ class NOWholeNet(WholeNet):
             # arm_delta=None,
             quantizer_noise_type=quantizer_noise_type,
             quantizer_type=quantizer_type,
-            soft_round_temperature=torch.tensor(softround_temperature),
-            noise_parameter=torch.tensor(noise_parameter),
+            soft_round_temperature=softround_temperature,
+            noise_parameter=noise_parameter,
             AC_MAX_VAL=-1,
             flag_additional_outputs=False,
         )
@@ -1206,8 +1206,8 @@ class DeltaWholeNet(WholeNet):
         img: torch.Tensor,
         quantizer_noise_type: POSSIBLE_QUANTIZATION_NOISE_TYPE = "gaussian",
         quantizer_type: POSSIBLE_QUANTIZER_TYPE = "softround",
-        softround_temperature: float = 0.3,
-        noise_parameter: float = 0.25,
+        softround_temperature: torch.Tensor = torch.tensor(0.3),
+        noise_parameter: torch.Tensor = torch.tensor(0.25),
     ) -> tuple[torch.Tensor, torch.Tensor, dict[str, Any]]:
         if self.use_delta:
             latents, s_delta_dict, arm_delta_dict = self.hypernet.forward(img)
@@ -1231,8 +1231,8 @@ class DeltaWholeNet(WholeNet):
                 kwargs={
                     "quantizer_noise_type": quantizer_noise_type,
                     "quantizer_type": quantizer_type,
-                    "soft_round_temperature": torch.tensor(softround_temperature),
-                    "noise_parameter": torch.tensor(noise_parameter),
+                    "soft_round_temperature": softround_temperature,
+                    "noise_parameter": noise_parameter,
                     "AC_MAX_VAL": -1,
                     "flag_additional_outputs": False,
                 },
