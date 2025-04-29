@@ -1208,7 +1208,11 @@ class DeltaWholeNet(WholeNet):
         if self.use_delta:
             latents, s_delta_dict, arm_delta_dict = self.hypernet.forward(img)
             synth_deltas = [delta for delta in s_delta_dict.values()]
-            arm_deltas = [delta for delta in arm_delta_dict.values()]
+            # arm_deltas = [delta for delta in arm_delta_dict.values()]
+            # arm deltas will be zeros instead.
+            arm_deltas = [torch.tensor(0.0)] * (
+                self.hypernet.arm_hn.n_hidden_layers + 1
+            )
         else:
             latents = self.hypernet.latent_forward(img)
             synth_deltas = [torch.tensor(0.0)] * len(
@@ -1237,7 +1241,11 @@ class DeltaWholeNet(WholeNet):
         if self.use_delta:
             latents, s_delta_dict, arm_delta_dict = self.hypernet.forward(img)
             synth_deltas = [delta for delta in s_delta_dict.values()]
-            arm_deltas = [delta for delta in arm_delta_dict.values()]
+            # arm_deltas = [delta for delta in arm_delta_dict.values()]
+            # arm deltas will be zeros instead.
+            arm_deltas = [torch.tensor(0.0)] * (
+                self.hypernet.arm_hn.n_hidden_layers + 1
+            )
         else:
             latents = self.hypernet.latent_forward(img)
             synth_deltas = [torch.tensor(0.0)] * len(
@@ -1291,11 +1299,12 @@ class DeltaWholeNet(WholeNet):
 
         # we want deltas to be trainable.
         self.use_delta = True
+        # TODO: make them back to requires_grad = True.
         # and N-O coolchic weights shouldn't be trainable.
         for param in self.mean_decoder.parameters():
-            param.requires_grad = False
+            param.requires_grad = True
         for param in self.hypernet.latent_hn.parameters():
-            param.requires_grad = False
+            param.requires_grad = True
 
         # Initialize deltas so that their original output is
         # zero. (Output initially is the same as the NO CoolChic model
