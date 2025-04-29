@@ -219,7 +219,6 @@ class LatentFreeCoolChicEncoder(nn.Module):
         # to a 2d [B, N*C*H*W] tensor. This allows to call the quantization
         # only once, which is faster.
         B = latents[0].shape[0]
-        size_per_latent = [latent.shape for latent in latents]
 
         encoder_side_flat_latent = torch.cat(
             [latent_i.view(B, -1) for latent_i in latents], dim=1
@@ -244,11 +243,11 @@ class LatentFreeCoolChicEncoder(nn.Module):
         # latent dimension, stored in self.size_per_latent
         decoder_side_latent = []
         cnt = 0
-        for latent_size in size_per_latent:
-            _, c, h, w = latent_size  # b should be one. or not if we batch
+        for latent in latents:
+            b, c, h, w = latent.shape  # b should be one. or not if we batch
             latent_numel = c * h * w
             decoder_side_latent.append(
-                flat_decoder_side_latent[:, cnt : cnt + latent_numel].view(latent_size)
+                flat_decoder_side_latent[:, cnt : cnt + latent_numel].view(b, c, h, w)
             )
             cnt += latent_numel
 
