@@ -11,7 +11,7 @@ from typing import OrderedDict, Tuple
 
 import torch
 import torch.nn.functional as F
-from torch import Tensor, index_select, nn
+from torch import Tensor, nn
 
 from coolchic.hypernet.common import set_hypernet_weights
 
@@ -355,7 +355,11 @@ def _get_neighbor(x: Tensor, mask_size: int, non_zero_pixel_ctx_idx: Tensor) -> 
     # Select the pixels for which the mask is not zero
     # For a N x N mask, select only the first (N x N - 1) / 2 pixels
     # (those which aren't null)
-    neighbor = index_select(x_unfold, dim=2, index=non_zero_pixel_ctx_idx)
+    # This was in place before, but it doesn't compile well.
+    # Removing it for the simpler indexing approach.
+    # neighbor = index_select(x_unfold, dim=2, index=non_zero_pixel_ctx_idx)
+
+    neighbor = x_unfold[:, :, non_zero_pixel_ctx_idx]
     return neighbor
 
 
