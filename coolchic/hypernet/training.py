@@ -55,7 +55,6 @@ class RunningTrainLoss(BaseModel):
             "train_psnr_db": self.run_psnr_db / self.n_samples,
         }
 
-@torch.compiler.disable(recursive=False)
 def evaluate_wholenet(
     net: WholeNet,
     test_data: torch.utils.data.DataLoader,
@@ -198,7 +197,6 @@ def warmup(
     model.load_state_dict(best_candidate)
     return model, best_warmup_loss
 
-
 def train(
     train_data: torch.utils.data.DataLoader,
     test_data: torch.utils.data.DataLoader,
@@ -237,9 +235,8 @@ def train(
     # In case warmup didn't run for this.
     if best_test_loss == float("inf"):
         # Preliminary eval, to have a baseline of test loss.
-        # prelim_eval = evaluate_wholenet(wholenet, test_data, lmbda=lmbda, device=device)
-        # best_test_loss = prelim_eval["test_loss"]
-        pass
+        prelim_eval = evaluate_wholenet(wholenet, test_data, lmbda=lmbda, device=device)
+        best_test_loss = prelim_eval["test_loss"]
 
     # Proper training.
     for phase_num, training_phase in enumerate(recipe.all_phases):
