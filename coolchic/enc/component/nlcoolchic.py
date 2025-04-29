@@ -221,7 +221,7 @@ class LatentFreeCoolChicEncoder(nn.Module):
         B = latents[0].shape[0]
 
         encoder_side_flat_latent = torch.cat(
-            [latent_i.view(B, -1) for latent_i in latents], dim=1
+            [latent_i.flatten(start_dim=1) for latent_i in latents], dim=1
         )
 
         flat_decoder_side_latent = quantize(
@@ -244,10 +244,12 @@ class LatentFreeCoolChicEncoder(nn.Module):
         decoder_side_latent = []
         cnt = 0
         for latent in latents:
-            b, c, h, w = latent.shape  # b should be one. or not if we batch
+            _, c, h, w = latent.shape  # b should be one. or not if we batch
             latent_numel = c * h * w
             decoder_side_latent.append(
-                flat_decoder_side_latent[:, cnt : cnt + latent_numel].view(b, c, h, w)
+                flat_decoder_side_latent[:, cnt : cnt + latent_numel].reshape(
+                    latent.shape
+                )
             )
             cnt += latent_numel
 
