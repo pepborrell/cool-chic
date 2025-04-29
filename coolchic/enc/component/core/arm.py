@@ -336,13 +336,13 @@ def _get_neighbor(x: Tensor, mask_size: int, non_zero_pixel_ctx_idx: Tensor) -> 
     # Shape of x_unfold is [B, C, H, W, mask_size, mask_size] --> [B, C * H * W, mask_size * mask_size]
     # reshape is faster than einops.rearrange
     assert x.ndim == 4, f"Input tensor must have 4 dimensions. Found {x.ndim}."
-    B, C, _, _ = x.shape
+    B, C, H, W = x.shape
     assert C == 1, f"Input tensor must have 1 channel. Found {C}."
 
     x_unfold = (
         x_pad.unfold(2, mask_size, step=1)
         .unfold(3, mask_size, step=1)
-        .reshape(B, -1, mask_size * mask_size)
+        .reshape(B, C * H * W, mask_size * mask_size)
     )
 
     # Convert x_unfold to a 2D tensor: [Number of pixels, all neighbors]
@@ -507,3 +507,7 @@ def _get_non_zero_pixel_ctx_index(dim_arm: int) -> Tensor:
             ]
         )
     # fmt: on
+    else:
+        raise ValueError(
+            f"ARM context size must be 8, 16, 24 or 32. Found {dim_arm}."
+        )
