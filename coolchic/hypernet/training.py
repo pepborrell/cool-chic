@@ -1,9 +1,13 @@
 from pathlib import Path
+import tqdm
+import matplotlib.pyplot as plt
 
+import seaborn as sns
 import torch
+import pandas as pd
+import wandb
 from pydantic import BaseModel
 
-import wandb
 from coolchic.enc.component.coolchic import CoolChicEncoderOutput
 from coolchic.enc.training.loss import LossFunctionOutput, loss_function
 from coolchic.enc.training.quantizemodel import quantize_model
@@ -254,7 +258,8 @@ def train(
         )
 
         train_losses = RunningTrainLoss()
-        for phase_it in range(phase_total_it):
+        all_losses = []
+        for phase_it in tqdm.tqdm(range(phase_total_it)):
             # Iterate over the training data.
             # When we run out of batches, we start from the beginning.
             img_batch = next(train_iter)
@@ -291,7 +296,34 @@ def train(
                 loss_function_output.loss, torch.Tensor
             ), "Loss is not a tensor"
             train_losses.add(loss_function_output)
+            all_losses.append(
+                {
+                    "samples_seen": samples_seen,
+                    "loss": loss_function_output.loss.detach().cpu().item(),
+                    "rate_bpp": loss_function_output.total_rate_bpp,
+                    "psnr_db": loss_function_output.psnr_db,
+                }
+            )
             loss_function_output.loss.backward()
+
+            if samples_seen > 10000:
+                loss_df = pd.DataFrame(all_losses)
+                loss_df.to_csv("losses.csv", index=False)
+                fig, ax = plt.subplots()
+                sns.lineplot(data=loss_df, x="samples_seen", y="loss", ax=ax).set_title(
+                    "loss"
+                )
+                fig, ax = plt.subplots()
+                sns.lineplot(
+                    data=loss_df, x="samples_seen", y="rate_bpp", ax=ax
+                ).set_title("rate")
+                fig, ax = plt.subplots()
+                sns.lineplot(
+                    data=loss_df, x="samples_seen", y="psnr_db", ax=ax
+                ).set_title("psnr")
+                plt.show()
+
+                return
 
             # Gradient accumulation. Probably not a good idea to use with batches larger than 1.
             if (samples_seen % training_phase.gradient_accumulation) < batch_size:
