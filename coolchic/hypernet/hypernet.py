@@ -1136,8 +1136,6 @@ class NOWholeNet(WholeNet):
 
         return self.mean_decoder.forward(
             latents=latents,
-            # synth_delta=None,
-            # arm_delta=None,
             quantizer_noise_type=quantizer_noise_type,
             quantizer_type=quantizer_type,
             soft_round_temperature=softround_temperature,
@@ -1161,10 +1159,7 @@ class NOWholeNet(WholeNet):
         with torch.no_grad():
             latents = self.encoder.forward(img)
             cc_enc = self.mean_decoder.as_coolchic(
-                latents=latents,
-                # synth_delta=None,
-                # arm_delta=None,
-                stop_grads=stop_grads,
+                latents=latents, stop_grads=stop_grads
             )
         self.train()
         return cc_enc
