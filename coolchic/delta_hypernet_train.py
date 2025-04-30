@@ -57,6 +57,8 @@ def main():
         wholenet = SmallAdditiveDeltaWholeNet(run_cfg.hypernet_cfg)
     else:
         wholenet = DeltaWholeNet(run_cfg.hypernet_cfg)
+    wholenet = wholenet.to(device)
+
     if run_cfg.model_weights is not None:
         # If N-O coolchic model is given, we use it as init.
 
@@ -81,7 +83,7 @@ def main():
         print(f"Loading model weights from {run_cfg.model_weights}")
         no_model = load_hypernet(
             weights_path=run_cfg.model_weights, config=run_cfg, wholenet_cls=NOWholeNet
-        )
+        ).to(device)
         wholenet.load_from_no_coolchic(no_model)
     else:
         # We don't want to train this from scratch anymore.

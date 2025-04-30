@@ -1126,7 +1126,7 @@ class NOWholeNet(WholeNet):
         img: torch.Tensor,
         quantizer_noise_type: POSSIBLE_QUANTIZATION_NOISE_TYPE = "gaussian",
         quantizer_type: POSSIBLE_QUANTIZER_TYPE = "softround",
-        softround_temperature:torch.Tensor = torch.tensor(0.3),
+        softround_temperature: torch.Tensor = torch.tensor(0.3),
         noise_parameter: torch.Tensor = torch.tensor(0.25),
     ) -> tuple[torch.Tensor, torch.Tensor, dict[str, Any]]:
         # input tensor is of the shape (batch_size, 3, H, W)
@@ -1324,6 +1324,14 @@ class DeltaWholeNet(WholeNet):
         self.use_delta = True
 
     def load_from_no_coolchic(self, no_coolchic: NOWholeNet) -> None:
+        # Check that both models are on the same device.
+        no_device = next(no_coolchic.parameters()).device
+        self_device = next(self.parameters()).device
+        if no_device != self_device:
+            raise ValueError(
+                f"Models are not on the same device. NOCoolChic: {no_device}, DeltaWholeNet: {self_device}"
+            )
+
         # load state dict normally.
         self.mean_decoder.load_state_dict(no_coolchic.mean_decoder.state_dict())
         self.hypernet.latent_hn.load_state_dict(no_coolchic.encoder.state_dict())
