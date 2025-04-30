@@ -312,7 +312,6 @@ class Arm(nn.Module):
         )
 
 
-@torch.compiler.disable
 def _get_neighbor(x: Tensor, mask_size: int, non_zero_pixel_ctx_idx: Tensor) -> Tensor:
     """Use the unfold function to extract the neighbors of each pixel in x.
 

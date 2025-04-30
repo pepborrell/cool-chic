@@ -55,6 +55,7 @@ class RunningTrainLoss(BaseModel):
             "train_psnr_db": self.run_psnr_db / self.n_samples,
         }
 
+
 def evaluate_wholenet(
     net: WholeNet,
     test_data: torch.utils.data.DataLoader,
@@ -197,6 +198,7 @@ def warmup(
     model.load_state_dict(best_candidate)
     return model, best_warmup_loss
 
+
 def train(
     train_data: torch.utils.data.DataLoader,
     test_data: torch.utils.data.DataLoader,
@@ -208,7 +210,6 @@ def train(
     unfreeze_backbone_samples: int,
 ):
     wholenet = wholenet.to(device)
-    wholenet = torch.compile(wholenet)
     batch_size = train_data.batch_size
     assert batch_size is not None, "Batch size is None"
     # If model is compiled, set precision to high for extra performance.
