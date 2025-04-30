@@ -218,11 +218,10 @@ class LatentFreeCoolChicEncoder(nn.Module):
         # Convert the N [B, C, H_i, W_i] 4d latents with different resolutions
         # to a 2d [B, N*C*H*W] tensor. This allows to call the quantization
         # only once, which is faster.
-        B = latents[0].data.shape[0]
-        size_per_latent = [latent.data.shape for latent in latents]
+        B = latents[0].shape[0]
 
         encoder_side_flat_latent = torch.cat(
-            [latent_i.data.view(B, -1) for latent_i in latents], dim=1
+            [latent_i.flatten(start_dim=1) for latent_i in latents], dim=1
         )
 
         flat_decoder_side_latent = quantize(
@@ -244,11 +243,13 @@ class LatentFreeCoolChicEncoder(nn.Module):
         # latent dimension, stored in self.size_per_latent
         decoder_side_latent = []
         cnt = 0
-        for latent_size in size_per_latent:
-            _, c, h, w = latent_size  # b should be one. or not if we batch
+        for latent in latents:
+            _, c, h, w = latent.shape  # b should be one. or not if we batch
             latent_numel = c * h * w
             decoder_side_latent.append(
-                flat_decoder_side_latent[:, cnt : cnt + latent_numel].view(latent_size)
+                flat_decoder_side_latent[:, cnt : cnt + latent_numel].reshape(
+                    latent.shape
+                )
             )
             cnt += latent_numel
 
@@ -648,9 +649,8 @@ class LatentFreeCoolChicEncoder(nn.Module):
     def as_coolchic(
         self,
         latents: list[torch.Tensor],
-        synth_delta: list[torch.Tensor] | None,
-        arm_delta: list[torch.Tensor] | None,
         stop_grads: bool = False,
+        new_parameters: dict[str, torch.Tensor] | None = None,
     ) -> CoolChicEncoder:
         """Returns a CoolChicEncoder with the latents and deltas set."""
         if not stop_grads:
@@ -668,12 +668,35 @@ class LatentFreeCoolChicEncoder(nn.Module):
             # This should not happen if stop grads is True.
             return OrderedDict({k: nn.Parameter(v) for k, v in state.items()})
 
+        if new_parameters is not None:
+
+            def extract_component_params_from_state(
+                params: dict[str, torch.Tensor], comp_prefix: str
+            ) -> dict[str, torch.Tensor]:
+                return {
+                    k.removeprefix(comp_prefix): v
+                    for k, v in params.items()
+                    if k.startswith(comp_prefix)
+                }
+
+            synthesis_state_dict = extract_component_params_from_state(
+                new_parameters, "synthesis."
+            )
+            arm_state_dict = extract_component_params_from_state(new_parameters, "arm.")
+            upsampling_state_dict = extract_component_params_from_state(
+                new_parameters, "upsampling."
+            )
+        else:
+            synthesis_state_dict = self.synthesis.state_dict()
+            arm_state_dict = self.arm.state_dict()
+            upsampling_state_dict = self.upsampling.state_dict()
+
         encoder.synthesis.set_hypernet_weights(
-            state_dict_to_param(self.synthesis.state_dict())
+            state_dict_to_param(synthesis_state_dict)
         )
-        encoder.arm.set_hypernet_weights(state_dict_to_param(self.arm.state_dict()))
+        encoder.arm.set_hypernet_weights(state_dict_to_param(arm_state_dict))
         encoder.upsampling.set_hypernet_weights(
-            state_dict_to_param(self.upsampling.state_dict())
+            state_dict_to_param(upsampling_state_dict)
         )
         # Replace latents in CoolChicEncoder.
         encoder.size_per_latent = [lat.shape for lat in latents]
@@ -684,16 +707,6 @@ class LatentFreeCoolChicEncoder(nn.Module):
         assert all(
             lat.is_leaf for lat in latents
         ), "Latents are not leaves. They still carry gradients back."
-        synth_delta = (
-            [nn.Parameter(delta) for delta in synth_delta]
-            if synth_delta is not None
-            else None
-        )
-        arm_delta = (
-            [nn.Parameter(delta) for delta in arm_delta]
-            if arm_delta is not None
-            else None
-        )
 
         # Something like self.latent_grids = nn.ParameterList(latents)
         # would break the computation graph. This doesn't. Following tips in:
@@ -701,15 +714,5 @@ class LatentFreeCoolChicEncoder(nn.Module):
         for i in range(len(latents)):
             del encoder.latent_grids[i].data
             encoder.latent_grids[i].data = latents[i]
-
-        # This makes synthesis and arm happen with deltas added to the filters.
-        if synth_delta is not None:
-            encoder.synthesis.add_delta(
-                synth_delta, add_to_weight=True, bias_only=self.only_delta_biases
-            )
-        if arm_delta is not None:
-            encoder.arm.add_delta(
-                arm_delta, add_to_weight=True, bias_only=self.only_delta_biases
-            )
 
         return encoder.to(next(self.parameters()).device)

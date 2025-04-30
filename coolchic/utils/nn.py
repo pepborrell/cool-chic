@@ -14,7 +14,7 @@ def get_num_of_params(model: nn.Module) -> int:
 # Taken from coolchic/enc/training/train.py
 def _linear_schedule(
     initial_value: float, final_value: float, cur_itr: float, max_itr: float
-) -> float:
+) -> torch.Tensor:
     """Linearly schedule a function to go from initial_value at cur_itr = 0 to
     final_value when cur_itr = max_itr.
 
@@ -33,7 +33,7 @@ def _linear_schedule(
         f" Found cur_itr = {cur_itr}."
     )
 
-    return cur_itr * (final_value - initial_value) / max_itr + initial_value
+    return torch.tensor(cur_itr * (final_value - initial_value) / max_itr + initial_value)
 
 
 def get_mlp_rate(net: CoolChicEncoder) -> float:
