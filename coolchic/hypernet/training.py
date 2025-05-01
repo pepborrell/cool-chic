@@ -306,7 +306,7 @@ def train(
             )
             loss_function_output.loss.backward()
 
-            if samples_seen > 10000:
+            if 10000 < samples_seen < 10050:
                 loss_df = pd.DataFrame(all_losses)
                 loss_df.to_csv("losses.csv", index=False)
                 fig, ax = plt.subplots()
@@ -323,7 +323,6 @@ def train(
                 ).set_title("psnr")
                 plt.show()
 
-                return
 
             # Gradient accumulation. Probably not a good idea to use with batches larger than 1.
             if (samples_seen % training_phase.gradient_accumulation) < batch_size:
