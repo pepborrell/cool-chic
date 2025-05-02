@@ -109,6 +109,7 @@ def main():
         unfreeze_backbone_samples=run_cfg.unfreeze_backbone,
         workdir=workdir,
         device=device,
+        comparison_no_coolchic=no_model,
     )
 
     # Eval on kodak at end of training.

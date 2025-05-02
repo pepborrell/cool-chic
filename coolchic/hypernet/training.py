@@ -212,6 +212,7 @@ def train(
     workdir: Path,
     device: POSSIBLE_DEVICE,
     unfreeze_backbone_samples: int,
+    comparison_no_coolchic: NOWholeNet | None = None,
 ):
     wholenet = wholenet.to(device)
     batch_size = train_data.batch_size
@@ -298,6 +299,7 @@ def train(
             train_losses.add(loss_function_output)
             all_losses.append(
                 {
+                    "model": "hypernet",
                     "samples_seen": samples_seen,
                     "loss": loss_function_output.loss.detach().cpu().item(),
                     "rate_bpp": loss_function_output.total_rate_bpp,
@@ -306,23 +308,58 @@ def train(
             )
             loss_function_output.loss.backward()
 
+            if comparison_no_coolchic is not None:
+                # Compare with no coolchic.
+                comparison_no_coolchic = comparison_no_coolchic.to(device)
+                with torch.no_grad():
+                    raw_out, rate, add_data = comparison_no_coolchic.forward(
+                        img_batch,
+                        softround_temperature=cur_softround_t,
+                        noise_parameter=cur_noise_param,
+                        quantizer_noise_type=training_phase.quantizer_noise_type,
+                    )
+                    out_forward = CoolChicEncoderOutput(
+                        raw_out=raw_out, rate=rate, additional_data=add_data
+                    )
+                    loss_function_output = loss_function(
+                        out_forward.raw_out,
+                        out_forward.rate,
+                        img_batch,
+                        lmbda=lmbda,
+                        rate_mlp_bit=0.0,
+                        compute_logs=True,
+                    )
+                    assert isinstance(
+                        loss_function_output.loss, torch.Tensor
+                    ), "Loss is not a tensor"
+                    all_losses.append(
+                        {
+                            "model": "no_coolchic",
+                            "samples_seen": samples_seen,
+                            "loss": loss_function_output.loss.detach().cpu().item(),
+                            "rate_bpp": loss_function_output.total_rate_bpp,
+                            "psnr_db": loss_function_output.psnr_db,
+                        }
+                    )
+
             if 10000 < samples_seen < 10050:
                 loss_df = pd.DataFrame(all_losses)
                 loss_df.to_csv("losses.csv", index=False)
                 fig, ax = plt.subplots()
-                sns.lineplot(data=loss_df, x="samples_seen", y="loss", ax=ax).set_title(
-                    "loss"
-                )
+                sns.lineplot(
+                    data=loss_df, x="samples_seen", y="loss", hue="model", ax=ax
+                ).set_title("loss")
                 fig, ax = plt.subplots()
                 sns.lineplot(
-                    data=loss_df, x="samples_seen", y="rate_bpp", ax=ax
+                    data=loss_df, x="samples_seen", y="rate_bpp", hue="model", ax=ax
                 ).set_title("rate")
                 fig, ax = plt.subplots()
                 sns.lineplot(
-                    data=loss_df, x="samples_seen", y="psnr_db", ax=ax
+                    data=loss_df, x="samples_seen", y="psnr_db", hue="model", ax=ax
                 ).set_title("psnr")
                 plt.show()
 
+                return
 
             # Gradient accumulation. Probably not a good idea to use with batches larger than 1.
             if (samples_seen % training_phase.gradient_accumulation) < batch_size:
