@@ -250,12 +250,22 @@ def train(
         print(training_phase)
         phase_total_it = training_phase.max_itr
         optimizer = torch.optim.Adam(wholenet.parameters(), lr=training_phase.lr)
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+
+        scheduler_change_it = 1000 // batch_size
+        warmup_scheduler = torch.optim.lr_scheduler.LinearLR(
+            optimizer, start_factor=0.01, total_iters=scheduler_change_it
+        )
+        cosine_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
             optimizer,
-            phase_total_it,
+            phase_total_it - scheduler_change_it,
             eta_min=training_phase.end_lr
             if training_phase.end_lr is not None
             else 1e-6,
+        )
+        scheduler = torch.optim.lr_scheduler.SequentialLR(
+            optimizer,
+            schedulers=[warmup_scheduler, cosine_scheduler],
+            milestones=[scheduler_change_it],
         )
 
         train_losses = RunningTrainLoss()
