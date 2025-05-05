@@ -1,8 +1,6 @@
 from pathlib import Path
 import tqdm
-import matplotlib.pyplot as plt
 
-import seaborn as sns
 import torch
 import pandas as pd
 import wandb
@@ -269,7 +267,7 @@ def train(
         )
 
         train_losses = RunningTrainLoss()
-        all_losses = []
+        all_eval_losses = []
         for phase_it in tqdm.tqdm(range(phase_total_it)):
             # Iterate over the training data.
             # When we run out of batches, we start from the beginning.
@@ -307,26 +305,53 @@ def train(
                 loss_function_output.loss, torch.Tensor
             ), "Loss is not a tensor"
             train_losses.add(loss_function_output)
-            all_losses.append(
-                {
-                    "model": "hypernet",
-                    "samples_seen": samples_seen,
-                    "loss": loss_function_output.loss.detach().cpu().item(),
-                    "rate_bpp": loss_function_output.total_rate_bpp,
-                    "psnr_db": loss_function_output.psnr_db,
-                }
-            )
             loss_function_output.loss.backward()
 
+            ######## DEBUGGING EARLY TRAINING ##########
+            # Getting the loss as if we ran this in eval.
+            wholenet.eval()
+            with torch.no_grad():
+                raw_eval_out, eval_rate, _ = wholenet.forward(
+                    img_batch,
+                    quantizer_noise_type="none",
+                    quantizer_type="hardround",
+                )
+                eval_out_forward = CoolChicEncoderOutput(
+                    raw_out=raw_eval_out, rate=eval_rate, additional_data={}
+                )
+                eval_loss_output = loss_function(
+                    eval_out_forward.raw_out,
+                    eval_out_forward.rate,
+                    img_batch,
+                    lmbda=lmbda,
+                    rate_mlp_bit=0.0,
+                    compute_logs=True,
+                )
+                assert isinstance(
+                    eval_loss_output.loss, torch.Tensor
+                ), "Loss is not a tensor"
+                all_eval_losses.append(
+                    {
+                        "model": "hypernet",
+                        "samples_seen": samples_seen,
+                        "loss": eval_loss_output.loss.detach().cpu().item(),
+                        "rate_bpp": eval_loss_output.total_rate_bpp,
+                        "psnr_db": eval_loss_output.psnr_db,
+                    }
+                )
+            wholenet.train()
+            ######## END DEBUGGING EARLY TRAINING ##########
+
+            ######## DEBUGGING EARLY TRAINING ##########
             if comparison_no_coolchic is not None:
                 # Compare with no coolchic.
                 comparison_no_coolchic = comparison_no_coolchic.to(device)
+                comparison_no_coolchic.eval()
                 with torch.no_grad():
                     raw_out, rate, add_data = comparison_no_coolchic.forward(
                         img_batch,
-                        softround_temperature=cur_softround_t,
-                        noise_parameter=cur_noise_param,
-                        quantizer_noise_type=training_phase.quantizer_noise_type,
+                        quantizer_noise_type="none",
+                        quantizer_type="hardround",
                     )
                     out_forward = CoolChicEncoderOutput(
                         raw_out=raw_out, rate=rate, additional_data=add_data
@@ -342,7 +367,7 @@ def train(
                     assert isinstance(
                         loss_function_output.loss, torch.Tensor
                     ), "Loss is not a tensor"
-                    all_losses.append(
+                    all_eval_losses.append(
                         {
                             "model": "no_coolchic",
                             "samples_seen": samples_seen,
@@ -351,25 +376,15 @@ def train(
                             "psnr_db": loss_function_output.psnr_db,
                         }
                     )
+                comparison_no_coolchic.train()
 
             if 10000 < samples_seen < 10050:
-                loss_df = pd.DataFrame(all_losses)
+                loss_df = pd.DataFrame(all_eval_losses)
                 loss_df.to_csv("losses.csv", index=False)
-                fig, ax = plt.subplots()
-                sns.lineplot(
-                    data=loss_df, x="samples_seen", y="loss", hue="model", ax=ax
-                ).set_title("loss")
-                fig, ax = plt.subplots()
-                sns.lineplot(
-                    data=loss_df, x="samples_seen", y="rate_bpp", hue="model", ax=ax
-                ).set_title("rate")
-                fig, ax = plt.subplots()
-                sns.lineplot(
-                    data=loss_df, x="samples_seen", y="psnr_db", hue="model", ax=ax
-                ).set_title("psnr")
-                plt.show()
-
-                return
+                raise Exception(
+                    "We got the losses we wanted. Let's get out of here my dudes."
+                )
+            ######## END DEBUGGING EARLY TRAINING ##########
 
             # Gradient accumulation. Probably not a good idea to use with batches larger than 1.
             if (samples_seen % training_phase.gradient_accumulation) < batch_size:
