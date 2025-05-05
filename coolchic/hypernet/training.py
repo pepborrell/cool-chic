@@ -380,9 +380,10 @@ def train(
                     )
                 comparison_no_coolchic.train()
 
-            if 10000 < samples_seen < 10050:
+            if (samples_seen % 10_000) < batch_size:
                 loss_df = pd.DataFrame(all_eval_losses)
                 loss_df.to_csv(f"losses_{type(wholenet).__name__}.csv", index=False)
+            if 10_0000 < samples_seen:
                 raise Exception(
                     "We got the losses we wanted. Let's get out of here my dudes."
                 )
