@@ -71,4 +71,5 @@ if __name__ == "__main__":
             cfg=config,
             wholenet_cls=hnet_cls,
             workdir=premature_workdir,
+            mlp_rate=False,
         )

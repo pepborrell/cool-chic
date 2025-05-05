@@ -63,7 +63,7 @@ def load_hypernet(
 
 
 def get_image_from_hypernet(
-    net: WholeNet, img_path: Path, lmbda: float
+    net: WholeNet, img_path: Path, lmbda: float, mlp_rate: bool
 ) -> tuple[torch.Tensor, LossFunctionOutput]:
     img = load_img_from_path(img_path)
     img = load_frame_data_from_tensor(img).data
@@ -78,11 +78,14 @@ def get_image_from_hypernet(
             img, quantizer_noise_type="none", quantizer_type="hardround"
         )
 
-        # getting mlp rate involves "mocking" a model quantization.
-        cc_enc = net.image_to_coolchic(img, stop_grads=True)
-        cc_enc._store_full_precision_param()
-        cc_enc = quantize_model(encoder=cc_enc, input_img=img, lmbda=lmbda)
-        rate_mlp = get_mlp_rate(cc_enc)
+        if mlp_rate:
+            # getting mlp rate involves "mocking" a model quantization.
+            cc_enc = net.image_to_coolchic(img, stop_grads=True)
+            cc_enc._store_full_precision_param()
+            cc_enc = quantize_model(encoder=cc_enc, input_img=img, lmbda=lmbda)
+            rate_mlp = get_mlp_rate(cc_enc)
+        else:
+            rate_mlp = 0.0
 
         loss_out = loss_function(
             out_img, out_rate, img, lmbda=0.0, rate_mlp_bit=rate_mlp, compute_logs=True
@@ -93,9 +96,9 @@ def get_image_from_hypernet(
 
 
 def img_eval(
-    img_path: Path, model: WholeNet, lmbda: float
+    img_path: Path, model: WholeNet, lmbda: float, mlp_rate: bool = False
 ) -> tuple[dict[str, str | float], str]:
-    out_img, loss_out = get_image_from_hypernet(model, img_path, lmbda)
+    out_img, loss_out = get_image_from_hypernet(model, img_path, lmbda, mlp_rate)
     save_path = img_path.with_suffix(f".out{img_path.suffix}").parts[-1]
     torchvision.utils.save_image(out_img, save_path)
     return {  # pyright: ignore
@@ -106,11 +109,11 @@ def img_eval(
     }, save_path
 
 
-def eval_on_all_kodak(model: WholeNet, lmbda: float) -> pd.DataFrame:
+def eval_on_all_kodak(model: WholeNet, lmbda: float, mlp_rate: bool) -> pd.DataFrame:
     res: list[dict] = []
     for i in tqdm(range(1, 25)):
         img_path = DATA_DIR / "kodak" / f"kodim{i:02d}.png"
-        res.append(img_eval(img_path, model, lmbda)[0])
+        res.append(img_eval(img_path, model, lmbda, mlp_rate=mlp_rate)[0])
     df = pd.DataFrame(res)
     print(df)
     return df
@@ -123,6 +126,7 @@ def main_eval(
     img_path: Path | None,
     cfg: HypernetRunConfig,
     wholenet_cls: type[WholeNet],
+    mlp_rate: bool,
     workdir: Path | None = None,
 ) -> None:
     """Evaluate a hypernet, either on a single image or on all Kodak images.
@@ -137,7 +141,9 @@ def main_eval(
         model = load_hypernet(weight_paths[0], cfg, wholenet_cls)
 
         if img_path is not None:
-            compressed, loss = get_image_from_hypernet(model, img_path, lmbda=lmbda)
+            compressed, loss = get_image_from_hypernet(
+                model, img_path, lmbda=lmbda, mlp_rate=mlp_rate
+            )
             print(
                 f"Rate: {loss.total_rate_bpp:2f} bpp, MSE: {loss.mse:2f}, PSNR: {loss.psnr_db}"
             )
@@ -145,7 +151,7 @@ def main_eval(
         else:
             # img_num is not None.
             img_path = DATA_DIR / "kodak" / f"kodim{img_num:02d}.png"
-            image_data, save_path = img_eval(img_path, model, lmbda)
+            image_data, save_path = img_eval(img_path, model, lmbda, mlp_rate=mlp_rate)
             print("Evaluation results:")
             [print(f"{k}: {v}") for k, v in image_data.items()]
             print(f"Saved to {save_path}")
@@ -156,7 +162,7 @@ def main_eval(
         for i, weight_path in enumerate(weight_paths):
             print(f"Loading model {i + 1}/{len(weight_paths)}")
             model = load_hypernet(weight_path, cfg, wholenet_cls)
-            df = eval_on_all_kodak(model, lmbda)
+            df = eval_on_all_kodak(model, lmbda, mlp_rate=mlp_rate)
             df["anchor"] = "hypernet" if len(weight_paths) == 1 else weight_path.stem
             dfs.append(df)
 
@@ -216,6 +222,12 @@ if __name__ == "__main__":
         "Lambda must be a float." f"Got {run_cfg.lmbda}"
     )
     main_eval(
-        w_paths, run_cfg.lmbda, args.img_num, args.img_path, run_cfg, wholenet_cls
+        w_paths,
+        run_cfg.lmbda,
+        args.img_num,
+        args.img_path,
+        run_cfg,
+        wholenet_cls,
+        mlp_rate=False,
     )
     plt.show()
