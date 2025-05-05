@@ -255,16 +255,18 @@ def train(
         )
         cosine_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
             optimizer,
-            phase_total_it - scheduler_change_it,
+            phase_total_it,
+            # phase_total_it - scheduler_change_it,
             eta_min=training_phase.end_lr
             if training_phase.end_lr is not None
             else 1e-6,
         )
-        scheduler = torch.optim.lr_scheduler.SequentialLR(
-            optimizer,
-            schedulers=[warmup_scheduler, cosine_scheduler],
-            milestones=[scheduler_change_it],
-        )
+        scheduler = cosine_scheduler
+        # scheduler = torch.optim.lr_scheduler.SequentialLR(
+        #     optimizer,
+        #     schedulers=[warmup_scheduler, cosine_scheduler],
+        #     milestones=[scheduler_change_it],
+        # )
 
         train_losses = RunningTrainLoss()
         all_eval_losses = []
