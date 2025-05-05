@@ -18,6 +18,7 @@ from coolchic.hypernet.hypernet import (
     NOWholeNet,
     WholeNet,
 )
+from coolchic.metalearning.data import OpenImagesDataset
 from coolchic.utils.nn import get_mlp_rate
 from coolchic.utils.paths import DATA_DIR
 from coolchic.utils.tensors import load_img_from_path
@@ -67,6 +68,7 @@ def get_image_from_hypernet(
 ) -> tuple[torch.Tensor, LossFunctionOutput]:
     img = load_img_from_path(img_path)
     img = load_frame_data_from_tensor(img).data
+    img = OpenImagesDataset.extract_random_patch(img, patch_size=(256, 256))
     assert isinstance(img, torch.Tensor)  # To make pyright happy.
     device = next(net.parameters()).device
     img = img.to(device)
