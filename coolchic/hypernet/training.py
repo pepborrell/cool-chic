@@ -380,7 +380,7 @@ def train(
 
             if 10000 < samples_seen < 10050:
                 loss_df = pd.DataFrame(all_eval_losses)
-                loss_df.to_csv("losses.csv", index=False)
+                loss_df.to_csv(f"losses_{type(wholenet).__name__}.csv", index=False)
                 raise Exception(
                     "We got the losses we wanted. Let's get out of here my dudes."
                 )
