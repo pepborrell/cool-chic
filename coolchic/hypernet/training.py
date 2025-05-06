@@ -288,6 +288,7 @@ def train(
             )
             raw_out, rate, add_data = wholenet.forward(
                 img_batch,
+                quantizer_type=training_phase.quantizer_type,
                 softround_temperature=cur_softround_t,
                 noise_parameter=cur_noise_param,
                 quantizer_noise_type=training_phase.quantizer_noise_type,
