@@ -32,10 +32,12 @@ hypernet_cfg:
     hidden_dim: 1024
     n_layers: 3
     biases: False
+    only_biases: True
   arm:
     hidden_dim: 1024
     n_layers: 3
     biases: False
+    only_biases: True
   upsampling:
     hidden_dim: 256
     n_layers: 1

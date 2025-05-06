@@ -278,6 +278,8 @@ class HyperNetParams(BaseModel):
     # Whether or not the hypernet should output bias values
     # (as well as matrices or conv kernels).
     biases: bool = True
+    # Whether the hypernet should only output biases.
+    only_biases: bool = False
 
 
 class HyperNetConfig(BaseModel):

@@ -1,15 +1,15 @@
 n_samples: 500000
-batch_size: 1
+batch_size: 16
 patch_size: [256, 256]
 unfreeze_backbone: 10000
 workdir: null
-model_weights: /itet-stor/jborrell/net_scratch/cool-chic/results/exps/no-cchic/batch-sweep/config_02/__latest
+model_weights: /itet-stor/jborrell/net_scratch/cool-chic/results/exps/no-cchic/batch-sweep/{lmbda_config_num}/__latest
 disable_wandb: False
-lmbda: 0.001
-user_tag: additive-hn
+lmbda: {lambda_value}
+user_tag: mixed-small-hn
 
 recipe:
-  preset_name: additive small delta hnet training
+  preset_name: mixed small delta hnet training
   warmup:
     empty: True # This is a placeholder for the warmup phase.
   all_phases:
@@ -25,14 +25,14 @@ recipe:
       patience: 10000
       freq_valid: 10000
       checkpointing_freq: 10000
-      gradient_accumulation: 8
+      gradient_accumulation: 1
 
 hypernet_cfg:
   synthesis:
     hidden_dim: 1024
     n_layers: 3
     biases: False
-    only_biases: True
+    only_biases: False
   arm:
     hidden_dim: 1024
     n_layers: 3

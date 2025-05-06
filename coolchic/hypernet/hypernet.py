@@ -720,6 +720,7 @@ class SmallCoolchicHyperNet(CoolchicHyperNet):
             hypernet_hidden_dim=self.config.synthesis.hidden_dim,
             hypernet_n_layers=self.config.synthesis.n_layers,
             biases=self.config.synthesis.biases,
+            only_biases=self.config.synthesis.only_biases,
         )
         self.arm_hn = ArmHyperNet(
             dim_arm=self.config.dec_cfg.dim_arm,
@@ -728,6 +729,7 @@ class SmallCoolchicHyperNet(CoolchicHyperNet):
             hypernet_hidden_dim=self.config.arm.hidden_dim,
             hypernet_n_layers=self.config.arm.n_layers,
             biases=self.config.arm.biases,
+            only_biases=self.config.arm.only_biases,
         )
 
     def forward(
@@ -777,33 +779,6 @@ class SmallCoolchicHyperNet(CoolchicHyperNet):
         )
         output_str += format_param_str("arm", get_num_of_params(self.arm_hn))
         print(output_str)
-
-
-class SmallAdditiveHyperNet(SmallCoolchicHyperNet):
-    def __init__(self, config: HyperNetConfig) -> None:
-        super().__init__(config)
-
-        # Redefine the prediction heads so that they only output biases.
-        self.synthesis_hn = SynthesisHyperNet(
-            n_latents=self.config.n_latents,
-            layers_dim=self.config.dec_cfg.parsed_layers_synthesis,
-            n_input_features=self.backbone_n_features,
-            hypernet_hidden_dim=self.config.synthesis.hidden_dim,
-            hypernet_n_layers=self.config.synthesis.n_layers,
-            biases=self.config.synthesis.biases,
-            only_biases=True,
-        )
-        self.arm_hn = ArmHyperNet(
-            dim_arm=self.config.dec_cfg.dim_arm,
-            n_hidden_layers=self.config.dec_cfg.n_hidden_layers_arm,
-            n_input_features=self.backbone_n_features,
-            hypernet_hidden_dim=self.config.arm.hidden_dim,
-            hypernet_n_layers=self.config.arm.n_layers,
-            biases=self.config.arm.biases,
-            only_biases=True,
-        )
-
-        self.print_n_params_submodule()
 
 
 # Abstract WholeNet class, to indicate that the class is a whole network.
@@ -1394,17 +1369,3 @@ class SmallDeltaWholeNet(DeltaWholeNet):
     def unfreeze_resnet(self):
         """We don't want to unfreeze the backbone when using the small hypernet."""
         pass
-
-
-class SmallAdditiveDeltaWholeNet(SmallDeltaWholeNet):
-    def __init__(self, config: HyperNetConfig):
-        super().__init__(config)
-
-        # Modify the prediction heads so that they only output biases.
-        self.hypernet = SmallAdditiveHyperNet(config=config)
-        coolchic_encoder_parameter = CoolChicEncoderParameter(
-            **get_coolchic_param_from_args(config.dec_cfg)
-        )
-        coolchic_encoder_parameter.set_image_size(config.patch_size)
-        self.mean_decoder = LatentFreeCoolChicEncoder(param=coolchic_encoder_parameter)
-        self.use_delta = False
