@@ -388,7 +388,7 @@ def quantize_model_coolchic_encoder(
                     cur_rate = exp_golomb_nbins(v, count=expgol_cnt)
                     if cur_rate < cur_best_rate:
                         cur_best_rate = cur_rate
-                        cur_best_expgol_cnt = expgol_cnt
+                        cur_best_expgol_cnt = expgol_cnt.detach().cpu().item()
 
                 best_expgol_cnt[weight_or_bias] = int(cur_best_expgol_cnt)
 
