@@ -10,7 +10,6 @@
 from typing import Literal, Optional
 
 import torch
-import torch.nn.functional as F
 from torch import Tensor
 
 
@@ -49,7 +48,7 @@ class HardRoundSTE(torch.autograd.Function):
 
     @staticmethod
     def backward(ctx, grad_output: Tensor) -> Tensor:  # pyright: ignore
-        return F.hardtanh(grad_output)
+        return grad_output
 
 
 def generate_kumaraswamy_noise(
