@@ -42,6 +42,8 @@ def softround(x: Tensor, t: Tensor) -> Tensor:
 
 
 class HardRoundSTE(torch.autograd.Function):
+    generate_vmap_rule = True
+
     @staticmethod
     def forward(input: Tensor) -> Tensor:
         return torch.round(input)
