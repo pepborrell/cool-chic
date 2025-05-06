@@ -1,4 +1,4 @@
-# Software Name: Cool-Chic
+# u  quanSoftware Name: Cool-Chic
 # SPDX-FileCopyrightText: Copyright (c) 2023-2025 Orange
 # SPDX-License-Identifier: BSD 3-Clause "New"
 #
@@ -43,12 +43,18 @@ def softround(x: Tensor, t: Tensor) -> Tensor:
 
 class HardRoundSTE(torch.autograd.Function):
     @staticmethod
-    def forward(ctx, input: Tensor) -> Tensor:
+    def forward(input: Tensor) -> Tensor:
         return torch.round(input)
 
     @staticmethod
     def backward(ctx, grad_output: Tensor) -> Tensor:  # pyright: ignore
         return grad_output
+
+    @staticmethod
+    def setup_context(ctx, inputs, output):
+        # No need to save anything for backward pass,
+        # but we need to override the setup_context so it works with vmap.
+        pass
 
 
 def generate_kumaraswamy_noise(
