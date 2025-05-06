@@ -10,6 +10,7 @@
 from typing import Literal, Optional
 
 import torch
+import torch.nn.functional as F
 from torch import Tensor
 
 
@@ -39,6 +40,16 @@ def softround(x: Tensor, t: Tensor) -> Tensor:
     floor_x = torch.floor(x)
     delta = x - floor_x - 0.5
     return floor_x + 0.5 * torch.tanh(delta / t) / torch.tanh(1 / (2 * t)) + 0.5
+
+
+class HardRoundSTE(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, input: Tensor) -> Tensor:
+        return torch.round(input)
+
+    @staticmethod
+    def backward(ctx, grad_output: Tensor) -> Tensor:  # pyright: ignore
+        return F.hardtanh(grad_output)
 
 
 def generate_kumaraswamy_noise(
@@ -91,7 +102,7 @@ def generate_kumaraswamy_noise(
 
 POSSIBLE_QUANTIZATION_NOISE_TYPE = Literal["kumaraswamy", "gaussian", "none"]
 POSSIBLE_QUANTIZER_TYPE = Literal[
-    "softround_alone", "softround", "hardround", "ste", "none"
+    "softround_alone", "softround", "hardround", "ste", "none", "true_ste"
 ]
 
 
@@ -205,5 +216,10 @@ def quantize(
             with torch.no_grad():
                 y = y - softround(x, soft_round_temperature) + torch.round(x)
             return y
+        case "true_ste":
+            # The code above is not the true STE.
+            # It applies hard rounding, but uses soft rounding in the backward.
+            # Real STE would pass the gradient as if the forward function was the identity.
+            return HardRoundSTE.apply(x)  # pyright: ignore
         case "hardround":
             return torch.round(x)
