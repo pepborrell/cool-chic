@@ -398,10 +398,10 @@ def train(
 
             if (samples_seen % 10_000) < batch_size:
                 loss_df = pd.DataFrame(all_eval_losses)
-                loss_df.to_csv(f"losses_{type(wholenet).__name__}.csv", index=False)
+                loss_df.to_csv(f"losses_{recipe.preset_name}.csv", index=False)
 
                 grad_df = pd.DataFrame(all_gradients)
-                grad_df.to_csv(f"grads_{type(wholenet).__name__}.csv", index=False)
+                grad_df.to_csv(f"grads_{recipe.preset_name}.csv", index=False)
             if 10_0000 < samples_seen:
                 raise Exception(
                     "We got the losses we wanted. Let's get out of here my dudes."
