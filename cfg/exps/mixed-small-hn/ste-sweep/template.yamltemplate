@@ -21,7 +21,7 @@ recipe:
       softround_temperature: [0.0, 0.0]
       noise_parameter: [0.0, 0.0]
       quantizer_noise_type: "none"
-      quantizer_type: "ste"
+      quantizer_type: "true_ste"
       patience: 10000
       freq_valid: 10000
       checkpointing_freq: 10000
