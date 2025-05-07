@@ -216,11 +216,11 @@ class Arm(nn.Module):
 
         # Construct the hidden layer(s)
         for i in range(n_hidden_layers_arm):
-            layers_list.append(ArmLinearDelta(dim_arm, dim_arm, residual=True))
+            layers_list.append(ArmLinear(dim_arm, dim_arm, residual=True))
             layers_list.append(nn.ReLU())
 
         # Construct the output layer. It always has 2 outputs (mu and scale)
-        layers_list.append(ArmLinearDelta(dim_arm, 2, residual=False))
+        layers_list.append(ArmLinear(dim_arm, 2, residual=False))
         self.mlp = nn.Sequential(*layers_list)
         # ======================== Construct the MLP ======================== #
 
@@ -300,15 +300,8 @@ class Arm(nn.Module):
     def add_delta(
         self, delta: list[Tensor], add_to_weight: bool, bias_only: bool
     ) -> None:
-        pointer = 0
-        for layer in self.mlp:
-            if isinstance(layer, ArmLinearDelta):
-                layer.set_delta(
-                    delta[pointer], add_to_weight=add_to_weight, bias_only=bias_only
-                )
-                pointer += 1
-        assert pointer == len(delta), (
-            "Not all delta were used. " f"Used {pointer} out of {len(delta)}."
+        raise DeprecationWarning(
+            "This method is deprecated. Deltas are added in place to the weights."
         )
 
 
