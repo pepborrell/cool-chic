@@ -83,8 +83,12 @@ def evaluate_wholenet(
                 raw_out=raw_out, rate=rate, additional_data=add_data
             )
 
+            rate_mlp = (
+                0.0  # Avoid rate mlp calculation, some issues with image_to_coolchic.
+            )
             # The MLP rate is very roughly the same for all images, so we calculate it
             # once for the whole batch.
+            # NOTE: this is not actually used.
             if not rate_mlp:
                 # getting mlp rate involves "mocking" a model quantization.
                 cc_enc = net.image_to_coolchic(test_img, stop_grads=True)
