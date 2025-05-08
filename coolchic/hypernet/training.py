@@ -426,7 +426,7 @@ def train(
             eval_results = None  # To make sure we only take fresh eval results.
 
             # In NO coolchic, logging every 5k samples means roughly every 5 mins.
-            if (samples_seen % training_phase.freq_valid) < batch_size:
+            if ((samples_seen - batch_size) % training_phase.freq_valid) < batch_size:
                 # Average train losses.
                 # Evaluate on test data
                 eval_results = evaluate_wholenet(
