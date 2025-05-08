@@ -1235,10 +1235,14 @@ class DeltaWholeNet(WholeNet):
             full_key = f"synthesis.{k}"
             if full_key not in decoder_params:
                 raise ValueError(f"Key {full_key} not found in decoder parameters.")
-        for k, v in arm_delta_dict.items():
-            full_key = f"arm.{k}"
+            else:
+                print(f"{decoder_params[full_key].shape=}, {v.shape=}")
+            for k, v in arm_delta_dict.items():
+                full_key = f"arm.{k}"
             if full_key not in decoder_params:
                 raise ValueError(f"Key {full_key} not found in decoder parameters.")
+            else:
+                print(f"{decoder_params[full_key].shape=}, {v.shape=}")
 
         # Adding deltas.
         forward_params: dict[str, torch.Tensor] = {}
