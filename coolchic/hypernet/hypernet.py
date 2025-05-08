@@ -1229,20 +1229,17 @@ class DeltaWholeNet(WholeNet):
                 "Batch size should be 0 if we want to remove batch dimension."
             )
 
-        # Check that all deltas can be properly added.
-        decoder_params = self.mean_decoder.state_dict()
-        for k, v in synth_delta_dict.items():
-            full_key = f"synthesis.{k}"
-            if full_key not in decoder_params:
-                raise ValueError(f"Key {full_key} not found in decoder parameters.")
-            else:
-                print(f"{decoder_params[full_key].shape=}, {v.shape=}")
-            for k, v in arm_delta_dict.items():
-                full_key = f"arm.{k}"
-            if full_key not in decoder_params:
-                raise ValueError(f"Key {full_key} not found in decoder parameters.")
-            else:
-                print(f"{decoder_params[full_key].shape=}, {v.shape=}")
+        # NOTE: commented because it slows down the training.
+        # # Check that all deltas can be properly added.
+        # decoder_params = self.mean_decoder.state_dict()
+        # for k, v in synth_delta_dict.items():
+        #     full_key = f"synthesis.{k}"
+        #     if full_key not in decoder_params:
+        #         raise ValueError(f"Key {full_key} not found in decoder parameters.")
+        # for k, v in arm_delta_dict.items():
+        #     full_key = f"arm.{k}"
+        #     if full_key not in decoder_params:
+        #         raise ValueError(f"Key {full_key} not found in decoder parameters.")
 
         # Adding deltas.
         forward_params: dict[str, torch.Tensor] = {}
