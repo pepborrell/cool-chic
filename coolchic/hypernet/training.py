@@ -245,6 +245,15 @@ def train(
         # Preliminary eval, to have a baseline of test loss.
         prelim_eval = evaluate_wholenet(wholenet, test_data, lmbda=lmbda, device=device)
         best_test_loss = prelim_eval["test_loss"]
+        wandb.log(
+            {
+                "samples_seen": samples_seen,
+                "batch": batch_n,
+                "phase_iteration": 0,
+                "n_iterations": samples_seen // batch_size,
+                **prelim_eval,  # the test results.
+            }
+        )
 
     # Proper training.
     for phase_num, training_phase in enumerate(recipe.all_phases):
@@ -426,7 +435,7 @@ def train(
             eval_results = None  # To make sure we only take fresh eval results.
 
             # In NO coolchic, logging every 5k samples means roughly every 5 mins.
-            if ((samples_seen - batch_size) % training_phase.freq_valid) < batch_size:
+            if (samples_seen % training_phase.freq_valid) < batch_size:
                 # Average train losses.
                 # Evaluate on test data
                 eval_results = evaluate_wholenet(
