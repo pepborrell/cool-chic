@@ -1169,7 +1169,9 @@ class DeltaWholeNet(WholeNet):
         self.hypernet = CoolchicHyperNet(config=config)
         self.mean_decoder = LatentFreeCoolChicEncoder(param=coolchic_encoder_parameter)
 
-        self.use_delta = False
+        # Not sure whether delta should be true or false at the beginning.
+        # Right now we always train it, don't know when we wouldn't want them.
+        self.use_delta = True
 
     def forward(
         self,
@@ -1372,7 +1374,7 @@ class SmallDeltaWholeNet(DeltaWholeNet):
         self.hypernet = SmallCoolchicHyperNet(config=config)
         self.mean_decoder = LatentFreeCoolChicEncoder(param=coolchic_encoder_parameter)
 
-        self.use_delta = False
+        self.use_delta = True
 
     def freeze_resnet(self):
         """We don't want to freeze the backbone when using the small hypernet."""
