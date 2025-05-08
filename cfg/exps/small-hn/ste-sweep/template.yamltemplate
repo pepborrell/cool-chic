@@ -9,7 +9,7 @@ lmbda: {lambda_value}
 user_tag: small-hn
 
 recipe:
-  preset_name: small-hn
+  preset_name: small-hnet
   warmup:
     empty: True # This is a placeholder for the warmup phase.
   all_phases:
