@@ -253,9 +253,7 @@ class Synthesis(nn.Module):
 
             # Instantiate them
             layers_list.append(
-                SynthesisConv2dDelta(
-                    input_ft, out_ft, k_size, residual=mode == "residual"
-                )
+                SynthesisConv2d(input_ft, out_ft, k_size, residual=mode == "residual")
             )
             layers_list.append(Synthesis.possible_non_linearity[non_linearity]())
 
@@ -311,13 +309,6 @@ class Synthesis(nn.Module):
     def add_delta(
         self, delta: list[Tensor], add_to_weight: bool, bias_only: bool
     ) -> None:
-        pointer = 0
-        for layer in self.layers:
-            if isinstance(layer, SynthesisConv2dDelta):
-                layer.set_delta(
-                    delta[pointer], add_to_weight=add_to_weight, bias_only=bias_only
-                )
-                pointer += 1
-        assert pointer == len(delta), (
-            "Not all delta were used. " f"Used {pointer} out of {len(delta)}."
+        raise DeprecationWarning(
+            "add_delta is deprecated. Deltas should be added directly to the weights."
         )

@@ -9,7 +9,6 @@ from coolchic.enc.utils.misc import get_best_device
 from coolchic.hypernet.hypernet import (
     DeltaWholeNet,
     NOWholeNet,
-    SmallAdditiveDeltaWholeNet,
     SmallDeltaWholeNet,
 )
 from coolchic.hypernet.inference import eval_on_all_kodak, load_hypernet
@@ -25,9 +24,6 @@ def main():
         "--config", help="Specifies the path to the config file that will be used."
     )
     parser.add_argument("--small", action="store_true", help="Use small model.")
-    parser.add_argument(
-        "--additive", action="store_true", help="Use additive hypernet model."
-    )
     args = parser.parse_args()
 
     config_path = Path(args.config)
@@ -44,7 +40,7 @@ def main():
     )
     test_data = OpenImagesDataset(run_cfg.n_samples, patch_size=None, train=False)
     train_data_loader = torch.utils.data.DataLoader(
-        train_data, batch_size=run_cfg.batch_size, shuffle=False
+        train_data, batch_size=run_cfg.batch_size, shuffle=True
     )
     test_data_loader = torch.utils.data.DataLoader(
         test_data, batch_size=1, shuffle=False
@@ -53,8 +49,6 @@ def main():
     #### LOADING HYPERNET ####
     if args.small:
         wholenet = SmallDeltaWholeNet(run_cfg.hypernet_cfg)
-    elif args.additive:
-        wholenet = SmallAdditiveDeltaWholeNet(run_cfg.hypernet_cfg)
     else:
         wholenet = DeltaWholeNet(run_cfg.hypernet_cfg)
     wholenet = wholenet.to(device)
@@ -109,10 +103,11 @@ def main():
         unfreeze_backbone_samples=run_cfg.unfreeze_backbone,
         workdir=workdir,
         device=device,
+        comparison_no_coolchic=no_model,
     )
 
     # Eval on kodak at end of training.
-    kodak_df = eval_on_all_kodak(net, lmbda=run_cfg.lmbda)
+    kodak_df = eval_on_all_kodak(net, lmbda=run_cfg.lmbda, mlp_rate=False)
     kodak_df["lmbda"] = run_cfg.lmbda
     kodak_df["anchor"] = "hypernet"
     kodak_df.to_csv(workdir / "kodak_results.csv")

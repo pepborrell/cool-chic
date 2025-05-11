@@ -1,4 +1,5 @@
 import abc
+import types
 from typing import Any, Literal, OrderedDict
 
 import torch
@@ -15,7 +16,12 @@ from coolchic.enc.component.core.quantizer import (
 )
 from coolchic.enc.component.nlcoolchic import LatentFreeCoolChicEncoder
 from coolchic.enc.utils.parsecli import get_coolchic_param_from_args
-from coolchic.hypernet.common import ResidualBlockDown, build_mlp, upsample_latents
+from coolchic.hypernet.common import (
+    ResidualBlockDown,
+    build_mlp,
+    get_backbone_flops,
+    upsample_latents,
+)
 from coolchic.utils.nn import get_num_of_params
 from coolchic.utils.types import HyperNetConfig
 
@@ -124,34 +130,6 @@ def get_backbone(
         )
     # We want to extract the features, so we remove the final fc layer.
     model = torch.nn.Sequential(*list(model.children())[:-1], nn.Flatten(start_dim=1))
-
-    # Strange aux method for flop analysis.
-    def get_backbone_flops(self) -> int:
-        # Count the number of floating point operations here. It must be done before
-        # torch scripting the different modules.
-
-        self = self.train(mode=False)
-
-        mock_img_size = (1, 3, 512, 512)
-        flops = FlopCountAnalysis(
-            self,
-            torch.zeros(mock_img_size),  # img
-        )
-        flops.unsupported_ops_warnings(False)
-        flops.uncalled_modules_warnings(False)
-
-        self.total_flops = flops.total()
-        for k in self.flops_per_module:
-            self.flops_per_module[k] = flops.by_module()[k]
-
-        self.flops_str = flop_count_table(flops)
-        del flops
-
-        self = self.train(mode=True)
-
-        return self.total_flops
-
-    import types
 
     model.flops_per_module = {k: 0 for k, _ in model.named_modules()}  # pyright: ignore
     model.get_flops = types.MethodType(get_backbone_flops, model)  # pyright: ignore
@@ -614,6 +592,11 @@ class CoolchicHyperNet(nn.Module):
             biases=self.config.arm.biases,
         )
 
+        # Initializing this, will be filled when running get_flops.
+        self.flops_per_module = {
+            k: -1 for k in ["latent_hn", "hn_backbone", "synthesis_hn", "arm_hn"]
+        }
+
     def forward(
         self, img: torch.Tensor
     ) -> tuple[
@@ -686,6 +669,45 @@ class CoolchicHyperNet(nn.Module):
         zero_out_last_layer(self.synthesis_hn.mlp)
         zero_out_last_layer(self.arm_hn.mlp)
 
+    def get_flops(self) -> int:
+        """Compute the number of MAC & parameters for the model.
+        Update ``self.total_flops`` (integer describing the number of total MAC)
+        and ``self.flops_str``, a pretty string allowing to print the model
+        complexity somewhere.
+
+        .. attention::
+
+            ``fvcore`` measures MAC (multiplication & accumulation) but calls it
+            FLOP (floating point operation)... We do the same here and call
+            everything FLOP even though it would be more accurate to use MAC.
+
+        Docstring taken from the original coolchic encoder implementation.
+        """
+        # print("Ignoring get_flops")
+        # Count the number of floating point operations here. It must be done before
+        # torch scripting the different modules.
+
+        self = self.train(mode=False)
+
+        mock_img_size = (1, 3, 512, 512)
+        flops = FlopCountAnalysis(
+            self,
+            torch.zeros(mock_img_size),  # img
+        )
+        flops.unsupported_ops_warnings(False)
+        flops.uncalled_modules_warnings(False)
+
+        self.total_flops = flops.total()
+        for k in self.flops_per_module:
+            self.flops_per_module[k] = flops.by_module()[k]
+
+        self.flops_str = flop_count_table(flops)
+        del flops
+
+        self = self.train(mode=True)
+
+        return self.total_flops
+
 
 class SmallCoolchicHyperNet(CoolchicHyperNet):
     def __init__(self, config: HyperNetConfig) -> None:
@@ -712,6 +734,7 @@ class SmallCoolchicHyperNet(CoolchicHyperNet):
             nn.Flatten(start_dim=1),
         )
         self.backbone_n_features = 1024
+        self.backbone.get_flops = types.MethodType(get_backbone_flops, self.backbone)  # pyright: ignore
 
         self.synthesis_hn = SynthesisHyperNet(
             n_latents=self.config.n_latents,
@@ -720,6 +743,7 @@ class SmallCoolchicHyperNet(CoolchicHyperNet):
             hypernet_hidden_dim=self.config.synthesis.hidden_dim,
             hypernet_n_layers=self.config.synthesis.n_layers,
             biases=self.config.synthesis.biases,
+            only_biases=self.config.synthesis.only_biases,
         )
         self.arm_hn = ArmHyperNet(
             dim_arm=self.config.dec_cfg.dim_arm,
@@ -728,7 +752,13 @@ class SmallCoolchicHyperNet(CoolchicHyperNet):
             hypernet_hidden_dim=self.config.arm.hidden_dim,
             hypernet_n_layers=self.config.arm.n_layers,
             biases=self.config.arm.biases,
+            only_biases=self.config.arm.only_biases,
         )
+
+        # Initializing this, will be filled when running get_flops.
+        self.flops_per_module = {
+            k: -1 for k in ["latent_hn", "backbone", "synthesis_hn", "arm_hn"]
+        }
 
     def forward(
         self, img: torch.Tensor
@@ -777,33 +807,6 @@ class SmallCoolchicHyperNet(CoolchicHyperNet):
         )
         output_str += format_param_str("arm", get_num_of_params(self.arm_hn))
         print(output_str)
-
-
-class SmallAdditiveHyperNet(SmallCoolchicHyperNet):
-    def __init__(self, config: HyperNetConfig) -> None:
-        super().__init__(config)
-
-        # Redefine the prediction heads so that they only output biases.
-        self.synthesis_hn = SynthesisHyperNet(
-            n_latents=self.config.n_latents,
-            layers_dim=self.config.dec_cfg.parsed_layers_synthesis,
-            n_input_features=self.backbone_n_features,
-            hypernet_hidden_dim=self.config.synthesis.hidden_dim,
-            hypernet_n_layers=self.config.synthesis.n_layers,
-            biases=self.config.synthesis.biases,
-            only_biases=True,
-        )
-        self.arm_hn = ArmHyperNet(
-            dim_arm=self.config.dec_cfg.dim_arm,
-            n_hidden_layers=self.config.dec_cfg.n_hidden_layers_arm,
-            n_input_features=self.backbone_n_features,
-            hypernet_hidden_dim=self.config.arm.hidden_dim,
-            hypernet_n_layers=self.config.arm.n_layers,
-            biases=self.config.arm.biases,
-            only_biases=True,
-        )
-
-        self.print_n_params_submodule()
 
 
 # Abstract WholeNet class, to indicate that the class is a whole network.
@@ -1194,7 +1197,9 @@ class DeltaWholeNet(WholeNet):
         self.hypernet = CoolchicHyperNet(config=config)
         self.mean_decoder = LatentFreeCoolChicEncoder(param=coolchic_encoder_parameter)
 
-        self.use_delta = False
+        # Not sure whether delta should be true or false at the beginning.
+        # Right now we always train it, don't know when we wouldn't want them.
+        self.use_delta = True
 
     def forward(
         self,
@@ -1385,7 +1390,7 @@ class SmallDeltaWholeNet(DeltaWholeNet):
         self.hypernet = SmallCoolchicHyperNet(config=config)
         self.mean_decoder = LatentFreeCoolChicEncoder(param=coolchic_encoder_parameter)
 
-        self.use_delta = False
+        self.use_delta = True
 
     def freeze_resnet(self):
         """We don't want to freeze the backbone when using the small hypernet."""
@@ -1394,17 +1399,3 @@ class SmallDeltaWholeNet(DeltaWholeNet):
     def unfreeze_resnet(self):
         """We don't want to unfreeze the backbone when using the small hypernet."""
         pass
-
-
-class SmallAdditiveDeltaWholeNet(SmallDeltaWholeNet):
-    def __init__(self, config: HyperNetConfig):
-        super().__init__(config)
-
-        # Modify the prediction heads so that they only output biases.
-        self.hypernet = SmallAdditiveHyperNet(config=config)
-        coolchic_encoder_parameter = CoolChicEncoderParameter(
-            **get_coolchic_param_from_args(config.dec_cfg)
-        )
-        coolchic_encoder_parameter.set_image_size(config.patch_size)
-        self.mean_decoder = LatentFreeCoolChicEncoder(param=coolchic_encoder_parameter)
-        self.use_delta = False

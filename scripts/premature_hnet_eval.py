@@ -5,7 +5,6 @@ from coolchic.hypernet.hypernet import (
     CoolchicWholeNet,
     DeltaWholeNet,
     NOWholeNet,
-    SmallAdditiveDeltaWholeNet,
     SmallDeltaWholeNet,
 )
 from coolchic.hypernet.inference import main_eval as hypernet_eval
@@ -30,8 +29,6 @@ if __name__ == "__main__":
         if args.hypernet == "nocchic"
         else SmallDeltaWholeNet
         if args.hypernet == "small"
-        else SmallAdditiveDeltaWholeNet
-        if args.hypernet == "additive"
         else None
     )
     if hnet_cls is None:
@@ -71,4 +68,5 @@ if __name__ == "__main__":
             cfg=config,
             wholenet_cls=hnet_cls,
             workdir=premature_workdir,
+            mlp_rate=False,
         )

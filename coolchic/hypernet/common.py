@@ -1,6 +1,7 @@
 from typing import Literal, OrderedDict
 
 import torch
+from fvcore.nn import FlopCountAnalysis, flop_count_table
 from torch import nn
 
 
@@ -239,3 +240,30 @@ def upsample_latents(
         ],
         dim=1,
     )
+
+
+# Strange aux method for flop analysis.
+def get_backbone_flops(self) -> int:
+    # Count the number of floating point operations here. It must be done before
+    # torch scripting the different modules.
+
+    self = self.train(mode=False)
+
+    mock_img_size = (1, 3, 512, 512)
+    flops = FlopCountAnalysis(
+        self,
+        torch.zeros(mock_img_size),  # img
+    )
+    flops.unsupported_ops_warnings(False)
+    flops.uncalled_modules_warnings(False)
+
+    self.total_flops = flops.total()
+    for k in self.flops_per_module:
+        self.flops_per_module[k] = flops.by_module()[k]
+
+    self.flops_str = flop_count_table(flops)
+    del flops
+
+    self = self.train(mode=True)
+
+    return self.total_flops

@@ -17,6 +17,7 @@ from coolchic.hypernet.hypernet import (
     CoolchicWholeNet,
     DeltaWholeNet,
     NOWholeNet,
+    SmallDeltaWholeNet,
 )
 from coolchic.utils.paths import ANCHOR_NAMES
 
@@ -95,6 +96,7 @@ if __name__ == "__main__":
         "NOWholeNet": NOWholeNet,
         "DeltaWholeNet": DeltaWholeNet,
         "CoolchicWholeNet": CoolchicWholeNet,
+        "SmallDeltaWholeNet": SmallDeltaWholeNet,
     }[args.wholenet_cls]
     comp_cost = get_hypernet_flops(wholenet_cls)
     print(f"{avg_bd=}, {comp_cost=:.3e}")
