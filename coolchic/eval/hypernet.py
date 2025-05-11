@@ -147,10 +147,4 @@ def get_hypernet_flops(wholenet_cls: type[WholeNet]) -> int:
     hnet = model.hypernet
     assert isinstance(hnet, CoolchicHyperNet)  # For pyright to understand.
 
-    total_flops = (
-        hnet.latent_hn.get_flops()
-        + hnet.hn_backbone.get_flops()
-        + hnet.synthesis_hn.get_flops()
-        + hnet.arm_hn.get_flops()
-    )
-    return total_flops
+    return hnet.get_flops()
