@@ -1,4 +1,4 @@
-# u  quanSoftware Name: Cool-Chic
+# Software Name: Cool-Chic
 # SPDX-FileCopyrightText: Copyright (c) 2023-2025 Orange
 # SPDX-License-Identifier: BSD 3-Clause "New"
 #

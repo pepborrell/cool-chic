@@ -2,6 +2,7 @@ from pathlib import Path
 import tqdm
 
 import torch
+import pandas as pd
 import wandb
 from pydantic import BaseModel
 
@@ -311,6 +312,103 @@ def train(
             ), "Loss is not a tensor"
             train_losses.add(loss_function_output)
             loss_function_output.loss.backward()
+
+            ######## DEBUGGING EARLY TRAINING ##########
+            # Getting the loss as if we ran this in eval.
+            wholenet.eval()
+            with torch.no_grad():
+                raw_eval_out, eval_rate, _ = wholenet.forward(
+                    img_batch,
+                    quantizer_noise_type="none",
+                    quantizer_type="hardround",
+                )
+                eval_out_forward = CoolChicEncoderOutput(
+                    raw_out=raw_eval_out, rate=eval_rate, additional_data={}
+                )
+                eval_loss_output = loss_function(
+                    eval_out_forward.raw_out,
+                    eval_out_forward.rate,
+                    img_batch,
+                    lmbda=lmbda,
+                    rate_mlp_bit=0.0,
+                    compute_logs=True,
+                )
+                assert isinstance(
+                    eval_loss_output.loss, torch.Tensor
+                ), "Loss is not a tensor"
+                all_eval_losses.append(
+                    {
+                        "model": "hypernet",
+                        "samples_seen": samples_seen,
+                        "loss": eval_loss_output.loss.detach().cpu().item(),
+                        "rate_bpp": eval_loss_output.total_rate_bpp,
+                        "psnr_db": eval_loss_output.psnr_db,
+                    }
+                )
+            wholenet.train()
+            ######## END DEBUGGING EARLY TRAINING ##########
+
+            ######## DEBUGGING EARLY TRAINING ##########
+            if comparison_no_coolchic is not None:
+                # Compare with no coolchic.
+                comparison_no_coolchic = comparison_no_coolchic.to(device)
+                comparison_no_coolchic.eval()
+                with torch.no_grad():
+                    raw_out, rate, add_data = comparison_no_coolchic.forward(
+                        img_batch,
+                        quantizer_noise_type="none",
+                        quantizer_type="hardround",
+                    )
+                    out_forward = CoolChicEncoderOutput(
+                        raw_out=raw_out, rate=rate, additional_data=add_data
+                    )
+                    loss_function_output = loss_function(
+                        out_forward.raw_out,
+                        out_forward.rate,
+                        img_batch,
+                        lmbda=lmbda,
+                        rate_mlp_bit=0.0,
+                        compute_logs=True,
+                    )
+                    assert isinstance(
+                        loss_function_output.loss, torch.Tensor
+                    ), "Loss is not a tensor"
+                    all_eval_losses.append(
+                        {
+                            "model": "no_coolchic",
+                            "samples_seen": samples_seen,
+                            "loss": loss_function_output.loss.detach().cpu().item(),
+                            "rate_bpp": loss_function_output.total_rate_bpp,
+                            "psnr_db": loss_function_output.psnr_db,
+                        }
+                    )
+                comparison_no_coolchic.train()
+
+            ######## DEBUGGING GRADIENT NORM ##########
+            total_norm = 0.0
+            for p in wholenet.parameters():
+                if p.grad is None:
+                    continue
+                param_norm = p.grad.data.norm(2)
+                total_norm += param_norm.item() ** 2
+            total_norm = total_norm ** (1.0 / 2)
+
+            all_gradients.append(
+                {"samples_seen": samples_seen, "grad_norm": total_norm}
+            )
+            ######## END DEBUGGING GRADIENT NORM ##########
+
+            if (samples_seen % 10_000) < batch_size:
+                loss_df = pd.DataFrame(all_eval_losses)
+                loss_df.to_csv(f"losses_{recipe.preset_name}.csv", index=False)
+
+                grad_df = pd.DataFrame(all_gradients)
+                grad_df.to_csv(f"grads_{recipe.preset_name}.csv", index=False)
+            if 10_0000 < samples_seen:
+                raise Exception(
+                    "We got the losses we wanted. Let's get out of here my dudes."
+                )
+            ######## END DEBUGGING EARLY TRAINING ##########
 
             # Gradient accumulation. Probably not a good idea to use with batches larger than 1.
             if (samples_seen % training_phase.gradient_accumulation) < batch_size:
