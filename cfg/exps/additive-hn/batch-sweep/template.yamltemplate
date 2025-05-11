@@ -1,15 +1,15 @@
 n_samples: 500000
 batch_size: 32
 patch_size: [256, 256]
-unfreeze_backbone: 10000
+unfreeze_backbone: -1
 workdir: null
 model_weights: /itet-stor/jborrell/net_scratch/cool-chic/results/exps/no-cchic/batch-sweep/{lmbda_config_num}/__latest
 disable_wandb: False
 lmbda: {lambda_value}
-user_tag: small-hn
+user_tag: additive-hn
 
 recipe:
-  preset_name: small delta hnet training
+  preset_name: additive small delta hnet training
   warmup:
     empty: True # This is a placeholder for the warmup phase.
   all_phases:
@@ -22,8 +22,8 @@ recipe:
       noise_parameter: [1.5, 1.0]
       quantizer_noise_type: "kumaraswamy"
       quantizer_type: "softround"
-      patience: 1000
-      freq_valid: 1000
+      patience: 10000
+      freq_valid: 10000
       checkpointing_freq: 10000
       gradient_accumulation: 1
 
@@ -32,12 +32,10 @@ hypernet_cfg:
     hidden_dim: 1024
     n_layers: 3
     biases: False
-    only_biases: False
   arm:
     hidden_dim: 1024
     n_layers: 3
     biases: False
-    only_biases: False
   upsampling:
     hidden_dim: 256
     n_layers: 1
