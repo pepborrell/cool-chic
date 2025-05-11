@@ -56,7 +56,6 @@ def plot_hypernet_rd_avg(results: pd.DataFrame):
         .agg({"rate_bpp": "mean", "psnr_db": "mean"})
         .reset_index()
     )
-    print(mean_df)
     fig, ax = plt.subplots()
     sns.lineplot(
         mean_df,
