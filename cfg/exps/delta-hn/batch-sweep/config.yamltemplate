@@ -18,13 +18,14 @@ recipe:
       quantize_model: False
       schedule_lr: True
       end_lr: 1e-6
-      softround_temperature: [0.3, 0.1]
-      noise_parameter: [1.5, 1.0]
+      softround_temperature: [0.0, 0.0]
+      noise_parameter: [0.0, 0.0]
       quantizer_noise_type: "none"
       quantizer_type: "true_ste"
       patience: 10000
       freq_valid: 1000
       checkpointing_freq: 50000
+      gradient_accumulation: 1
 
 hypernet_cfg:
   synthesis:
