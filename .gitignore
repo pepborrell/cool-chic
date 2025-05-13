@@ -30,4 +30,4 @@ dist/
 build/
 
 # The yaml config files, track the templates instead.
-cfg/**/kodim_config_*.yaml
+cfg/**/*config_*.yaml
