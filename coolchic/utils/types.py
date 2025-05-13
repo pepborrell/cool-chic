@@ -280,6 +280,7 @@ class HyperNetParams(BaseModel):
     biases: bool = True
     # Whether the hypernet should only output biases.
     only_biases: bool = False
+    output_activation: str | None = "tanh"
 
 
 class HyperNetConfig(BaseModel):

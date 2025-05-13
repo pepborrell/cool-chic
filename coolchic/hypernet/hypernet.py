@@ -158,6 +158,7 @@ class SynthesisHyperNet(nn.Module):
         hypernet_n_layers: int,
         biases: bool,
         only_biases: bool = False,
+        output_activation: str | None = None,
     ) -> None:
         """
         Args:
@@ -191,7 +192,7 @@ class SynthesisHyperNet(nn.Module):
             output_size=self.n_output_features,
             n_hidden_layers=hypernet_n_layers,
             hidden_size=self.hidden_size,
-            output_activation=nn.Tanh(),
+            output_activation=output_activation,
         )
 
         # For flop analysis.
@@ -305,6 +306,7 @@ class ArmHyperNet(nn.Module):
         hypernet_n_layers: int,
         biases: bool,
         only_biases: bool = False,
+        output_activation: str | None = None,
     ) -> None:
         """
         Args:
@@ -338,7 +340,7 @@ class ArmHyperNet(nn.Module):
             output_size=self.n_output_features,
             n_hidden_layers=hypernet_n_layers,
             hidden_size=self.hidden_size,
-            output_activation=nn.Tanh(),
+            output_activation=output_activation,
         )
 
         # For flop analysis.
@@ -491,7 +493,7 @@ class UpsamplingHyperNet(nn.Module):
             output_size=self.n_output_features,
             n_hidden_layers=hypernet_n_layers,
             hidden_size=self.hidden_size,
-            output_activation=nn.Tanh(),
+            output_activation="tanh",
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -581,6 +583,8 @@ class CoolchicHyperNet(nn.Module):
             hypernet_hidden_dim=self.config.synthesis.hidden_dim,
             hypernet_n_layers=self.config.synthesis.n_layers,
             biases=self.config.synthesis.biases,
+            only_biases=self.config.synthesis.only_biases,
+            output_activation=self.config.synthesis.output_activation,
         )
         self.arm_hn = ArmHyperNet(
             dim_arm=self.config.dec_cfg.dim_arm,
@@ -590,6 +594,8 @@ class CoolchicHyperNet(nn.Module):
             hypernet_hidden_dim=self.config.arm.hidden_dim,
             hypernet_n_layers=self.config.arm.n_layers,
             biases=self.config.arm.biases,
+            only_biases=self.config.arm.only_biases,
+            output_activation=self.config.arm.output_activation,
         )
 
         # Initializing this, will be filled when running get_flops.
@@ -744,6 +750,7 @@ class SmallCoolchicHyperNet(CoolchicHyperNet):
             hypernet_n_layers=self.config.synthesis.n_layers,
             biases=self.config.synthesis.biases,
             only_biases=self.config.synthesis.only_biases,
+            output_activation=self.config.synthesis.output_activation,
         )
         self.arm_hn = ArmHyperNet(
             dim_arm=self.config.dec_cfg.dim_arm,
@@ -753,6 +760,7 @@ class SmallCoolchicHyperNet(CoolchicHyperNet):
             hypernet_n_layers=self.config.arm.n_layers,
             biases=self.config.arm.biases,
             only_biases=self.config.arm.only_biases,
+            output_activation=self.config.synthesis.output_activation,
         )
 
         # Initializing this, will be filled when running get_flops.

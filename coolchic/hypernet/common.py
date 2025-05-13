@@ -11,7 +11,7 @@ def build_mlp(
     n_hidden_layers: int,
     hidden_size: int,
     activation: nn.Module = nn.ReLU(),
-    output_activation: nn.Module | None = None,
+    output_activation: str | None = None,
 ) -> nn.Module:
     """Builds an MLP with n_hidden_layers hidden layers."""
     layers_list = nn.ModuleList()
@@ -27,7 +27,19 @@ def build_mlp(
     # Add output layer.
     layers_list.append(nn.Linear(hidden_size, output_size))
     if output_activation is not None:
-        layers_list.append(output_activation)
+        OUTPUT_ACTIVATION_DICT: dict[str, nn.Module] = {
+            "tanh": nn.Tanh(),
+            "relu": nn.ReLU(),
+            "leaky_relu": nn.LeakyReLU(negative_slope=0.2),
+        }
+        try:
+            out_act_module = OUTPUT_ACTIVATION_DICT[output_activation]
+        except KeyError:
+            raise ValueError(
+                f"Output activation {output_activation} not supported. "
+                f"Supported activations are: {list(OUTPUT_ACTIVATION_DICT.keys())}"
+            )
+        layers_list.append(out_act_module)
     return nn.Sequential(*layers_list)
 
 
