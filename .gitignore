@@ -10,6 +10,7 @@ venv/
 wandb/
 results/exps/
 data/**/*.csv
+*.csv
 
 docs/build/
 .DS_Store
