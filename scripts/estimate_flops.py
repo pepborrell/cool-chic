@@ -1,30 +1,20 @@
 from coolchic.enc.component.coolchic import CoolChicEncoder
-from coolchic.hypernet.hypernet import CoolchicWholeNet, DeltaWholeNet, NOWholeNet
+from coolchic.hypernet.hypernet import CoolchicWholeNet, NOWholeNet
 from coolchic.utils.paths import CONFIG_DIR
 from coolchic.utils.types import HypernetRunConfig, load_config
 
 
 def flops_coolchic():
-    print("-" * 10, "DeltaWholeNet", "-" * 10)
-    config_path = CONFIG_DIR / "exps" / "delta-hn" / "like_no_cchic.yaml"
-    cfg = load_config(config_path, HypernetRunConfig)
-    net = DeltaWholeNet(config=cfg.hypernet_cfg)
-    net.mean_decoder.param.set_image_size((512, 512))
-    net.mean_decoder.get_flops()
-
-    delta_flops = net.mean_decoder.total_flops
-    print(f"{delta_flops=}")
-    print(net.mean_decoder.flops_str)
-
     print("-" * 10, "NOWholeNet", "-" * 10)
-    config_path = CONFIG_DIR / "exps" / "no-cchic" / "batching.yaml"
+    config_path = CONFIG_DIR / "exps" / "no-cchic" / "with_recipe.yaml"
     cfg = load_config(config_path, HypernetRunConfig)
     net = NOWholeNet(config=cfg.hypernet_cfg)
     net.mean_decoder.param.set_image_size((512, 512))
     net.mean_decoder.get_flops()
+    net.encoder.get_flops()
 
-    no_flops = net.mean_decoder.total_flops
-    print(f"{no_flops=}")
+    no_flops = net.mean_decoder.total_flops + net.encoder.total_flops
+    print(f"{no_flops=:.3e}")
     print(net.mean_decoder.flops_str)
 
     print("-" * 10, "CoolchicEncoder", "-" * 10)
@@ -33,15 +23,15 @@ def flops_coolchic():
     enc.get_flops()
 
     enc_flops = enc.total_flops
-    print(f"{enc_flops=}")
+    print(f"{enc_flops=:.3e}")
     print(enc.flops_str)
 
-    print(f"{100*enc_flops / no_flops=}%")
+    print(f"{100*enc_flops / no_flops=:.3f}%")
 
 
 #### NOW FOR HYPERNETS ####
 def flops_hnet():
-    config_path = CONFIG_DIR / "exps" / "big-rerun" / "control.yaml"
+    config_path = CONFIG_DIR / "exps" / "delta-hn" / "with_recipe.yaml"
     cfg = load_config(config_path, HypernetRunConfig)
     wholenet = CoolchicWholeNet(config=cfg.hypernet_cfg)
 
@@ -74,5 +64,5 @@ def flops_hnet():
     print(backbone.flops_str)
 
 
-# flops_coolchic()
+flops_coolchic()
 flops_hnet()
