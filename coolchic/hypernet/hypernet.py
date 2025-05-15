@@ -1,6 +1,6 @@
 import abc
 import types
-from typing import Any, Literal, OrderedDict
+from typing import Any, OrderedDict
 
 import torch
 from fvcore.nn import FlopCountAnalysis, flop_count_table
@@ -30,7 +30,7 @@ from coolchic.hypernet.common import (
     upsample_latents,
 )
 from coolchic.utils.nn import get_num_of_params
-from coolchic.utils.types import HyperNetConfig
+from coolchic.utils.types import RESNET_OPTIONS, HyperNetConfig
 
 
 class LatentHyperNet(nn.Module):
@@ -120,7 +120,7 @@ class LatentHyperNet(nn.Module):
 
 def get_backbone(
     pretrained: bool = True,
-    arch: Literal["resnet18", "resnet50", "resnet101"] = "resnet18",
+    arch: RESNET_OPTIONS = "resnet18",
     input_channels: int = 3,
 ) -> tuple[nn.Module, int]:
     if arch == "resnet18":
