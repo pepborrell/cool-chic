@@ -7,7 +7,14 @@ from fvcore.nn import FlopCountAnalysis, flop_count_table
 from pydantic import BaseModel
 from torch import nn
 from torch.func import functional_call
-from torchvision.models import ResNet18_Weights, ResNet50_Weights, resnet18, resnet50
+from torchvision.models import (
+    ResNet101_Weights,
+    ResNet18_Weights,
+    ResNet50_Weights,
+    resnet101,
+    resnet18,
+    resnet50,
+)
 
 from coolchic.enc.component.coolchic import CoolChicEncoder, CoolChicEncoderParameter
 from coolchic.enc.component.core.quantizer import (
@@ -113,7 +120,7 @@ class LatentHyperNet(nn.Module):
 
 def get_backbone(
     pretrained: bool = True,
-    arch: Literal["resnet18", "resnet50"] = "resnet18",
+    arch: Literal["resnet18", "resnet50", "resnet101"] = "resnet18",
     input_channels: int = 3,
 ) -> tuple[nn.Module, int]:
     if arch == "resnet18":
@@ -121,6 +128,9 @@ def get_backbone(
         n_output_features = 512
     elif arch == "resnet50":
         model = resnet50(weights=ResNet50_Weights.DEFAULT if pretrained else None)
+        n_output_features = 2048
+    elif arch == "resnet101":
+        model = resnet101(weights=ResNet101_Weights.DEFAULT if pretrained else None)
         n_output_features = 2048
 
     if input_channels != 3:
