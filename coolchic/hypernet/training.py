@@ -1,7 +1,7 @@
 from pathlib import Path
-import tqdm
 
 import torch
+import tqdm
 import wandb
 from pydantic import BaseModel
 
@@ -213,7 +213,7 @@ def train(
     workdir: Path,
     device: POSSIBLE_DEVICE,
     unfreeze_backbone_samples: int,
-    comparison_no_coolchic: NOWholeNet | None = None,
+    checkpoint_samples: int | None = None,
 ):
     wholenet = wholenet.to(device)
     batch_size = train_data.batch_size
@@ -223,8 +223,8 @@ def train(
 
     # We cycle through the training data until necessary.
     train_iter = cycle(train_data)
-    samples_seen = 0
-    batch_n = 0
+    samples_seen = 0 if checkpoint_samples is None else checkpoint_samples
+    batch_n = 0 if checkpoint_samples is None else checkpoint_samples // batch_size
 
     # Print info about the model.
     if not isinstance(wholenet, NOWholeNet):
@@ -267,11 +267,10 @@ def train(
             eta_min=training_phase.end_lr
             if training_phase.end_lr is not None
             else 1e-6,
+            last_epoch=checkpoint_samples // batch_size if checkpoint_samples else -1,
         )
 
         train_losses = RunningTrainLoss()
-        all_eval_losses = []
-        all_gradients = []
         for phase_it in tqdm.tqdm(range(phase_total_it)):
             # Iterate over the training data.
             # When we run out of batches, we start from the beginning.

@@ -21,3 +21,9 @@ ALL_ANCHORS: dict[ANCHOR_NAMES, Path] = {
     "hm": RESULTS_DIR / "image" / "kodak" / "hm.tsv",
     "jpeg": RESULTS_DIR / "image" / "kodak" / "jpeg.tsv",
 }
+
+
+def get_latest_checkpoint(run_dir: Path) -> Path:
+    # Weights formatted like samples_130000.pt, we take the highest sample number.
+    checkpoints = [file for file in run_dir.iterdir() if file.suffix == ".pt"]
+    return max(checkpoints, key=lambda p: int(p.stem.split("_")[-1]))

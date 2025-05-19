@@ -14,6 +14,7 @@ from coolchic.hypernet.hypernet import (
 from coolchic.hypernet.inference import eval_on_all_kodak, load_hypernet
 from coolchic.hypernet.training import get_workdir_hypernet, train
 from coolchic.metalearning.data import OpenImagesDataset
+from coolchic.utils.paths import get_latest_checkpoint
 from coolchic.utils.types import HypernetRunConfig, load_config
 
 
@@ -53,20 +54,20 @@ def main():
         wholenet = DeltaWholeNet(run_cfg.hypernet_cfg)
     wholenet = wholenet.to(device)
 
-    if run_cfg.model_weights is not None:
+    if run_cfg.checkpoint is not None:
+        # If a checkpoint is given, we use it as init, then we keep training it.
+        # This option takes precedence over the NO coolchic init.
+        if run_cfg.checkpoint.stem == "__latest":
+            run_cfg.checkpoint = get_latest_checkpoint(run_cfg.checkpoint.parent)
+        wholenet.load_state_dict(torch.load(run_cfg.checkpoint, weights_only=True))
+        # We need to know which iteration the checkpoint was at.
+        it_number = int(run_cfg.checkpoint.stem.split("_")[-1])
+        assert wholenet.use_delta, "Model must be using deltas."
+    elif run_cfg.model_weights is not None:
         # If N-O coolchic model is given, we use it as init.
-
         # If model has name latest, take the latest in the folder.
         if run_cfg.model_weights.stem == "__latest":
-            # Weights formatted like samples_130000.pt, we take the highest sample number.
-            checkpoints = [
-                file
-                for file in run_cfg.model_weights.parent.iterdir()
-                if file.suffix == ".pt"
-            ]
-            run_cfg.model_weights = max(
-                checkpoints, key=lambda p: int(p.stem.split("_")[-1])
-            )
+            run_cfg.model_weights = get_latest_checkpoint(run_cfg.model_weights.parent)
 
         assert (
             run_cfg.model_weights.exists()
@@ -103,7 +104,6 @@ def main():
         unfreeze_backbone_samples=run_cfg.unfreeze_backbone,
         workdir=workdir,
         device=device,
-        comparison_no_coolchic=no_model,
     )
 
     # Eval on kodak at end of training.

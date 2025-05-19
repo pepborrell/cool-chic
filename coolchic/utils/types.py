@@ -314,6 +314,7 @@ class HypernetRunConfig(BaseModel):
     hypernet_cfg: HyperNetConfig
     workdir: Path | None = None
     model_weights: Path | None = None
+    checkpoint: Path | None = None
 
     disable_wandb: bool = False
     unique_id: str = get_run_uid()
