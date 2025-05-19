@@ -42,6 +42,7 @@ hypernet_cfg:
     hidden_dim: 256
     n_layers: 1
   backbone_arch: resnet101
+  double_backbone: True
 
   dec_cfg:
     config_name: hop
