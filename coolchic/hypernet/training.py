@@ -260,6 +260,10 @@ def train(
         print(training_phase)
         phase_total_it = training_phase.max_itr
         optimizer = torch.optim.Adam(wholenet.parameters(), lr=training_phase.lr)
+        # This is needed to have a record of the initial learning rate
+        # when starting from a checkpoint.
+        for param_group in optimizer.param_groups:
+            param_group["initial_lr"] = training_phase.lr
 
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
             optimizer,
