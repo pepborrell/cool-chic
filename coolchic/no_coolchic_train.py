@@ -10,6 +10,7 @@ from coolchic.hypernet.hypernet import NOWholeNet
 from coolchic.hypernet.inference import eval_on_all_kodak
 from coolchic.hypernet.training import get_workdir_hypernet, train
 from coolchic.metalearning.data import OpenImagesDataset
+from coolchic.utils.paths import get_latest_checkpoint
 from coolchic.utils.types import (
     HypernetRunConfig,
     load_config,
@@ -57,6 +58,17 @@ def main():
     ##### INSTANTIATE MODEL #####
     model = NOWholeNet(run_cfg.hypernet_cfg)
 
+    if run_cfg.checkpoint is not None:
+        # If a checkpoint is given, we use it as init, then we keep training it.
+        # This option takes precedence over the NO coolchic init.
+        if run_cfg.checkpoint.stem == "__latest":
+            run_cfg.checkpoint = get_latest_checkpoint(run_cfg.checkpoint.parent)
+        model.load_state_dict(torch.load(run_cfg.checkpoint, weights_only=True))
+        # We need to know which iteration the checkpoint was at.
+        chckpoint_it_number = int(run_cfg.checkpoint.stem.split("_")[-1])
+    else:
+        chckpoint_it_number = None
+
     # Train
     net = train(
         train_data=train_data_loader,
@@ -67,6 +79,7 @@ def main():
         unfreeze_backbone_samples=run_cfg.unfreeze_backbone,
         workdir=workdir,
         device=device,
+        checkpoint_samples=chckpoint_it_number,
     )
 
     # Eval on kodak at end of training.
