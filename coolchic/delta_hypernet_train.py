@@ -54,6 +54,7 @@ def main():
         wholenet = DeltaWholeNet(run_cfg.hypernet_cfg)
     wholenet = wholenet.to(device)
 
+    chckpoint_it_number = None
     if run_cfg.checkpoint is not None:
         # If a checkpoint is given, we use it as init, then we keep training it.
         # This option takes precedence over the NO coolchic init.
@@ -61,7 +62,7 @@ def main():
             run_cfg.checkpoint = get_latest_checkpoint(run_cfg.checkpoint.parent)
         wholenet.load_state_dict(torch.load(run_cfg.checkpoint, weights_only=True))
         # We need to know which iteration the checkpoint was at.
-        it_number = int(run_cfg.checkpoint.stem.split("_")[-1])
+        chckpoint_it_number = int(run_cfg.checkpoint.stem.split("_")[-1])
         assert wholenet.use_delta, "Model must be using deltas."
     elif run_cfg.model_weights is not None:
         # If N-O coolchic model is given, we use it as init.
@@ -104,6 +105,7 @@ def main():
         unfreeze_backbone_samples=run_cfg.unfreeze_backbone,
         workdir=workdir,
         device=device,
+        checkpoint_samples=chckpoint_it_number,
     )
 
     # Eval on kodak at end of training.
