@@ -92,12 +92,21 @@ if __name__ == "__main__":
     avg_bd = sum(
         (bd_rates := bd_rates_summary_anchor_name(metrics, "hm").values())
     ) / len(bd_rates)
-    wholenet_cls = {
+
+    wholenet_cls_dict = {
         "NOWholeNet": NOWholeNet,
         "DeltaWholeNet": DeltaWholeNet,
         "CoolchicWholeNet": CoolchicWholeNet,
         "SmallDeltaWholeNet": SmallDeltaWholeNet,
-    }[args.wholenet_cls]
+    }
+    try:
+        wholenet_cls = wholenet_cls_dict[args.wholenet_cls]
+    except KeyError:
+        raise ValueError(
+            f"Invalid wholenet_cls: {args.wholenet_cls}. "
+            f"Valid options are: {list(wholenet_cls_dict.keys())}"
+        )
+
     comp_cost = get_hypernet_flops(wholenet_cls)
     print(f"{avg_bd=}, {comp_cost=:.3e}")
 
