@@ -1,8 +1,9 @@
 import argparse
-import shutil
-from gen_kodim_config import save_cfg
 import itertools
+import shutil
 from pathlib import Path
+
+from gen_kodim_config import save_cfg
 
 params_1 = {
     "n_itr": [1000, 2500, 5000, 7500, 10000, 12000],

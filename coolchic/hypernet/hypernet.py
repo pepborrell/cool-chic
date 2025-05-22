@@ -8,12 +8,12 @@ from pydantic import BaseModel
 from torch import nn
 from torch.func import functional_call
 from torchvision.models import (
-    ResNet101_Weights,
     ResNet18_Weights,
     ResNet50_Weights,
-    resnet101,
+    ResNet101_Weights,
     resnet18,
     resnet50,
+    resnet101,
 )
 
 from coolchic.enc.component.coolchic import CoolChicEncoder, CoolChicEncoderParameter

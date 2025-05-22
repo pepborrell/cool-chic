@@ -4,9 +4,9 @@ import os
 from pathlib import Path
 
 import torch
+import wandb
 import yaml
 
-import wandb
 from coolchic.enc.component.coolchic import CoolChicEncoderParameter
 from coolchic.enc.component.video import (
     FrameEncoder,

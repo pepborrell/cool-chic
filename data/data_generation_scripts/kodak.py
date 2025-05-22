@@ -1,6 +1,7 @@
-import requests
-from zipfile import ZipFile
 from pathlib import Path
+from zipfile import ZipFile
+
+import requests
 
 # URL of the file to download
 url = "https://www.kaggle.com/api/v1/datasets/download/sherylmehta/kodak-dataset"

@@ -33,7 +33,9 @@ def _linear_schedule(
         f" Found cur_itr = {cur_itr}."
     )
 
-    return torch.tensor(cur_itr * (final_value - initial_value) / max_itr + initial_value)
+    return torch.tensor(
+        cur_itr * (final_value - initial_value) / max_itr + initial_value
+    )
 
 
 def get_mlp_rate(net: CoolChicEncoder) -> float:

@@ -13,9 +13,9 @@ from dataclasses import asdict
 from typing import List, Tuple
 
 import torch
+import wandb
 from torch.nn.utils import clip_grad_norm_
 
-import wandb
 from coolchic.enc.component.core.quantizer import (
     POSSIBLE_QUANTIZATION_NOISE_TYPE,
     POSSIBLE_QUANTIZER_TYPE,

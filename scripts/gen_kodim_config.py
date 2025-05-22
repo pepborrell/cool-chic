@@ -1,5 +1,5 @@
-from pathlib import Path
 import argparse
+from pathlib import Path
 
 
 def cfg_str(img_num: list[int], lambda_value: float, template_file: Path) -> str:

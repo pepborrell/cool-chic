@@ -95,17 +95,22 @@ def get_image_from_hypernet(
 
 
 def img_eval(
-    img_path: Path, model: WholeNet, lmbda: float, mlp_rate: bool = False
+    img_path: Path,
+    model: WholeNet,
+    lmbda: float,
+    mlp_rate: bool = False,
+    save: bool = False,
 ) -> tuple[dict[str, str | float], str]:
     out_img, loss_out = get_image_from_hypernet(model, img_path, lmbda, mlp_rate)
-    save_path = img_path.with_suffix(f".out{img_path.suffix}").parts[-1]
-    torchvision.utils.save_image(out_img, save_path)
-    return {  # pyright: ignore
+    if save:
+        save_path = img_path.with_suffix(f".out{img_path.suffix}").parts[-1]
+        torchvision.utils.save_image(out_img, save_path)
+    return {
         "seq_name": img_path.stem,
         "rate_bpp": loss_out.total_rate_bpp,
         "psnr_db": loss_out.psnr_db,
         "mse": loss_out.mse,
-    }, save_path
+    }, save_path if save else None  # pyright: ignore
 
 
 def eval_on_whole_dataset(

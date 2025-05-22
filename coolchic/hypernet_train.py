@@ -3,8 +3,8 @@ import os
 from pathlib import Path
 
 import torch
-
 import wandb
+
 from coolchic.enc.utils.misc import get_best_device
 from coolchic.hypernet.hypernet import CoolchicWholeNet
 from coolchic.hypernet.training import get_workdir_hypernet, train

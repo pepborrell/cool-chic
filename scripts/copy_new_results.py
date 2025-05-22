@@ -1,6 +1,6 @@
-from pathlib import Path
-import shutil
 import datetime
+import shutil
+from pathlib import Path
 
 
 def dirs_to_copy(exp_path: Path):

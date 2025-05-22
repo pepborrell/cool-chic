@@ -3,6 +3,7 @@ import copy
 import os
 from pathlib import Path
 
+import wandb
 import yaml
 from enc.component.coolchic import CoolChicEncoderParameter
 from enc.component.video import VideoEncoder, load_video_encoder
@@ -20,8 +21,6 @@ from enc.utils.parsecli import (
 from utils.get_best_models import get_best_model
 from utils.paths import COOLCHIC_REPO_ROOT
 from utils.types import RunConfig, UserConfig, load_config
-
-import wandb
 
 
 def extract_image_encoder(video_encoder: VideoEncoder):

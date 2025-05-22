@@ -11,11 +11,11 @@ import argparse
 import os
 from pathlib import Path
 
+import wandb
 import yaml
 from utils.paths import COOLCHIC_REPO_ROOT
 from utils.types import UserConfig, load_config
 
-import wandb
 from coolchic.enc.component.coolchic import CoolChicEncoderParameter
 from coolchic.enc.component.video import (
     FrameEncoderManager,

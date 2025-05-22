@@ -1,8 +1,8 @@
 from pathlib import Path
-import tqdm
 
-import torch
 import pandas as pd
+import torch
+import tqdm
 import wandb
 from pydantic import BaseModel
 

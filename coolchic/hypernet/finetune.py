@@ -5,9 +5,9 @@ from typing import Literal
 import matplotlib.pyplot as plt
 import pandas as pd
 import torch
+import wandb
 from torchvision.extension import os
 
-import wandb
 from coolchic.enc.component.coolchic import CoolChicEncoder, CoolChicEncoderParameter
 from coolchic.enc.io.format.png import read_png
 from coolchic.enc.io.io import load_frame_data_from_file
