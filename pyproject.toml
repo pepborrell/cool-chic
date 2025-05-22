@@ -56,4 +56,5 @@ include = ["coolchic/"]
 [dependency-groups]
 dev = [
     "ipython>=8.31.0",
+    "jupyter>=1.1.1",
 ]
