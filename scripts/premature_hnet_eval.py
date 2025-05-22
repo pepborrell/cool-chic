@@ -15,6 +15,13 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--sweep_path", type=Path, required=True)
     parser.add_argument("--hypernet", type=str, default="full")
+    parser.add_argument(
+        "--dataset",
+        type=str,
+        choices=["kodak", "clic20-pro-valid"],
+        required=True,
+        help="Dataset to evaluate on. Can be 'kodak' or 'clic20-pro-valid'.",
+    )
     args = parser.parse_args()
     if not args.sweep_path.exists():
         raise FileNotFoundError(f"Path not found: {args.sweep_path}")
@@ -65,10 +72,9 @@ if __name__ == "__main__":
         hypernet_eval(
             weight_paths=[highest_checkpoint],
             lmbda=config.lmbda,
-            img_num=None,
-            img_path=None,
             cfg=config,
             wholenet_cls=hnet_cls,
             workdir=premature_workdir,
             mlp_rate=False,
+            dataset=args.dataset,
         )
