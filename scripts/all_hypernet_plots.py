@@ -19,11 +19,11 @@ from coolchic.hypernet.hypernet import (
     NOWholeNet,
     SmallDeltaWholeNet,
 )
-from coolchic.utils.paths import ANCHOR_NAME, DATASET_NAME
+from coolchic.utils.paths import ANCHOR_NAME, DATA_DIR, DATASET_NAME
 
 
 def parse_hypernet_metrics(
-    sweep_path: Path, premature: bool = False
+    sweep_path: Path, dataset: DATASET_NAME, premature: bool = False
 ) -> dict[str, list[SummaryEncodingMetrics]]:
     """Metrics saved by hypernet training jobs are csv files
     with the following columns: seq_name, rate_bpp, psnr_db, mse.
@@ -44,7 +44,7 @@ def parse_hypernet_metrics(
         run_lmbda = lmbdas[run.stem.split("_")[-1]]
         results_path = (
             run / "premature_eval" if premature else run
-        ) / "kodak_results.csv"
+        ) / f"{dataset}_results.csv"
         if not results_path.exists():
             raise FileNotFoundError(f"Results file not found: {results_path}")
         results = pd.read_csv(results_path)
@@ -81,13 +81,17 @@ if __name__ == "__main__":
     parser.add_argument("--wholenet_cls", type=str, default="NOWholeNet")
     parser.add_argument("--compare_no_path", type=Path, default=None)
     parser.add_argument("--compare_premature", action="store_true", default=False)
-    parser.add_argument("--dataset", type=str, choices=["kodak", "clic20-pro-valid"])
+    parser.add_argument(
+        "--dataset", type=str, choices=["kodak", "clic20-pro-valid"], required=True
+    )
     args = parser.parse_args()
     if not args.sweep_path.exists():
         raise FileNotFoundError(f"Path not found: {args.sweep_path}")
 
     sweep_path = args.sweep_path
-    metrics = parse_hypernet_metrics(sweep_path, args.premature)
+    metrics = parse_hypernet_metrics(
+        sweep_path, dataset=args.dataset, premature=args.premature
+    )
     # BD rates for coolchic, hm, jpeg
     for anchor in ["coolchic", "hm", "jpeg"]:
         print_bd(metrics, anchor, args.dataset)  # pyright: ignore
@@ -118,7 +122,7 @@ if __name__ == "__main__":
     # Compare with NO coolchic, if provided.
     if args.compare_no_path:
         no_metrics = parse_hypernet_metrics(
-            args.compare_no_path, args.compare_premature
+            args.compare_no_path, dataset=args.dataset, premature=args.compare_premature
         )
         no_df = pd.DataFrame(
             [s.model_dump() for seq_res in no_metrics.values() for s in seq_res]
@@ -132,10 +136,10 @@ if __name__ == "__main__":
     df = pd.concat([df, no_df])
     df = df.sort_values(by=["seq_name", "lmbda"])  # So plot comes out nice.
 
-    for i in range(1, 25):
-        seq_name = f"kodim{i:02d}"
-        plot_hypernet_rd(seq_name, df)
+    for img in (DATA_DIR / args.dataset).glob("*.png"):
+        seq_name = img.stem
+        plot_hypernet_rd(seq_name, df, dataset=args.dataset)
 
-    plot_hypernet_rd_avg(df)
+    plot_hypernet_rd_avg(df, dataset=args.dataset)
 
     plt.show()

@@ -3,15 +3,15 @@ import os
 from pathlib import Path
 
 import torch
-
 import wandb
+
 from coolchic.enc.utils.misc import get_best_device
 from coolchic.hypernet.hypernet import (
     DeltaWholeNet,
     NOWholeNet,
     SmallDeltaWholeNet,
 )
-from coolchic.hypernet.inference import eval_on_all_kodak, load_hypernet
+from coolchic.hypernet.inference import load_hypernet
 from coolchic.hypernet.training import get_workdir_hypernet, train
 from coolchic.metalearning.data import OpenImagesDataset
 from coolchic.utils.paths import get_latest_checkpoint
@@ -93,10 +93,10 @@ def main():
     else:
         os.environ["WANDB_MODE"] = "online"
     # Start wandb logging.
-    wandb_run = wandb.init(project="coolchic-runs", config=run_cfg.model_dump())
+    wandb.init(project="coolchic-runs", config=run_cfg.model_dump())
 
     # Train
-    net = train(
+    _ = train(
         train_data_loader,
         test_data_loader,
         wholenet=wholenet,
@@ -107,13 +107,6 @@ def main():
         device=device,
         checkpoint_samples=chckpoint_it_number,
     )
-
-    # Eval on kodak at end of training.
-    kodak_df = eval_on_all_kodak(net, lmbda=run_cfg.lmbda, mlp_rate=False)
-    kodak_df["lmbda"] = run_cfg.lmbda
-    kodak_df["anchor"] = "hypernet"
-    kodak_df.to_csv(workdir / "kodak_results.csv")
-    wandb_run.log({"kodak_results": wandb.Table(dataframe=kodak_df)})
 
 
 if __name__ == "__main__":

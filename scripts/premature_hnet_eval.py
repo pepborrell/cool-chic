@@ -11,7 +11,6 @@ from coolchic.hypernet.inference import main_eval as hypernet_eval
 from coolchic.utils.paths import CONFIG_DIR, RESULTS_DIR
 from coolchic.utils.types import HypernetRunConfig, load_config
 
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--sweep_path", type=Path, required=True)
@@ -45,10 +44,13 @@ if __name__ == "__main__":
     ]
 
     for run in runs:
-        # checkpoints are formatted like epoch_5_batch_2570000.pt. Let's sort by sample number.
+        # Find more recent checkpoint in the run directory.
+        # checkpoints are formatted like samples_2570000.pt. Let's sort by sample number.
         highest_checkpoint = max(
             run.glob("*.pt"), key=lambda p: int(p.stem.split("_")[-1])
         )
+
+        # Find config and load it.
         config_path = CONFIG_DIR / run.absolute().relative_to(RESULTS_DIR).with_suffix(
             ".yaml"
         )

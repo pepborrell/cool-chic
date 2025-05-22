@@ -11,7 +11,6 @@ from tqdm import tqdm
 from coolchic.enc.io.io import load_frame_data_from_tensor
 from coolchic.enc.training.loss import LossFunctionOutput, loss_function
 from coolchic.enc.training.quantizemodel import quantize_model
-from coolchic.eval.hypernet import plot_hypernet_rd
 from coolchic.hypernet.hypernet import (
     CoolchicWholeNet,
     DeltaWholeNet,
@@ -19,7 +18,7 @@ from coolchic.hypernet.hypernet import (
     WholeNet,
 )
 from coolchic.utils.nn import get_mlp_rate
-from coolchic.utils.paths import DATA_DIR
+from coolchic.utils.paths import DATA_DIR, DATASET_NAME
 from coolchic.utils.tensors import load_img_from_path
 from coolchic.utils.types import HypernetRunConfig, load_config
 
@@ -109,69 +108,38 @@ def img_eval(
     }, save_path
 
 
-def eval_on_all_kodak(model: WholeNet, lmbda: float, mlp_rate: bool) -> pd.DataFrame:
+def eval_on_whole_dataset(
+    model: WholeNet, lmbda: float, mlp_rate: bool, dataset: DATASET_NAME
+) -> pd.DataFrame:
     res: list[dict] = []
-    for i in tqdm(range(1, 25)):
-        img_path = DATA_DIR / "kodak" / f"kodim{i:02d}.png"
+    for img_path in tqdm((DATA_DIR / dataset).glob("*.png")):
         res.append(img_eval(img_path, model, lmbda, mlp_rate=mlp_rate)[0])
     df = pd.DataFrame(res)
-    print(df)
     return df
 
 
 def main_eval(
     weight_paths: list[Path],
     lmbda: float,
-    img_num: int | None,
-    img_path: Path | None,
     cfg: HypernetRunConfig,
     wholenet_cls: type[WholeNet],
     mlp_rate: bool,
+    dataset: DATASET_NAME,
     workdir: Path | None = None,
 ) -> None:
-    """Evaluate a hypernet, either on a single image or on all Kodak images.
+    """Evaluate a hypernet in a given dataset."""
+    dfs = []
+    # More than one model path allowed.
+    for i, weight_path in enumerate(weight_paths):
+        print(f"Loading model {i + 1}/{len(weight_paths)}")
+        model = load_hypernet(weight_path, cfg, wholenet_cls)
+        df = eval_on_whole_dataset(model, lmbda, mlp_rate=mlp_rate, dataset=dataset)
+        df["anchor"] = "hypernet" if len(weight_paths) == 1 else weight_path.stem
+        dfs.append(df)
 
-    Logic is a bit complicated, to allow for both single and multiple image evaluation, depending on the arguments.
-    Can be used by any script to evaluate a hypernet.
-    """
-    if img_path is not None or img_num is not None:
-        assert (
-            len(weight_paths) == 1
-        ), "Only one weight path is allowed when evaluating a single image."
-        model = load_hypernet(weight_paths[0], cfg, wholenet_cls)
-
-        if img_path is not None:
-            compressed, loss = get_image_from_hypernet(
-                model, img_path, lmbda=lmbda, mlp_rate=mlp_rate
-            )
-            print(
-                f"Rate: {loss.total_rate_bpp:2f} bpp, MSE: {loss.mse:2f}, PSNR: {loss.psnr_db}"
-            )
-            torchvision.utils.save_image(compressed, img_path.with_suffix(".out.png"))
-        else:
-            # img_num is not None.
-            img_path = DATA_DIR / "kodak" / f"kodim{img_num:02d}.png"
-            image_data, save_path = img_eval(img_path, model, lmbda, mlp_rate=mlp_rate)
-            print("Evaluation results:")
-            [print(f"{k}: {v}") for k, v in image_data.items()]
-            print(f"Saved to {save_path}")
-    else:
-        # Evaluate on all Kodak images.
-        dfs = []
-        # More than one model path allowed.
-        for i, weight_path in enumerate(weight_paths):
-            print(f"Loading model {i + 1}/{len(weight_paths)}")
-            model = load_hypernet(weight_path, cfg, wholenet_cls)
-            df = eval_on_all_kodak(model, lmbda, mlp_rate=mlp_rate)
-            df["anchor"] = "hypernet" if len(weight_paths) == 1 else weight_path.stem
-            dfs.append(df)
-
-        whole_df = pd.concat(dfs)
-        whole_df.to_csv(
-            workdir / "kodak_results.csv" if workdir else "kodak_results.csv"
-        )
-        for kodim_name in [f"kodim{i:02d}" for i in range(1, 25)]:
-            plot_hypernet_rd(kodim_name, whole_df)
+    whole_df = pd.concat(dfs)
+    results_name = f"{dataset}_results.csv"
+    whole_df.to_csv(workdir / results_name if workdir else results_name)
 
 
 if __name__ == "__main__":
@@ -185,15 +153,6 @@ if __name__ == "__main__":
         "Only one path is allowed when evaluating a single image.",
     )
     parser.add_argument(
-        "--img_num",
-        type=int,
-        default=None,
-        help="Evaluate a single Kodak image by number.",
-    )
-    parser.add_argument(
-        "--img_path", type=Path, default=None, help="Evaluate a single image by path."
-    )
-    parser.add_argument(
         "--config", type=Path, required=True, help="Path to the hypernet config."
     )
     parser.add_argument(
@@ -201,6 +160,13 @@ if __name__ == "__main__":
         type=str,
         default="full",
         help="Hypernet type. Can be one of ['full', 'delta', 'nocchic'].",
+    )
+    parser.add_argument(
+        "--dataset",
+        type=str,
+        choices=["kodak", "clic20-pro-valid"],
+        default="kodak",
+        help="Dataset to evaluate on. Can be 'kodak' or 'clic20-pro-valid'.",
     )
     args = parser.parse_args()
 
@@ -224,10 +190,9 @@ if __name__ == "__main__":
     main_eval(
         w_paths,
         run_cfg.lmbda,
-        args.img_num,
-        args.img_path,
         run_cfg,
         wholenet_cls,
         mlp_rate=False,
+        dataset=args.dataset,
     )
     plt.show()
