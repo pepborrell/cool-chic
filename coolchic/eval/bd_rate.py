@@ -56,6 +56,11 @@ def bd_rates_summary_anchor_name(
     results: dict[str, float] = {}
     for seq_name in summary:
         # REMEMBER: the anchor goes first.
+        if seq_name not in a_summary:
+            print(
+                f"Warning: {seq_name} not found in anchor {anchor}. Skipping BD rate calculation."
+            )
+            continue
         results[seq_name] = bd_rate_summaries(a_summary[seq_name], summary[seq_name])
     return results
 

@@ -86,7 +86,7 @@ def parse_result_summary(summary_file: Path) -> dict[str, list[SummaryEncodingMe
     for line in raw_metrics:
         line_metrics = {n: v for n, v in zip(metric_names, split_row(line))}
         results[line_metrics["seq_name"]].append(SummaryEncodingMetrics(**line_metrics))
-    return results
+    return dict(results)
 
 
 def result_summary_to_df(summary_path: Path) -> pd.DataFrame:
