@@ -22,6 +22,7 @@ if __name__ == "__main__":
         required=True,
         help="Dataset to evaluate on. Can be 'kodak' or 'clic20-pro-valid'.",
     )
+    parser.add_argument("--no_mlp_rate", action="store_true")
     args = parser.parse_args()
     if not args.sweep_path.exists():
         raise FileNotFoundError(f"Path not found: {args.sweep_path}")
@@ -75,6 +76,6 @@ if __name__ == "__main__":
             cfg=config,
             wholenet_cls=hnet_cls,
             workdir=premature_workdir,
-            mlp_rate=False,
+            mlp_rate=True if not args.no_mlp_rate else False,
             dataset=args.dataset,
         )
