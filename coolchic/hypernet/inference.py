@@ -112,7 +112,8 @@ def eval_on_whole_dataset(
     model: WholeNet, lmbda: float, mlp_rate: bool, dataset: DATASET_NAME
 ) -> pd.DataFrame:
     res: list[dict] = []
-    for img_path in tqdm((DATA_DIR / dataset).glob("*.png")):
+    all_images = list((DATA_DIR / dataset).glob("*.png"))
+    for img_path in tqdm(all_images):
         res.append(img_eval(img_path, model, lmbda, mlp_rate=mlp_rate)[0])
     df = pd.DataFrame(res)
     return df
