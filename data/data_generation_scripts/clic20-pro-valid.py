@@ -1,6 +1,7 @@
-import requests
-from zipfile import ZipFile
 from pathlib import Path
+from zipfile import ZipFile
+
+import requests
 
 # URL of the file to download
 url = "https://data.vision.ee.ethz.ch/cvl/clic/professional_valid_2020.zip"
@@ -35,6 +36,15 @@ def unzip(path_to_zipfile: Path, output_dir: Path) -> None:
     print(f"Files extracted to: {output_dir}.")
 
 
+def strip_incorrect_profile(img_dir: Path) -> None:
+    """Strips incorrect ICC profile from the image."""
+    from PIL import Image
+
+    for path in img_dir.glob("*.png"):
+        with Image.open(path) as img:
+            img.save(path, icc_profile=None)
+
+
 if __name__ == "__main__":
     download_file(url, zip_path)
     unzip(zip_path, output_dir)
@@ -49,3 +59,6 @@ if __name__ == "__main__":
             print(f"Skipping non-file item: {item}")
     # Remove the now-empty valid directory
     valid_dir.rmdir()
+
+    # Strip incorrect ICC profile from the images
+    strip_incorrect_profile(output_dir)
