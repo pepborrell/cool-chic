@@ -12,7 +12,7 @@ from coolchic.eval.results import (
     parse_result_summary,
 )
 from coolchic.utils.bjontegaard_metric import BD_RATE
-from coolchic.utils.paths import ALL_ANCHORS, ANCHOR_NAMES
+from coolchic.utils.paths import ALL_ANCHORS, ANCHOR_NAME, DATASET_NAME
 
 
 def bd_rate_summaries(
@@ -48,9 +48,11 @@ def avg_bd_rate_summary_paths(summary_path: Path, anchor_path: Path) -> float:
 
 
 def bd_rates_summary_anchor_name(
-    summary: dict[str, list[SummaryEncodingMetrics]], anchor_name: ANCHOR_NAMES
+    summary: dict[str, list[SummaryEncodingMetrics]],
+    anchor: ANCHOR_NAME,
+    dataset: DATASET_NAME,
 ) -> dict[str, float]:
-    a_summary = parse_result_summary(ALL_ANCHORS[anchor_name])
+    a_summary = parse_result_summary(ALL_ANCHORS[dataset][anchor])
     results: dict[str, float] = {}
     for seq_name in summary:
         # REMEMBER: the anchor goes first.

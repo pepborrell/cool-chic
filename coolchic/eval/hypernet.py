@@ -11,13 +11,13 @@ from coolchic.enc.training.test import FrameEncoderLogs, test
 from coolchic.eval.results import result_summary_to_df
 from coolchic.hypernet.hypernet import CoolchicHyperNet, NOWholeNet, WholeNet
 from coolchic.utils.coolchic_types import get_coolchic_structs
-from coolchic.utils.paths import ALL_ANCHORS
+from coolchic.utils.paths import ALL_ANCHORS, DATASET_NAME
 from coolchic.utils.types import DecoderConfig, HyperNetConfig, PresetConfig
 
 
-def compare_kodak_res(results: pd.DataFrame) -> pd.DataFrame:
+def compare_dataset_res(results: pd.DataFrame, dataset: DATASET_NAME) -> pd.DataFrame:
     res_sums = []
-    for anchor, results_path in ALL_ANCHORS.items():
+    for anchor, results_path in ALL_ANCHORS[dataset].items():
         df = result_summary_to_df(results_path)
         df["anchor"] = anchor
         res_sums.append(df)
@@ -29,9 +29,9 @@ def compare_kodak_res(results: pd.DataFrame) -> pd.DataFrame:
     return all_df
 
 
-def plot_hypernet_rd(kodim_name: str, results: pd.DataFrame):
-    all_df = compare_kodak_res(results)
-    all_df = all_df.loc[all_df["seq_name"] == kodim_name]
+def plot_hypernet_rd(seq_name: str, results: pd.DataFrame, dataset: DATASET_NAME):
+    all_df = compare_dataset_res(results, dataset)
+    all_df = all_df.loc[all_df["seq_name"] == seq_name]
 
     fig, ax = plt.subplots()
     sns.lineplot(
@@ -44,13 +44,13 @@ def plot_hypernet_rd(kodim_name: str, results: pd.DataFrame):
         ax=ax,
         sort=False,
     )
-    ax.set_title(f"RD curve for {kodim_name}")
+    ax.set_title(f"RD curve for {seq_name}")
     return fig, ax
 
 
-def plot_hypernet_rd_avg(results: pd.DataFrame):
+def plot_hypernet_rd_avg(results: pd.DataFrame, dataset: DATASET_NAME):
     """Plots the average RD plot for the whole dataset in results."""
-    all_df = compare_kodak_res(results)
+    all_df = compare_dataset_res(results, dataset)
     mean_df = (
         all_df.groupby(["anchor", "lmbda"])
         .agg({"rate_bpp": "mean", "psnr_db": "mean"})
@@ -82,10 +82,14 @@ def is_above_anchor_curve(
 
 
 def find_crossing_it(
-    kodim_name: str, results: pd.DataFrame, run_name: str, anchor_name: str
+    seq_name: str,
+    results: pd.DataFrame,
+    run_name: str,
+    anchor_name: str,
+    dataset: DATASET_NAME,
 ) -> int:
-    all_df = compare_kodak_res(results)
-    all_df = all_df.loc[all_df["seq_name"] == kodim_name]
+    all_df = compare_dataset_res(results, dataset)
+    all_df = all_df.loc[all_df["seq_name"] == seq_name]
 
     def get_curve_for_anchor(anchor_name: str, sort: bool = False):
         anchor_df = all_df.loc[all_df["anchor"] == anchor_name]

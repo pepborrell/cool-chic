@@ -19,10 +19,12 @@ from coolchic.hypernet.hypernet import (
     NOWholeNet,
     SmallDeltaWholeNet,
 )
-from coolchic.utils.paths import ANCHOR_NAMES
+from coolchic.utils.paths import ANCHOR_NAME, DATASET_NAME
 
 
-def parse_hypernet_metrics(sweep_path: Path, premature: bool = False):
+def parse_hypernet_metrics(
+    sweep_path: Path, premature: bool = False
+) -> dict[str, list[SummaryEncodingMetrics]]:
     """Metrics saved by hypernet training jobs are csv files
     with the following columns: seq_name, rate_bpp, psnr_db, mse.
     Maybe lmbda.
@@ -61,10 +63,12 @@ def parse_hypernet_metrics(sweep_path: Path, premature: bool = False):
 
 
 def print_bd(
-    metrics: dict[str, list[SummaryEncodingMetrics]], anchor_name: ANCHOR_NAMES
+    metrics: dict[str, list[SummaryEncodingMetrics]],
+    anchor_name: ANCHOR_NAME,
+    dataset: DATASET_NAME,
 ):
     print(f"Results for anchor {anchor_name}:")
-    bd_rates = bd_rates_summary_anchor_name(metrics, anchor_name)
+    bd_rates = bd_rates_summary_anchor_name(metrics, anchor_name, dataset)
     for seq, r in bd_rates.items():
         print(f"{seq}: {r}")
     print(f"Average: {sum(bd_rates.values()) / len(bd_rates)}\n")
@@ -77,6 +81,7 @@ if __name__ == "__main__":
     parser.add_argument("--wholenet_cls", type=str, default="NOWholeNet")
     parser.add_argument("--compare_no_path", type=Path, default=None)
     parser.add_argument("--compare_premature", action="store_true", default=False)
+    parser.add_argument("--dataset", type=str, choices=["kodak", "clic20-pro-valid"])
     args = parser.parse_args()
     if not args.sweep_path.exists():
         raise FileNotFoundError(f"Path not found: {args.sweep_path}")
@@ -84,13 +89,12 @@ if __name__ == "__main__":
     sweep_path = args.sweep_path
     metrics = parse_hypernet_metrics(sweep_path, args.premature)
     # BD rates for coolchic, hm, jpeg
-    print_bd(metrics, "coolchic")
-    print_bd(metrics, "hm")
-    print_bd(metrics, "jpeg")
+    for anchor in ["coolchic", "hm", "jpeg"]:
+        print_bd(metrics, anchor, args.dataset)  # pyright: ignore
 
     # BD rate vs computational cost
     avg_bd = sum(
-        (bd_rates := bd_rates_summary_anchor_name(metrics, "hm").values())
+        (bd_rates := bd_rates_summary_anchor_name(metrics, "hm", args.dataset).values())
     ) / len(bd_rates)
 
     wholenet_cls_dict = {

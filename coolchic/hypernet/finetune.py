@@ -27,7 +27,7 @@ from coolchic.hypernet.hypernet import (
 )
 from coolchic.hypernet.inference import load_hypernet
 from coolchic.utils.coolchic_types import get_coolchic_structs
-from coolchic.utils.paths import DATA_DIR
+from coolchic.utils.paths import DATA_DIR, DATASET_NAME
 from coolchic.utils.types import (
     DecoderConfig,
     HypernetRunConfig,
@@ -88,30 +88,29 @@ def finetune_coolchic(
 
 
 def finetune_one_kodak(
-    img_num: int,
+    image: Path,
     preset_config: PresetConfig,
     hypernet: WholeNet,
     dec_cfg: DecoderConfig,
     lmbda: float,
     from_scratch: bool = False,
 ) -> list[SummaryEncodingMetrics]:
-    img_path = DATA_DIR / "kodak" / f"kodim{img_num:02d}.png"
     if from_scratch:
         # No need to load hypernet.
         coolchic_encoder_parameter = CoolChicEncoderParameter(
             **get_coolchic_param_from_args(dec_cfg)
         )
-        img, _ = read_png(str(img_path))
+        img, _ = read_png(str(image))
         coolchic_encoder_parameter.set_image_size((img.shape[-2], img.shape[-1]))
         cc_encoder = CoolChicEncoder(coolchic_encoder_parameter)
     else:
         # Get coolchic representation from hypernet
-        img, _ = read_png(str(img_path))
+        img, _ = read_png(str(image))
         with torch.no_grad():
             cc_encoder = hypernet.image_to_coolchic(img, stop_grads=True)
 
     return finetune_coolchic(
-        img_path=DATA_DIR / "kodak" / f"kodim{img_num:02d}.png",
+        img_path=image,
         preset_config=preset_config,
         cc_encoder=cc_encoder,
         lmbda=lmbda,
@@ -119,12 +118,13 @@ def finetune_one_kodak(
     )
 
 
-def finetune_all_kodak(
+def finetune_all(
     preset: PresetConfig,
     from_scratch: bool,
     weights_path: Path,
     config_path: Path,
     wholenet_cls: type[WholeNet],
+    dataset: DATASET_NAME,
 ) -> pd.DataFrame:
     # Load config and hypernet.
     cfg = load_config(config_path, HypernetRunConfig)
@@ -133,11 +133,11 @@ def finetune_all_kodak(
     hnet.eval()
 
     all_finetuned = []
-    for i in range(1, 25):
-        img_name = f"kodim{i:02d}"
+    for image in (DATA_DIR / dataset).glob("*.png"):
+        img_name = image.stem
         print(f"Finetuning {img_name}")
         finetuned = finetune_one_kodak(
-            i,
+            image,
             preset,
             hypernet=hnet,
             dec_cfg=cfg.hypernet_cfg.dec_cfg,
@@ -175,6 +175,13 @@ if __name__ == "__main__":
         help="Path to the results of training from scratch. "
         "If provided, the results will be reused and training won't happen.",
     )
+    parser.add_argument(
+        "--dataset",
+        type=str,
+        choices=["kodak", "clic20-pro-valid"],
+        required=True,
+        help="Dataset to use for finetuning. " "Can be 'kodak' or 'clic20-pro-valid'.",
+    )
     args = parser.parse_args()
 
     # Configuring how training happens.
@@ -210,22 +217,24 @@ if __name__ == "__main__":
 
     wholenet_cls = get_wholenet_class(args.wholenet_cls)
 
-    finetuned = finetune_all_kodak(
+    finetuned = finetune_all(
         training_preset,
         weights_path=args.weight_path,
         config_path=args.config,
         from_scratch=False,
         wholenet_cls=wholenet_cls,
+        dataset=args.dataset,
     )
     if args.from_scratch_file is not None:
         from_scratch = pd.read_csv(args.from_scratch_file)
     else:
-        from_scratch = finetune_all_kodak(
+        from_scratch = finetune_all(
             training_preset,
             weights_path=args.weight_path,
             config_path=args.config,
             from_scratch=True,
             wholenet_cls=wholenet_cls,
+            dataset=args.dataset,
         )
     finetuned["anchor"] = "hnet-finetuning"
     from_scratch["anchor"] = "train-from-scratch"
@@ -240,22 +249,24 @@ if __name__ == "__main__":
             "jpeg": [],
             "hm": [],
         }
-        for i in range(1, 25):
-            plot_hypernet_rd(f"kodim{i:02d}", all_results)
+        for image in (DATA_DIR / args.dataset).glob("*.png"):
+            plot_hypernet_rd(image.stem, all_results, args.dataset)
             for anchor_name in crossing_its:
                 crossing_its[anchor_name].append(
                     {
                         "hn": find_crossing_it(
-                            f"kodim{i:02d}",
+                            image.stem,
                             all_results,
                             "hnet-finetuning",
                             anchor_name=anchor_name,
+                            dataset=args.dataset,
                         ),
                         "scratch": find_crossing_it(
-                            f"kodim{i:02d}",
+                            image.stem,
                             all_results,
                             "train-from-scratch",
                             anchor_name=anchor_name,
+                            dataset=args.dataset,
                         ),
                     }
                 )
