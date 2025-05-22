@@ -98,7 +98,7 @@ def img_eval(
     img_path: Path,
     model: WholeNet,
     lmbda: float,
-    mlp_rate: bool = False,
+    mlp_rate: bool,
     save: bool = False,
 ) -> tuple[dict[str, str | float], str]:
     out_img, loss_out = get_image_from_hypernet(model, img_path, lmbda, mlp_rate)
