@@ -73,11 +73,11 @@ def get_image_from_hypernet(
     # Forward pass.
     net.eval()
     with torch.no_grad():
+        out_img, out_rate, _ = net.forward(
+            img, quantizer_noise_type="none", quantizer_type="hardround"
+        )
         if not mlp_rate:
             # No need to quantize the model, just a normal forward pass.
-            out_img, out_rate, _ = net.forward(
-                img, quantizer_noise_type="none", quantizer_type="hardround"
-            )
             rate_mlp = 0.0
         else:
             # image to coolchic creates a coolchic encoder with the hypernet weights.
@@ -86,10 +86,10 @@ def get_image_from_hypernet(
             cc_enc = quantize_model(encoder=cc_enc, input_img=img, lmbda=lmbda)
             # Rate of all the mlp weights.
             rate_mlp = get_mlp_rate(cc_enc)
-            # Get image from the quantized model (should perform slightly worse).
-            out_img, out_rate, _ = cc_enc.forward(
-                quantizer_noise_type="none", quantizer_type="hardround"
-            )
+            # # Get image from the quantized model (should perform slightly worse).
+            # out_img, out_rate, _ = cc_enc.forward(
+            #     quantizer_noise_type="none", quantizer_type="hardround"
+            # )
 
         loss_out = loss_function(
             out_img, out_rate, img, lmbda=0.0, rate_mlp_bit=rate_mlp, compute_logs=True
