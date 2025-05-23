@@ -113,6 +113,8 @@ def img_eval(
     return {
         "seq_name": img_path.stem,
         "rate_bpp": loss_out.total_rate_bpp,
+        "rate_latent_bpp": loss_out.rate_latent_bpp,
+        "rate_nn_bpp": loss_out.rate_nn_bpp,
         "psnr_db": loss_out.psnr_db,
         "mse": loss_out.mse,
     }, save_path if save else None  # pyright: ignore
