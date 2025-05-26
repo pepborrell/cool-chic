@@ -25,6 +25,7 @@ from coolchic.enc.component.nlcoolchic import LatentFreeCoolChicEncoder
 from coolchic.enc.utils.parsecli import get_coolchic_param_from_args
 from coolchic.hypernet.common import (
     ResidualBlockDown,
+    add_deltas,
     build_mlp,
     get_backbone_flops,
     upsample_latents,
@@ -1277,25 +1278,13 @@ class DeltaWholeNet(WholeNet):
         batch_size: int,
         remove_batch_dim: bool = False,
     ) -> dict[str, torch.Tensor]:
-        if remove_batch_dim and batch_size != 1:
-            raise ValueError(
-                "Batch size should be 0 if we want to remove batch dimension."
-            )
-
-        # Adding deltas.
-        forward_params: dict[str, torch.Tensor] = {}
-        for k, v in self.mean_decoder.named_parameters():
-            if (inner_key := k.removeprefix("synthesis.")) in synth_delta_dict:
-                forward_params[k] = synth_delta_dict[inner_key] + v
-            elif (inner_key := k.removeprefix("arm.")) in arm_delta_dict:
-                forward_params[k] = arm_delta_dict[inner_key] + v
-            else:
-                forward_params[k] = v.unsqueeze(0).expand(batch_size, *v.shape)
-
-            if remove_batch_dim:
-                forward_params[k] = forward_params[k].squeeze(0)
-
-        return forward_params
+        return add_deltas(
+            self.mean_decoder.named_parameters(),
+            synth_delta_dict=synth_delta_dict,
+            arm_delta_dict=arm_delta_dict,
+            batch_size=batch_size,
+            remove_batch_dim=remove_batch_dim,
+        )
 
     def image_to_coolchic(
         self, img: torch.Tensor, stop_grads: bool = False
