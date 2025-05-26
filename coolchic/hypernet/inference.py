@@ -17,7 +17,7 @@ from coolchic.hypernet.hypernet import (
     NOWholeNet,
     WholeNet,
 )
-from coolchic.utils.nn import get_mlp_rate
+from coolchic.utils.nn import get_rate_from_rate_per_module
 from coolchic.utils.paths import DATA_DIR, DATASET_NAME
 from coolchic.utils.tensors import load_img_from_path
 from coolchic.utils.types import HypernetRunConfig, load_config
@@ -81,12 +81,13 @@ def get_image_from_hypernet(
             rate_mlp = 0.0
         else:
             if isinstance(net, DeltaWholeNet):
+                print("using delta hypernet, delta quantization")
                 latents, synth_deltas, arm_deltas = net.hypernet.forward(img)
                 all_deltas = {
                     "synthesis": synth_deltas,
                     "arm": arm_deltas,
                 }
-                quantized_deltas = quantize_model_deltas(
+                quantized_deltas, rate_per_module = quantize_model_deltas(
                     net.mean_decoder,
                     latents=latents,
                     all_deltas=all_deltas,
@@ -107,8 +108,9 @@ def get_image_from_hypernet(
                 cc_enc = net.image_to_coolchic(img, stop_grads=True)
                 cc_enc._store_full_precision_param()
                 cc_enc = quantize_model(encoder=cc_enc, input_img=img, lmbda=lmbda)
+                rate_per_module = cc_enc.get_network_rate()
             # Rate of all the mlp weights.
-            rate_mlp = get_mlp_rate(cc_enc)
+            rate_mlp = get_rate_from_rate_per_module(rate_per_module)
             # # Get image from the quantized model (should perform slightly worse).
             # out_img, out_rate, _ = cc_enc.forward(
             #     quantizer_noise_type="none", quantizer_type="hardround"
@@ -228,7 +230,7 @@ if __name__ == "__main__":
         run_cfg.lmbda,
         run_cfg,
         wholenet_cls,
-        mlp_rate=False,
+        mlp_rate=True,
         dataset=args.dataset,
     )
     plt.show()

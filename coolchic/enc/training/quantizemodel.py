@@ -24,6 +24,7 @@ from coolchic.enc.utils.misc import (
     MAX_AC_MAX_VAL,
     POSSIBLE_EXP_GOL_COUNT,
     POSSIBLE_Q_STEP,
+    DescriptorCoolChic,
     DescriptorNN,
     exp_golomb_nbins,
     get_q_step_from_parameter_name,
@@ -443,7 +444,7 @@ def quantize_model_deltas(
     all_deltas: dict[str, OrderedDict[str, torch.Tensor]],
     input_img: torch.Tensor,
     lmbda: float,
-) -> dict[str, OrderedDict[str, torch.Tensor]]:
+) -> tuple[dict[str, OrderedDict[str, torch.Tensor]], DescriptorCoolChic]:
     cc_enc.eval()
     # We will store the best quantized deltas for each module here.
     quantized_deltas: dict[str, OrderedDict[str, torch.Tensor]] = {}
@@ -490,7 +491,7 @@ def quantize_model_deltas(
             elif module_name == "arm":
                 comb_params = add_deltas(
                     cc_enc.named_parameters(),
-                    synth_delta_dict=all_deltas["synth"],
+                    synth_delta_dict=all_deltas["synthesis"],
                     arm_delta_dict=q_param,
                     batch_size=1,
                     remove_batch_dim=True,
@@ -499,9 +500,6 @@ def quantize_model_deltas(
                 raise ValueError(
                     f"Unknown module name {module_name} for deltas quantization."
                 )
-
-            # Plug the quantized module back into Cool-chic
-            setattr(cc_enc, module_name, cur_module)
 
             cc_enc.nn_q_step[module_name] = current_q_step
 
@@ -539,17 +537,20 @@ def quantize_model_deltas(
                     if weight_or_bias in parameter_name:
                         sent_param.append(current_sent_param)
 
-                # Integer, sent parameters
-                v = torch.cat(sent_param)
+                if not sent_param:
+                    best_expgol_cnt[weight_or_bias] = 0
+                else:
+                    # Integer, sent parameters
+                    v = torch.cat(sent_param)
 
-                # Find the best expgol count for this weight
-                for expgol_cnt in all_expgol_cnt.get(weight_or_bias):
-                    cur_rate = exp_golomb_nbins(v, count=expgol_cnt)
-                    if cur_rate < cur_best_rate:
-                        cur_best_rate = cur_rate
-                        cur_best_expgol_cnt = expgol_cnt.detach().cpu().item()
+                    # Find the best expgol count for this weight
+                    for expgol_cnt in all_expgol_cnt.get(weight_or_bias):
+                        cur_rate = exp_golomb_nbins(v, count=expgol_cnt)
+                        if cur_rate < cur_best_rate:
+                            cur_best_rate = cur_rate
+                            cur_best_expgol_cnt = expgol_cnt.detach().cpu().item()
 
-                best_expgol_cnt[weight_or_bias] = int(cur_best_expgol_cnt)
+                    best_expgol_cnt[weight_or_bias] = int(cur_best_expgol_cnt)
 
             cc_enc.nn_expgol_cnt[module_name] = best_expgol_cnt
 
@@ -587,4 +588,4 @@ def quantize_model_deltas(
 
         quantized_deltas[module_name] = q_param
 
-    return quantized_deltas
+    return quantized_deltas, cc_enc.get_network_rate()
