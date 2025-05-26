@@ -12,9 +12,11 @@ from typing import Optional, OrderedDict, overload
 
 import torch
 from torch import Tensor
+from torch._functorch.functional_call import functional_call
 
 from coolchic.enc.component.coolchic import CoolChicEncoder
 from coolchic.enc.component.frame import FrameEncoder
+from coolchic.enc.component.nlcoolchic import LatentFreeCoolChicEncoder
 from coolchic.enc.training.loss import loss_function
 from coolchic.enc.utils.codingstructure import Frame
 from coolchic.enc.utils.manager import FrameEncoderManager
@@ -26,6 +28,7 @@ from coolchic.enc.utils.misc import (
     exp_golomb_nbins,
     get_q_step_from_parameter_name,
 )
+from coolchic.hypernet.common import add_deltas
 
 
 def _quantize_parameters(
@@ -431,3 +434,157 @@ def quantize_model_coolchic_encoder(
         setattr(cc_enc, module_name, cur_module)
 
     return cc_enc
+
+
+@torch.no_grad()
+def quantize_model_deltas(
+    cc_enc: LatentFreeCoolChicEncoder,
+    latents: list[torch.Tensor],
+    all_deltas: dict[str, OrderedDict[str, torch.Tensor]],
+    input_img: torch.Tensor,
+    lmbda: float,
+) -> dict[str, OrderedDict[str, torch.Tensor]]:
+    cc_enc.eval()
+    # We will store the best quantized deltas for each module here.
+    quantized_deltas: dict[str, OrderedDict[str, torch.Tensor]] = {}
+
+    for module_name, cur_deltas in sorted(all_deltas.items()):
+        # Start the RD optimization for the quantization step of each module with an
+        # arbitrary high value for the RD cost.
+        best_loss = 1e6
+
+        # All possible quantization steps for this module
+        all_q_step = POSSIBLE_Q_STEP.get(module_name)
+        all_expgol_cnt = POSSIBLE_EXP_GOL_COUNT.get(module_name)
+
+        # Save full precision parameter.
+        fp_param = cur_deltas
+
+        best_q_step = {}
+        # Overall best expgol count for this module weights and biases
+        final_best_expgol_cnt = {}
+
+        for q_step_w, q_step_b in itertools.product(
+            all_q_step.get("weight"), all_q_step.get("bias")
+        ):
+            # Reset full precision parameters, set the quantization step
+            # and quantize the model.
+            current_q_step: DescriptorNN = {"weight": q_step_w, "bias": q_step_b}
+
+            # Reset full precision parameter before quantizing
+            q_param = _quantize_parameters(fp_param, current_q_step)
+
+            # Quantization has failed
+            if q_param is None:
+                continue
+
+            # Add quantized deltas to the module.
+            if module_name == "synthesis":
+                comb_params = add_deltas(
+                    cc_enc.named_parameters(),
+                    synth_delta_dict=q_param,
+                    arm_delta_dict=all_deltas["arm"],
+                    batch_size=1,
+                    remove_batch_dim=True,
+                )
+            elif module_name == "arm":
+                comb_params = add_deltas(
+                    cc_enc.named_parameters(),
+                    synth_delta_dict=all_deltas["synth"],
+                    arm_delta_dict=q_param,
+                    batch_size=1,
+                    remove_batch_dim=True,
+                )
+            else:
+                raise ValueError(
+                    f"Unknown module name {module_name} for deltas quantization."
+                )
+
+            # Plug the quantized module back into Cool-chic
+            setattr(cc_enc, module_name, cur_module)
+
+            cc_enc.nn_q_step[module_name] = current_q_step
+
+            # Test Cool-chic performance with this quantization steps pair
+            raw_out, rate_bpp, _ = functional_call(
+                cc_enc,
+                comb_params,
+                (latents,),
+                kwargs={
+                    "quantizer_noise_type": "none",
+                    "quantizer_type": "hardround",
+                    "AC_MAX_VAL": -1,
+                    "flag_additional_outputs": False,
+                },
+            )
+
+            param = q_param
+
+            # Best exp-golomb count for this quantization step
+            best_expgol_cnt = {}
+            for weight_or_bias in ["weight", "bias"]:
+                # Find the best exp-golomb count for this quantization step:
+                cur_best_expgol_cnt = None
+                # Arbitrarily high number
+                cur_best_rate = 1e9
+
+                sent_param = []
+                for parameter_name, parameter_value in param.items():
+                    # Quantization is round(parameter_value / q_step) * q_step so we divide by q_step
+                    # to obtain the sent latent.
+                    current_sent_param = (
+                        parameter_value / current_q_step.get(weight_or_bias)
+                    ).view(-1)
+
+                    if weight_or_bias in parameter_name:
+                        sent_param.append(current_sent_param)
+
+                # Integer, sent parameters
+                v = torch.cat(sent_param)
+
+                # Find the best expgol count for this weight
+                for expgol_cnt in all_expgol_cnt.get(weight_or_bias):
+                    cur_rate = exp_golomb_nbins(v, count=expgol_cnt)
+                    if cur_rate < cur_best_rate:
+                        cur_best_rate = cur_rate
+                        cur_best_expgol_cnt = expgol_cnt.detach().cpu().item()
+
+                best_expgol_cnt[weight_or_bias] = int(cur_best_expgol_cnt)
+
+            cc_enc.nn_expgol_cnt[module_name] = best_expgol_cnt
+
+            rate_mlp = 0.0
+            rate_per_module = cc_enc.get_network_rate()
+            for _, module_rate in rate_per_module.items():
+                for _, param_rate in module_rate.items():  # weight, bias
+                    rate_mlp += param_rate
+
+            loss_fn_output = loss_function(
+                raw_out,
+                rate_bpp,
+                input_img,
+                lmbda=lmbda,
+                rate_mlp_bit=rate_mlp,
+                compute_logs=True,
+            )
+
+            # Store best quantization steps
+            if loss_fn_output.loss < best_loss:
+                best_loss = loss_fn_output.loss
+                best_q_step = current_q_step
+                final_best_expgol_cnt = best_expgol_cnt
+
+        # Once we've tested all the possible quantization step and expgol_cnt,
+        # quantize one last time with the best one we've found to actually use it.
+        cc_enc.nn_q_step[module_name] = best_q_step
+        cc_enc.nn_expgol_cnt[module_name] = final_best_expgol_cnt
+
+        q_param = _quantize_parameters(fp_param, cc_enc.nn_q_step[module_name])
+        assert q_param is not None, (
+            "_quantize_parameters() failed with q_step "
+            f"{cc_enc.nn_q_step[module_name]}"
+        )
+
+        quantized_deltas[module_name] = q_param
+
+    return quantized_deltas
