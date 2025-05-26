@@ -1,4 +1,4 @@
-from typing import Literal, OrderedDict
+from typing import Iterator, Literal, OrderedDict
 
 import torch
 from fvcore.nn import FlopCountAnalysis, flop_count_table
@@ -279,3 +279,29 @@ def get_backbone_flops(self) -> int:
     self = self.train(mode=True)
 
     return self.total_flops
+
+
+def add_deltas(
+    cc_params: Iterator[tuple[str, nn.Parameter]],
+    synth_delta_dict: dict[str, torch.Tensor],
+    arm_delta_dict: dict[str, torch.Tensor],
+    batch_size: int,
+    remove_batch_dim: bool = False,
+) -> dict[str, torch.Tensor]:
+    if remove_batch_dim and batch_size != 1:
+        raise ValueError("Batch size should be 0 if we want to remove batch dimension.")
+
+    # Adding deltas.
+    forward_params: dict[str, torch.Tensor] = {}
+    for k, v in cc_params:
+        if (inner_key := k.removeprefix("synthesis.")) in synth_delta_dict:
+            forward_params[k] = synth_delta_dict[inner_key] + v
+        elif (inner_key := k.removeprefix("arm.")) in arm_delta_dict:
+            forward_params[k] = arm_delta_dict[inner_key] + v
+        else:
+            forward_params[k] = v.unsqueeze(0).expand(batch_size, *v.shape)
+
+        if remove_batch_dim:
+            forward_params[k] = forward_params[k].squeeze(0)
+
+    return forward_params
