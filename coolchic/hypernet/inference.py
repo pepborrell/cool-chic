@@ -81,7 +81,6 @@ def get_image_from_hypernet(
             rate_mlp = 0.0
         else:
             if isinstance(net, DeltaWholeNet):
-                print("using delta hypernet, delta quantization")
                 latents, synth_deltas, arm_deltas = net.hypernet.forward(img)
                 all_deltas = {
                     "synthesis": synth_deltas,
