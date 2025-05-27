@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from fvcore.nn import FlopCountAnalysis, flop_count_table
 from torch import Tensor
 
 
@@ -86,6 +87,9 @@ class Analysis(nn.Module):
 
         self.reinitialize_parameters()
 
+        # For flop analysis.
+        self.flops_per_module = {k: 0 for k in ["blocks", "fuses"]}
+
     def reinitialize_parameters(self) -> None:
         for m in self.children():
             if isinstance(m, (nn.Conv2d, nn.Linear)):
@@ -99,3 +103,42 @@ class Analysis(nn.Module):
             x = block(x)
             grids.append(fuse(x))
         return grids
+
+    def get_flops(self) -> int:
+        """Compute the number of MAC & parameters for the model.
+        Update ``self.total_flops`` (integer describing the number of total MAC)
+        and ``self.flops_str``, a pretty string allowing to print the model
+        complexity somewhere.
+
+        .. attention::
+
+            ``fvcore`` measures MAC (multiplication & accumulation) but calls it
+            FLOP (floating point operation)... We do the same here and call
+            everything FLOP even though it would be more accurate to use MAC.
+
+        Docstring taken from the original coolchic encoder implementation.
+        """
+        # print("Ignoring get_flops")
+        # Count the number of floating point operations here. It must be done before
+        # torch scripting the different modules.
+
+        self = self.train(mode=False)
+
+        mock_img_size = (1, 3, 512, 512)
+        flops = FlopCountAnalysis(
+            self,
+            torch.zeros(mock_img_size),  # img
+        )
+        flops.unsupported_ops_warnings(False)
+        flops.uncalled_modules_warnings(False)
+
+        self.total_flops = flops.total()
+        for k in self.flops_per_module:
+            self.flops_per_module[k] = flops.by_module()[k]
+
+        self.flops_str = flop_count_table(flops)
+        del flops
+
+        self = self.train(mode=True)
+
+        return self.total_flops

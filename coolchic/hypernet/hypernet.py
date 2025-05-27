@@ -60,7 +60,7 @@ class LatentHyperNet(nn.Module):
         )
 
         # For flop analysis.
-        self.flops_per_module = {k: 0 for k in ["residual_blocks", "conv1ds"]}
+        self.flops_per_module = {k: 0 for k in ["blocks", "fuses"]}
 
         self.reinitialize_parameters()
 
