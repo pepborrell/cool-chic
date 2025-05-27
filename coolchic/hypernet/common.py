@@ -43,12 +43,12 @@ def build_mlp(
     return nn.Sequential(*layers_list)
 
 
-class ConvNextBlock(nn.Module):
+class Block(nn.Module):
     def __init__(self, n_channels: int, layer_scale_init: float = 1e-6) -> None:
         super().__init__()
         self.n_channels = n_channels
         ### ALL LAYERS ###
-        self.dw_conv = nn.Conv2d(
+        self.dwconv = nn.Conv2d(
             self.n_channels,
             self.n_channels,
             kernel_size=7,
@@ -56,29 +56,29 @@ class ConvNextBlock(nn.Module):
             padding="same",
             bias=True,
         )
-        self.conv1 = nn.Conv2d(
+        self.pwconv1 = nn.Conv2d(
             self.n_channels, self.n_channels * 4, kernel_size=1, padding=0
         )
-        self.conv2 = nn.Conv2d(
+        self.pwconv2 = nn.Conv2d(
             self.n_channels * 4, self.n_channels, kernel_size=1, padding=0
         )
         self.norm = nn.GroupNorm(num_groups=1, num_channels=self.n_channels, eps=1e-6)
         self.gelu = nn.GELU()
         self.layer_scale = nn.Parameter(
-            torch.ones(1, self.n_channels, 1, 1) * layer_scale_init
+            torch.ones(self.n_channels, 1, 1) * layer_scale_init
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # Input has size (B, C, H, W)
-        z = self.dw_conv(x)
+        z = self.dwconv(x)
         z = self.norm(z)
-        z = self.conv1(z)
+        z = self.pwconv1(z)
         z = self.gelu(z)
-        z = self.conv2(z)  # (B, C, H, W)
+        z = self.pwconv2(z)  # (B, C, H, W)
         return self.layer_scale * z + x  # Residual connection
 
 
-class ResidualBlockDown(nn.Module):
+class ResidualBlock(nn.Module):
     """A residual block based on ConvNext with optional downsampling.
     As described in Overfitted image coding at reduced complexity, Blard et al.
     """
@@ -94,46 +94,37 @@ class ResidualBlockDown(nn.Module):
         self.downsample_n = downsample_n
 
         # Declare branch 1's components.
-        self.strided_conv = nn.Conv2d(
-            self.in_channels,
-            self.out_channels,
-            kernel_size=3,
-            stride=self.downsample_n,
-            padding=1,
+        self.downsample = nn.Sequential(
+            nn.Conv2d(
+                self.in_channels,
+                self.out_channels,
+                kernel_size=3,
+                stride=self.downsample_n,
+                padding=1,
+            ),
+            nn.GroupNorm(num_groups=1, num_channels=self.out_channels),
+            nn.GELU(),
+            Block(self.out_channels),
         )
-        self.group_norm = nn.GroupNorm(num_groups=1, num_channels=self.out_channels)
-        self.gelu = nn.GELU()
-        self.convnext_pre = ConvNextBlock(self.out_channels)
 
         # Branch 2.
-        if self.downsample_n > 1:
-            self.avg_pool = nn.AvgPool2d(2, stride=self.downsample_n, ceil_mode=True)
-        else:
+        self.identity = nn.Sequential(
+            nn.AvgPool2d(2, stride=self.downsample_n, ceil_mode=True)
+            if self.downsample_n > 1
             # If no downsampling is needed, no need to pool.
-            self.avg_pool = nn.Identity()
-        self.conv1d = nn.Conv2d(
-            self.in_channels, self.out_channels, kernel_size=1, padding=0
+            else nn.Identity(),
+            nn.Conv2d(self.in_channels, self.out_channels, kernel_size=1, padding=0),
         )
 
         # Elements used after the merge.
-        self.convnexts_post = nn.Sequential(
-            ConvNextBlock(self.out_channels), ConvNextBlock(self.out_channels)
+        self.residual = nn.Sequential(
+            Block(self.out_channels), Block(self.out_channels)
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # Branch 1
-        z = self.strided_conv(x)
-        z = self.group_norm(z)
-        z = self.gelu(z)
-        z = self.convnext_pre(z)
-        # Branch 2
-        y = self.pre_pool_padding(x)
-        y = self.avg_pool(y)
-        y = self.conv1d(y)
-        # Merge branches
-        z = z + y
-        z = self.convnexts_post(z)
-        return z
+        z = self.downsample(x)
+        y = self.identity(x)
+        return self.residual(z + y)
 
 
 def select_param_from_name(obj: nn.Module, name: str) -> tuple[torch.Tensor, nn.Module]:

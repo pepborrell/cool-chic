@@ -163,6 +163,13 @@ class DecoderConfig(BaseModel):
             " for 7 latent grids with variable resolutions."
         ),
     )
+    encoder_gain: int = Field(
+        default=16,
+        description=(
+            "Encoder gain for the encoder. "
+            "This is used to scale the latents before quantization."
+        ),
+    )
 
     @computed_field
     @property

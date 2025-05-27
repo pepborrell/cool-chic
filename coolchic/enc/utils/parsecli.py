@@ -82,6 +82,7 @@ def get_coolchic_param_from_args(config: DecoderConfig) -> Dict[str, Any]:
         "ups_preconcat_k_size": config.ups_preconcat_k_size,
         "dim_arm": config.dim_arm,
         "n_hidden_layers_arm": config.n_hidden_layers_arm,
+        "encoder_gain": config.encoder_gain,
     }
 
     return coolchic_param
