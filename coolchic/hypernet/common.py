@@ -68,20 +68,6 @@ class ConvNextBlock(nn.Module):
             torch.ones(1, self.n_channels, 1, 1) * layer_scale_init
         )
 
-        ### INITIALIZATION ###
-        self._init_weights()
-
-    def _init_weights(self):
-        nn.init.kaiming_normal_(self.dw_conv.weight, mode="fan_in")
-        nn.init.kaiming_normal_(self.conv1.weight, mode="fan_in")
-        nn.init.kaiming_normal_(self.conv2.weight, mode="fan_in")
-        assert self.dw_conv.bias is not None, "dw_conv bias is None."
-        nn.init.zeros_(self.dw_conv.bias)
-        assert self.conv1.bias is not None, "conv1 bias is None."
-        nn.init.zeros_(self.conv1.bias)
-        assert self.conv2.bias is not None, "conv2 bias is None."
-        nn.init.zeros_(self.conv2.bias)
-
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # Input has size (B, C, H, W)
         z = self.dw_conv(x)
@@ -134,8 +120,6 @@ class ResidualBlockDown(nn.Module):
             ConvNextBlock(self.out_channels), ConvNextBlock(self.out_channels)
         )
 
-        self.reset_weights()
-
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # Branch 1
         z = self.strided_conv(x)
@@ -150,22 +134,6 @@ class ResidualBlockDown(nn.Module):
         z = z + y
         z = self.convnexts_post(z)
         return z
-
-    def _init_weights(self, m: nn.Module) -> None:
-        """Initialize the weights as done in the ConvNeXt paper.
-        https://github.com/facebookresearch/ConvNeXt/blob/main/models/convnext.py#L103
-        """
-        if isinstance(m, (nn.Conv2d, nn.Linear)):
-            nn.init.trunc_normal_(m.weight, std=0.02)
-            if m.bias is not None:
-                nn.init.constant_(m.bias, 0)
-
-        elif isinstance(m, ConvNextBlock):
-            m._init_weights()
-
-    def reset_weights(self):
-        """Reset the weights of the model."""
-        self.apply(self._init_weights)
 
 
 def select_param_from_name(obj: nn.Module, name: str) -> tuple[torch.Tensor, nn.Module]:

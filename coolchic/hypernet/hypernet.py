@@ -69,11 +69,8 @@ class LatentHyperNet(nn.Module):
         return outputs
 
     def _init_weights(self, m: nn.Module) -> None:
-        if isinstance(m, ResidualBlockDown):
-            m.reset_weights()
-        elif isinstance(m, nn.Conv2d):
-            # Initialize the conv layers with a normal distribution.
-            nn.init.trunc_normal_(m.weight, std=0.02)
+        if isinstance(m, (nn.Conv2d, nn.Linear)):
+            torch.nn.init.trunc_normal_(m.weight, std=0.02)
             if m.bias is not None:
                 nn.init.zeros_(m.bias)
 
