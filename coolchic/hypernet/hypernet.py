@@ -23,7 +23,6 @@ from coolchic.enc.component.core.quantizer import (
 )
 from coolchic.enc.component.nlcoolchic import LatentFreeCoolChicEncoder
 from coolchic.enc.utils.parsecli import get_coolchic_param_from_args
-from coolchic.hypernet.analysis import Analysis
 from coolchic.hypernet.common import (
     ResidualBlock,
     add_deltas,
@@ -1143,14 +1142,9 @@ class NOWholeNet(WholeNet):
         )
         coolchic_encoder_parameter.set_image_size(config.patch_size)
 
-        # self.encoder = LatentHyperNet(
-        #     n_latents=self.config.n_latents,
-        #     n_hidden_channels=self.config.n_hidden_channels,
-        # )
-        self.encoder = Analysis(
-            in_channels=3,
-            n_grids=self.config.n_latents,
-            n_feat=self.config.n_hidden_channels,
+        self.encoder = LatentHyperNet(
+            n_latents=self.config.n_latents,
+            n_hidden_channels=self.config.n_hidden_channels,
         )
         self.mean_decoder = LatentFreeCoolChicEncoder(param=coolchic_encoder_parameter)
 
