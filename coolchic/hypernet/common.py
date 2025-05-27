@@ -43,6 +43,16 @@ def build_mlp(
     return nn.Sequential(*layers_list)
 
 
+class LayerNorm2d(nn.LayerNorm):
+    def forward(self, input: torch.Tensor) -> torch.Tensor:
+        input = input.permute(0, 2, 3, 1)
+        input = torch.nn.functional.layer_norm(
+            input, self.normalized_shape, self.weight, self.bias, self.eps
+        )
+        input = input.permute(0, 3, 1, 2)
+        return input
+
+
 class Block(nn.Module):
     def __init__(self, n_channels: int, layer_scale_init: float = 1e-6) -> None:
         super().__init__()
@@ -62,7 +72,7 @@ class Block(nn.Module):
         self.pwconv2 = nn.Conv2d(
             self.n_channels * 4, self.n_channels, kernel_size=1, padding=0
         )
-        self.norm = nn.GroupNorm(num_groups=1, num_channels=self.n_channels, eps=1e-6)
+        self.norm = LayerNorm2d(self.n_channels, eps=1e-6)
         self.gelu = nn.GELU()
         self.layer_scale = nn.Parameter(
             torch.ones(self.n_channels, 1, 1) * layer_scale_init
@@ -102,7 +112,7 @@ class ResidualBlock(nn.Module):
                 stride=self.downsample_n,
                 padding=1,
             ),
-            nn.GroupNorm(num_groups=1, num_channels=self.out_channels, eps=1e-6),
+            LayerNorm2d(self.out_channels, eps=1e-6),
             nn.GELU(),
             Block(self.out_channels),
         )
