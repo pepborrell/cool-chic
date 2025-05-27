@@ -44,7 +44,7 @@ def build_mlp(
 
 
 class ConvNextBlock(nn.Module):
-    def __init__(self, n_channels: int) -> None:
+    def __init__(self, n_channels: int, layer_scale_init: float = 1e-6) -> None:
         super().__init__()
         self.n_channels = n_channels
         ### ALL LAYERS ###
@@ -57,13 +57,16 @@ class ConvNextBlock(nn.Module):
             bias=True,
         )
         self.conv1 = nn.Conv2d(
-            self.n_channels, self.n_channels, kernel_size=1, padding=0, bias=False
+            self.n_channels, self.n_channels * 4, kernel_size=1, padding=0
         )
         self.conv2 = nn.Conv2d(
-            self.n_channels, self.n_channels, kernel_size=1, padding=0, bias=False
+            self.n_channels * 4, self.n_channels, kernel_size=1, padding=0
         )
-        self.layer_norm = nn.GroupNorm(num_groups=1, num_channels=self.n_channels)
+        self.norm = nn.GroupNorm(num_groups=1, num_channels=self.n_channels, eps=1e-6)
         self.gelu = nn.GELU()
+        self.layer_scale = nn.Parameter(
+            torch.ones(1, self.n_channels, 1, 1) * layer_scale_init
+        )
 
         ### INITIALIZATION ###
         self._init_weights()
@@ -74,48 +77,19 @@ class ConvNextBlock(nn.Module):
         nn.init.kaiming_normal_(self.conv2.weight, mode="fan_in")
         assert self.dw_conv.bias is not None, "dw_conv bias is None."
         nn.init.zeros_(self.dw_conv.bias)
-        # conv1 and conv2 have no bias.
+        assert self.conv1.bias is not None, "conv1 bias is None."
+        nn.init.zeros_(self.conv1.bias)
+        assert self.conv2.bias is not None, "conv2 bias is None."
+        nn.init.zeros_(self.conv2.bias)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # Input has size (B, C, H, W)
         z = self.dw_conv(x)
-        z = self.layer_norm(z)
+        z = self.norm(z)
         z = self.conv1(z)
         z = self.gelu(z)
         z = self.conv2(z)  # (B, C, H, W)
-        return z + x  # Residual connection
-
-
-CONV_NEXT_BLOCK_SCALE_INIT = 1e-6
-
-
-class ConvNextBlockGamma(ConvNextBlock):
-    def __init__(self, n_channels: int) -> None:
-        super().__init__(n_channels)
-        self.gamma = nn.Parameter(
-            torch.full((self.n_channels,), CONV_NEXT_BLOCK_SCALE_INIT)
-        )  # Scale parameter for the residual connection
-
-        ### INITIALIZATION ###
-        self._init_weights()
-
-    def _init_weights(self):
-        super()()._init_weights()
-        # Initialize the scale parameter
-        nn.init.constant_(self.gamma, CONV_NEXT_BLOCK_SCALE_INIT)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # Input has size (B, C, H, W)
-        z = self.dw_conv(x)
-        z = self.layer_norm(z)
-        z = self.conv1(z)
-        z = self.gelu(z)
-        z = self.conv2(z)  # (B, C, H, W)
-        # Scale the output.
-        z = (
-            self.gamma.view(1, self.n_channels, 1, 1) * z
-        )  # Broadcasting to make multiplication work.
-        return z + x  # Residual connection
+        return self.layer_scale * z + x  # Residual connection
 
 
 class ResidualBlockDown(nn.Module):
@@ -133,6 +107,7 @@ class ResidualBlockDown(nn.Module):
         )
         self.downsample_n = downsample_n
 
+        # Declare branch 1's components.
         self.strided_conv = nn.Conv2d(
             self.in_channels,
             self.out_channels,
@@ -140,24 +115,23 @@ class ResidualBlockDown(nn.Module):
             stride=self.downsample_n,
             padding=1,
         )
+        self.group_norm = nn.GroupNorm(num_groups=1, num_channels=self.out_channels)
+        self.gelu = nn.GELU()
+        self.convnext_pre = ConvNextBlock(self.out_channels)
+
+        # Branch 2.
+        if self.downsample_n > 1:
+            self.avg_pool = nn.AvgPool2d(2, stride=self.downsample_n, ceil_mode=True)
+        else:
+            # If no downsampling is needed, no need to pool.
+            self.avg_pool = nn.Identity()
         self.conv1d = nn.Conv2d(
             self.in_channels, self.out_channels, kernel_size=1, padding=0
         )
-        self.convnext_pre = ConvNextBlock(self.out_channels)
+
+        # Elements used after the merge.
         self.convnexts_post = nn.Sequential(
             ConvNextBlock(self.out_channels), ConvNextBlock(self.out_channels)
-        )
-
-        self.group_norm = nn.GroupNorm(num_groups=1, num_channels=self.out_channels)
-        self.gelu = nn.GELU()
-        # In the non-downsampling case, padding is applied manually and only on the left.
-        self.pre_pool_padding = (
-            lambda x: nn.functional.pad(x, (1, 0, 1, 0))
-            if self.downsample_n == 1
-            else x
-        )
-        self.avg_pool = nn.AvgPool2d(
-            2, stride=self.downsample_n, padding=0, ceil_mode=True
         )
 
         self.reset_weights()

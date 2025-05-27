@@ -42,12 +42,13 @@ class LatentHyperNet(nn.Module):
 
         self.residual_blocks = nn.ModuleList(
             [
-                ResidualBlockDown(
-                    self.n_hidden_channels, self.n_hidden_channels, downsample_n=2
-                )
-                if i > 0
-                else ResidualBlockDown(3, self.n_hidden_channels, downsample_n=1)
-                for i in range(self.n_latents)
+                ResidualBlockDown(3, self.n_hidden_channels, downsample_n=1),
+                *[
+                    ResidualBlockDown(
+                        self.n_hidden_channels, self.n_hidden_channels, downsample_n=2
+                    )
+                    for i in range(self.n_latents - 1)
+                ],
             ]
         )
         self.conv1ds = nn.ModuleList(
