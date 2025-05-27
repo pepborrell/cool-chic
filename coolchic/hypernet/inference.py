@@ -205,6 +205,12 @@ if __name__ == "__main__":
         default="kodak",
         help="Dataset to evaluate on. Can be 'kodak' or 'clic20-pro-valid'.",
     )
+    parser.add_argument(
+        "--no_mlp_rate",
+        action="store_true",
+        help="If set, the rate of the MLP weights "
+        "will not be included in the evaluation numbers.",
+    )
     args = parser.parse_args()
 
     # Validating and processing arguments.
@@ -229,7 +235,7 @@ if __name__ == "__main__":
         run_cfg.lmbda,
         run_cfg,
         wholenet_cls,
-        mlp_rate=True,
+        mlp_rate=not args.no_mlp_rate,
         dataset=args.dataset,
     )
     plt.show()
