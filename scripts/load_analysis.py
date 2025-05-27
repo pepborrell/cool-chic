@@ -50,9 +50,10 @@ for w_path in w_dir.glob("*.pth"):
 
     cc_encoder_weights = weights["cc_enc"]
     cc_enc = LatentFreeCoolChicEncoder(net.mean_decoder.param)
-    cc_enc.load_state_dict(
-        state_dict=cc_encoder_weights, strict=False
-    )  # strict=False because we don't want the latents
+    cc_encoder_weights = {
+        k: v for k, v in cc_encoder_weights.items() if "latent_grids" not in k
+    }
+    cc_enc.load_state_dict(state_dict=cc_encoder_weights)
 
     net.encoder = an_trf
     net.mean_decoder = cc_enc
