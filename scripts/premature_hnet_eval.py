@@ -54,9 +54,14 @@ if __name__ == "__main__":
     for run in runs:
         # Find more recent checkpoint in the run directory.
         # checkpoints are formatted like samples_2570000.pt. Let's sort by sample number.
-        highest_checkpoint = max(
-            run.glob("*.pt"), key=lambda p: int(p.stem.split("_")[-1])
-        )
+        all_models = list(run.glob("*.pt"))
+        if len(all_models) == 1:
+            # If there's only one model, use it.
+            highest_checkpoint = all_models[0]
+        else:
+            highest_checkpoint = max(
+                all_models, key=lambda p: int(p.stem.split("_")[-1])
+            )
 
         # Find config and load it.
         config_path = CONFIG_DIR / run.absolute().relative_to(RESULTS_DIR).with_suffix(
