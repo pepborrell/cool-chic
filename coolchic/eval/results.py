@@ -72,6 +72,8 @@ class SummaryEncodingMetrics(BaseModel):
     seq_name: str
     lmbda: float
     rate_bpp: float
+    rate_latent_bpp: float | None = None
+    rate_nn_bpp: float | None = None
     psnr_db: float
     # Fields not in the cool-chic summaries but we use them in our analyses.
     n_itr: int | None = None

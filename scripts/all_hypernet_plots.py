@@ -1,7 +1,7 @@
 import argparse
 from collections import defaultdict
 from pathlib import Path
-from typing import cast
+from typing import cast, get_args
 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -54,6 +54,8 @@ def parse_hypernet_metrics(
                 SummaryEncodingMetrics(
                     seq_name=row.seq_name,
                     rate_bpp=row.rate_bpp,
+                    rate_latent_bpp=row.rate_latent_bpp,
+                    rate_nn_bpp=row.rate_nn_bpp,
                     psnr_db=row.psnr_db,
                     lmbda=row.lmbda if "lmbda" in row else run_lmbda,  # pyright: ignore
                 )
@@ -66,9 +68,12 @@ def print_bd(
     metrics: dict[str, list[SummaryEncodingMetrics]],
     anchor_name: ANCHOR_NAME,
     dataset: DATASET_NAME,
+    only_latent_rate: bool,
 ):
     print(f"Results for anchor {anchor_name}:")
-    bd_rates = bd_rates_summary_anchor_name(metrics, anchor_name, dataset)
+    bd_rates = bd_rates_summary_anchor_name(
+        metrics, anchor_name, dataset, only_latent_rate=only_latent_rate
+    )
     for seq, r in bd_rates.items():
         print(f"{seq}: {r}")
     print(f"Average: {sum(bd_rates.values()) / len(bd_rates)}\n")
@@ -84,6 +89,11 @@ if __name__ == "__main__":
     parser.add_argument(
         "--dataset", type=str, choices=["kodak", "clic20-pro-valid"], required=True
     )
+    parser.add_argument(
+        "--only_latent_rate",
+        action="store_true",
+        help="If set, will only use latent rate in BD rate computation.",
+    )
     args = parser.parse_args()
     if not args.sweep_path.exists():
         raise FileNotFoundError(f"Path not found: {args.sweep_path}")
@@ -93,12 +103,16 @@ if __name__ == "__main__":
         sweep_path, dataset=args.dataset, premature=args.premature
     )
     # BD rates for coolchic, hm, jpeg
-    for anchor in ["coolchic", "hm", "jpeg"]:
-        print_bd(metrics, anchor, args.dataset)  # pyright: ignore
+    for anchor in get_args(ANCHOR_NAME):
+        print_bd(metrics, anchor, args.dataset, only_latent_rate=args.only_latent_rate)
 
     # BD rate vs computational cost
     avg_bd = sum(
-        (bd_rates := bd_rates_summary_anchor_name(metrics, "hm", args.dataset).values())
+        (
+            bd_rates := bd_rates_summary_anchor_name(
+                metrics, "hm", args.dataset, only_latent_rate=args.only_latent_rate
+            ).values()
+        )
     ) / len(bd_rates)
 
     wholenet_cls_dict = {

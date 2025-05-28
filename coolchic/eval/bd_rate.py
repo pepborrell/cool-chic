@@ -16,19 +16,27 @@ from coolchic.utils.paths import ALL_ANCHORS, ANCHOR_NAME, DATASET_NAME
 
 
 def bd_rate_summaries(
-    ref_sum: list[SummaryEncodingMetrics], other_sum: list[SummaryEncodingMetrics]
+    ref_sum: list[SummaryEncodingMetrics],
+    other_sum: list[SummaryEncodingMetrics],
+    only_latent_rate: bool,
 ) -> float:
     # THE REFERENCE IS THE ANCHOR!
     sorted_ref = sorted(ref_sum, key=lambda s: s.lmbda)
     sorted_other = sorted(other_sum, key=lambda s: s.lmbda)
 
     def extract_rate_distortion(
-        summaries: list[SummaryEncodingMetrics],
+        summaries: list[SummaryEncodingMetrics], only_latent_rate: bool = False
     ) -> tuple[list[float], list[float]]:
-        return [s.rate_bpp for s in summaries], [s.psnr_db for s in summaries]
+        if only_latent_rate:
+            assert all(s.rate_latent_bpp is not None for s in summaries)
+        return [
+            s.rate_bpp if not only_latent_rate else s.rate_latent_bpp
+            for s in summaries  # pyright: ignore
+        ], [s.psnr_db for s in summaries]
 
     return BD_RATE(
-        *extract_rate_distortion(sorted_ref), *extract_rate_distortion(sorted_other)
+        *extract_rate_distortion(sorted_ref),
+        *extract_rate_distortion(sorted_other, only_latent_rate),
     )
 
 
@@ -42,15 +50,18 @@ def avg_bd_rate_summary_paths(summary_path: Path, anchor_path: Path) -> float:
     results = []
     for seq_name in summary:
         # REMEMBER: the anchor goes first.
-        bd_rate = bd_rate_summaries(a_summary[seq_name], summary[seq_name])
+        bd_rate = bd_rate_summaries(
+            a_summary[seq_name], summary[seq_name], only_latent_rate=False
+        )
         results.append(bd_rate)
-    return np.mean(results)  # pyright: ignore
+    return np.mean(results).item()
 
 
 def bd_rates_summary_anchor_name(
     summary: dict[str, list[SummaryEncodingMetrics]],
     anchor: ANCHOR_NAME,
     dataset: DATASET_NAME,
+    only_latent_rate: bool,
 ) -> dict[str, float]:
     a_summary = parse_result_summary(ALL_ANCHORS[dataset][anchor])
     results: dict[str, float] = {}
@@ -61,7 +72,9 @@ def bd_rates_summary_anchor_name(
                 f"Warning: {seq_name} not found in anchor {anchor}. Skipping BD rate calculation."
             )
             continue
-        results[seq_name] = bd_rate_summaries(a_summary[seq_name], summary[seq_name])
+        results[seq_name] = bd_rate_summaries(
+            a_summary[seq_name], summary[seq_name], only_latent_rate=only_latent_rate
+        )
     return results
 
 
@@ -76,6 +89,8 @@ def bd_rates_from_paths(
     og_summary = parse_result_summary(anchor_path)
     results = []
     for seq_name in og_summary:
-        bd_rate = bd_rate_summaries(og_summary[seq_name], run_summaries[seq_name])
+        bd_rate = bd_rate_summaries(
+            og_summary[seq_name], run_summaries[seq_name], only_latent_rate=False
+        )
         results.append(bd_rate)
     return results
