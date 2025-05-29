@@ -20,6 +20,8 @@ def compare_dataset_res(results: pd.DataFrame, dataset: DATASET_NAME) -> pd.Data
     for anchor, results_path in ALL_ANCHORS[dataset].items():
         df = result_summary_to_df(results_path)
         df["anchor"] = anchor
+        # delete columns that are all nan
+        df = df.dropna(axis=1, how="all")
         res_sums.append(df)
 
     assert "anchor" in results.columns, "Anchor column not found in results"
