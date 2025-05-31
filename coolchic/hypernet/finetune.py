@@ -125,6 +125,7 @@ def finetune_all(
     config_path: Path,
     wholenet_cls: type[WholeNet],
     dataset: DATASET_NAME,
+    n_samples: int,
 ) -> pd.DataFrame:
     # Load config and hypernet.
     cfg = load_config(config_path, HypernetRunConfig)
@@ -134,6 +135,9 @@ def finetune_all(
 
     all_finetuned = []
     for image in (DATA_DIR / dataset).glob("*.png"):
+        if len(all_finetuned) >= n_samples:
+            # Enough samples, break.
+            break
         img_name = image.stem
         print(f"Finetuning {img_name}")
         finetuned = finetune_one_kodak(
@@ -224,6 +228,7 @@ if __name__ == "__main__":
         from_scratch=False,
         wholenet_cls=wholenet_cls,
         dataset=args.dataset,
+        n_samples=5,  # Only do it on the first 5 images.
     )
     if args.from_scratch_file is not None:
         from_scratch = pd.read_csv(args.from_scratch_file)
@@ -235,6 +240,7 @@ if __name__ == "__main__":
             from_scratch=True,
             wholenet_cls=wholenet_cls,
             dataset=args.dataset,
+            n_samples=5,  # Only do it on the first 5 images.
         )
     finetuned["anchor"] = "hnet-finetuning"
     from_scratch["anchor"] = "train-from-scratch"
