@@ -451,6 +451,13 @@ class CoolChicEncoder(nn.Module):
                     decoder_side_latent[index_latent_res].view((1, c_i, h_i, w_i))
                 )
 
+                # Check that the indices of the slice won't be out of bounds.
+                assert (cnt + c_i * h_i * w_i) <= flat_mu.numel(), (
+                    "Trying to read more values than available in the 1D "
+                    "mu, scale, log_scale and rate tensors. This is likely "
+                    "due to a bug in the code."
+                )
+
                 # Scale, mu and rate are 1D tensors where the N latent grids
                 # are flattened together. As such we have to read the appropriate
                 # number of values in this 1D vector to reconstruct the i-th grid in 2D
