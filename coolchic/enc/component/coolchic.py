@@ -463,7 +463,7 @@ class CoolChicEncoder(nn.Module):
                 # number of values in this 1D vector to reconstruct the i-th grid in 2D
                 mu_i, scale_i, log_scale_i, rate_i = [
                     # Read h_i * w_i values starting from cnt
-                    tmp[cnt : cnt + (c_i * h_i * w_i)].view((1, c_i, h_i, w_i))
+                    tmp[:, cnt : cnt + (c_i * h_i * w_i)].view((1, c_i, h_i, w_i))
                     for tmp in [flat_mu, flat_scale, flat_log_scale, flat_rate]
                 ]
 
