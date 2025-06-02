@@ -24,7 +24,7 @@ from coolchic.enc.component.core.quantizer import (
 from coolchic.enc.component.nlcoolchic import LatentFreeCoolChicEncoder
 from coolchic.enc.utils.parsecli import get_coolchic_param_from_args
 from coolchic.hypernet.common import (
-    ResidualBlockDown,
+    ResidualBlock,
     add_deltas,
     build_mlp,
     get_backbone_flops,
@@ -40,17 +40,18 @@ class LatentHyperNet(nn.Module):
         self.n_latents = n_latents
         self.n_hidden_channels = n_hidden_channels
 
-        self.residual_blocks = nn.ModuleList(
+        self.blocks = nn.ModuleList(
             [
-                ResidualBlockDown(
-                    self.n_hidden_channels, self.n_hidden_channels, downsample_n=2
-                )
-                if i > 0
-                else ResidualBlockDown(3, self.n_hidden_channels, downsample_n=1)
-                for i in range(self.n_latents)
+                ResidualBlock(3, self.n_hidden_channels, downsample_n=1),
+                *[
+                    ResidualBlock(
+                        self.n_hidden_channels, self.n_hidden_channels, downsample_n=2
+                    )
+                    for i in range(self.n_latents - 1)
+                ],
             ]
         )
-        self.conv1ds = nn.ModuleList(
+        self.fuses = nn.ModuleList(
             [
                 nn.Conv2d(self.n_hidden_channels, 1, kernel_size=1, padding=0)
                 for _ in range(self.n_latents)
@@ -58,21 +59,20 @@ class LatentHyperNet(nn.Module):
         )
 
         # For flop analysis.
-        self.flops_per_module = {k: 0 for k in ["residual_blocks", "conv1ds"]}
+        self.flops_per_module = {k: 0 for k in ["blocks", "fuses"]}
+
+        self.reinitialize_parameters()
 
     def forward(self, x: torch.Tensor) -> list[torch.Tensor]:
         outputs = []
         for i in range(self.n_latents):
-            x = self.residual_blocks[i](x)
-            outputs.append(self.conv1ds[i](x))
+            x = self.blocks[i](x)
+            outputs.append(self.fuses[i](x))
         return outputs
 
     def _init_weights(self, m: nn.Module) -> None:
-        if isinstance(m, ResidualBlockDown):
-            m.reset_weights()
-        elif isinstance(m, nn.Conv2d):
-            # Initialize the conv layers with a normal distribution.
-            nn.init.trunc_normal_(m.weight, std=0.02)
+        if isinstance(m, (nn.Conv2d, nn.Linear)):
+            torch.nn.init.trunc_normal_(m.weight, std=0.02)
             if m.bias is not None:
                 nn.init.zeros_(m.bias)
 
@@ -880,7 +880,7 @@ class CoolchicWholeNet(WholeNet):
     def image_to_coolchic(
         self, img: torch.Tensor, stop_grads: bool = False
     ) -> CoolChicEncoder:
-        img = img.to(self.hypernet.latent_hn.conv1ds[0].weight.device)
+        img = img.to(self.hypernet.latent_hn.fuses[0].weight.device)
         latent_weights, synthesis_weights, arm_weights = self.hypernet.forward(img)
         # Make them leaves in the graph.
         if stop_grads:
@@ -1176,7 +1176,7 @@ class NOWholeNet(WholeNet):
         img: torch.Tensor,
         stop_grads: bool = False,
     ) -> CoolChicEncoder:
-        img = img.to(self.encoder.conv1ds[0].weight.device)
+        img = img.to(self.encoder.fuses[0].weight.device)
         if not stop_grads:
             raise NotImplementedError(
                 "This method is only implemented for stop_grads=True."

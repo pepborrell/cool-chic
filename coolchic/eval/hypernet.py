@@ -20,6 +20,8 @@ def compare_dataset_res(results: pd.DataFrame, dataset: DATASET_NAME) -> pd.Data
     for anchor, results_path in ALL_ANCHORS[dataset].items():
         df = result_summary_to_df(results_path)
         df["anchor"] = anchor
+        # delete columns that are all nan
+        df = df.dropna(axis=1, how="all")
         res_sums.append(df)
 
     assert "anchor" in results.columns, "Anchor column not found in results"
@@ -33,9 +35,14 @@ def plot_hypernet_rd(seq_name: str, results: pd.DataFrame, dataset: DATASET_NAME
     all_df = compare_dataset_res(results, dataset)
     all_df = all_df.loc[all_df["seq_name"] == seq_name]
 
+    # Split by finetuning or not.
+    finetuning_rows = all_df["anchor"].str.contains("finetuning|training", regex=True)
+    no_finetuning = all_df.loc[~finetuning_rows]
+    finetuning = all_df.loc[finetuning_rows]
+
     fig, ax = plt.subplots()
     sns.lineplot(
-        all_df,
+        no_finetuning,
         x="rate_bpp",
         y="psnr_db",
         hue="anchor",
@@ -43,6 +50,20 @@ def plot_hypernet_rd(seq_name: str, results: pd.DataFrame, dataset: DATASET_NAME
         markeredgecolor="none",
         ax=ax,
         sort=False,
+    )
+    sns.lineplot(
+        finetuning,
+        x="rate_bpp",
+        y="psnr_db",
+        hue="anchor",
+        marker=".",
+        markeredgecolor="none",
+        markersize=7,
+        ax=ax,
+        sort=False,
+        errorbar=None,  # No error bars for finetuning.
+        # different gray tone palette for finetuning.
+        palette="dark:gray",
     )
     ax.set_title(f"RD curve for {seq_name}")
     return fig, ax

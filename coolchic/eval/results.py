@@ -1,12 +1,13 @@
 from collections import defaultdict
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pandas as pd
 import yaml
 from pydantic import BaseModel
 
 from coolchic.enc.training.test import FrameEncoderLogs
+from coolchic.utils.paths import DATASET_NAME
 
 
 class EncodingMetrics(BaseModel):
@@ -72,6 +73,8 @@ class SummaryEncodingMetrics(BaseModel):
     seq_name: str
     lmbda: float
     rate_bpp: float
+    rate_latent_bpp: float | None = None
+    rate_nn_bpp: float | None = None
     psnr_db: float
     # Fields not in the cool-chic summaries but we use them in our analyses.
     n_itr: int | None = None
@@ -143,3 +146,45 @@ def full_run_summary(
                 summary.rate_bpp = read_real_rate(dir)
             summaries[summary.seq_name].append(summary)
     return summaries
+
+
+def parse_hypernet_metrics(
+    sweep_path: Path, dataset: DATASET_NAME, premature: bool = False
+) -> dict[str, list[SummaryEncodingMetrics]]:
+    """Metrics saved by hypernet training jobs are csv files
+    with the following columns: seq_name, rate_bpp, psnr_db, mse.
+    Maybe lmbda.
+
+    We want to parse the files and get them into SummaryEncodingMetrics,
+    those are the ones used by bd rate scripts.
+    """
+    runs = [
+        run
+        for run in sweep_path.iterdir()
+        if run.is_dir() and run.name.startswith("config_")
+    ]
+    all_metrics: dict[str, list[SummaryEncodingMetrics]] = defaultdict(list)
+    lmbdas = {"00": 0.0001, "01": 0.0004, "02": 0.001, "03": 0.004, "04": 0.02}
+
+    for run in runs:
+        run_lmbda = lmbdas[run.stem.split("_")[-1]]
+        results_path = (
+            run / "premature_eval" if premature else run
+        ) / f"{dataset}_results.csv"
+        if not results_path.exists():
+            raise FileNotFoundError(f"Results file not found: {results_path}")
+        results = pd.read_csv(results_path)
+        for row in results.itertuples():
+            row = cast(SummaryEncodingMetrics, row)  # Hey pyright, trust me bro.
+            all_metrics[row.seq_name].append(
+                SummaryEncodingMetrics(
+                    seq_name=row.seq_name,
+                    rate_bpp=row.rate_bpp,
+                    rate_latent_bpp=row.rate_latent_bpp,
+                    rate_nn_bpp=row.rate_nn_bpp,
+                    psnr_db=row.psnr_db,
+                    lmbda=row.lmbda if "lmbda" in row else run_lmbda,  # pyright: ignore
+                )
+            )
+
+    return all_metrics

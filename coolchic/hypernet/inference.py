@@ -86,6 +86,20 @@ def get_image_from_hypernet(
                     "synthesis": synth_deltas,
                     "arm": arm_deltas,
                 }
+
+                # Get a reference for the forward pass without deltas.
+                og_out_img, out_rate, _ = net.mean_decoder.forward(
+                    latents, quantizer_noise_type="none", quantizer_type="hardround"
+                )
+                og_loss = loss_function(
+                    og_out_img,
+                    out_rate,
+                    img,
+                    lmbda=lmbda,
+                    rate_mlp_bit=0.0,
+                    compute_logs=True,
+                )
+
                 quantized_deltas, rate_per_module = quantize_model_deltas(
                     net.mean_decoder,
                     latents=latents,
@@ -116,8 +130,23 @@ def get_image_from_hypernet(
             )
 
         loss_out = loss_function(
-            out_img, out_rate, img, lmbda=0.0, rate_mlp_bit=rate_mlp, compute_logs=True
+            out_img,
+            out_rate,
+            img,
+            lmbda=lmbda,
+            rate_mlp_bit=rate_mlp,
+            compute_logs=True,
         )
+
+        # Compare loss with and without quantized deltas.
+        # If the loss is worse, we don't use deltas.
+        if isinstance(net, DeltaWholeNet) and mlp_rate:
+            # NOTE: losses are tensors and og_loss is bound here,
+            # so let's make pyright shut up.
+            if og_loss.loss.item() < loss_out.loss.item():  # pyright: ignore
+                loss_out = og_loss  # pyright: ignore
+                out_img = og_out_img  # pyright: ignore
+
     assert isinstance(loss_out.total_rate_bpp, float)  # To make pyright happy.
     assert isinstance(loss_out.mse, float)  # To make pyright happy.
     return out_img, loss_out
@@ -205,6 +234,12 @@ if __name__ == "__main__":
         default="kodak",
         help="Dataset to evaluate on. Can be 'kodak' or 'clic20-pro-valid'.",
     )
+    parser.add_argument(
+        "--no_mlp_rate",
+        action="store_true",
+        help="If set, the rate of the MLP weights "
+        "will not be included in the evaluation numbers.",
+    )
     args = parser.parse_args()
 
     # Validating and processing arguments.
@@ -229,7 +264,7 @@ if __name__ == "__main__":
         run_cfg.lmbda,
         run_cfg,
         wholenet_cls,
-        mlp_rate=True,
+        mlp_rate=not args.no_mlp_rate,
         dataset=args.dataset,
     )
     plt.show()

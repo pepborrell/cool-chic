@@ -1,4 +1,5 @@
 import argparse
+from collections import defaultdict
 from pathlib import Path
 from typing import Literal
 
@@ -125,6 +126,7 @@ def finetune_all(
     config_path: Path,
     wholenet_cls: type[WholeNet],
     dataset: DATASET_NAME,
+    n_samples: int,
 ) -> pd.DataFrame:
     # Load config and hypernet.
     cfg = load_config(config_path, HypernetRunConfig)
@@ -134,6 +136,9 @@ def finetune_all(
 
     all_finetuned = []
     for image in (DATA_DIR / dataset).glob("*.png"):
+        if len(all_finetuned) >= n_samples:
+            # Enough samples, break.
+            break
         img_name = image.stem
         print(f"Finetuning {img_name}")
         finetuned = finetune_one_kodak(
@@ -186,7 +191,7 @@ if __name__ == "__main__":
 
     # Configuring how training happens.
     training_phase = TrainerPhase(
-        lr=1e-3,
+        lr=1e-2,
         end_lr=1e-5,
         schedule_lr=True,
         max_itr=args.n_iterations,
@@ -224,6 +229,7 @@ if __name__ == "__main__":
         from_scratch=False,
         wholenet_cls=wholenet_cls,
         dataset=args.dataset,
+        n_samples=5,  # Only do it on the first 5 images.
     )
     if args.from_scratch_file is not None:
         from_scratch = pd.read_csv(args.from_scratch_file)
@@ -235,9 +241,10 @@ if __name__ == "__main__":
             from_scratch=True,
             wholenet_cls=wholenet_cls,
             dataset=args.dataset,
+            n_samples=5,  # Only do it on the first 5 images.
         )
-    finetuned["anchor"] = "hnet-finetuning"
-    from_scratch["anchor"] = "train-from-scratch"
+    finetuned["anchor"] = "nocc-finetuning"
+    from_scratch["anchor"] = "coolchic-training"
 
     all_results = pd.concat([finetuned, from_scratch])
     all_results.to_csv("finetuning_results.csv")
@@ -245,38 +252,45 @@ if __name__ == "__main__":
     # only plot if not on server.
     if get_best_device() == "cpu":
         all_results = pd.read_csv("finetuning_results.csv")
-        crossing_its: dict[str, list[dict[Literal["hn", "scratch"], int]]] = {
-            "jpeg": [],
-            "hm": [],
+        crossing_its: dict[
+            str, dict[str, list[dict[Literal["hn", "scratch"], int]]]
+        ] = {
+            "jpeg": defaultdict(list),
+            "hm": defaultdict(list),
+            "hypernet": defaultdict(list),
         }
         for image in (DATA_DIR / args.dataset).glob("*.png"):
+            # Skip images if they are not in the results.
+            if image.stem not in all_results["seq_name"].values:
+                continue
             plot_hypernet_rd(image.stem, all_results, args.dataset)
             for anchor_name in crossing_its:
-                crossing_its[anchor_name].append(
+                crossing_its[anchor_name][image.stem].append(
                     {
                         "hn": find_crossing_it(
                             image.stem,
                             all_results,
-                            "hnet-finetuning",
+                            "nocc-finetuning",
                             anchor_name=anchor_name,
                             dataset=args.dataset,
                         ),
                         "scratch": find_crossing_it(
                             image.stem,
                             all_results,
-                            "train-from-scratch",
+                            "coolchic-training",
                             anchor_name=anchor_name,
                             dataset=args.dataset,
                         ),
                     }
                 )
 
-        for anchor_name, crossings in crossing_its.items():
+        for anchor_name, crossings_per_img in crossing_its.items():
             print(f"Crossing iterations for {anchor_name}")
-            for i, cross in enumerate(crossings):
-                print(
-                    f"kodim{i+1:02d}, crossing iterations: "
-                    f"hnet-finetuning: {cross['hn']*training_phase.freq_valid}, "
-                    f"train-from-scratch: {cross['scratch']*training_phase.freq_valid}"
-                )
+            for seq_name, crossings in crossings_per_img.items():
+                for cross in crossings:
+                    print(
+                        f"{seq_name:<40}, crossing iterations: "
+                        f"hnet-finetuning: {cross['hn']*training_phase.freq_valid}, "
+                        f"coolchic-training: {cross['scratch']*training_phase.freq_valid}"
+                    )
         plt.show()

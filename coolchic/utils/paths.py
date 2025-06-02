@@ -15,7 +15,7 @@ if (LOCAL_SCRATCH_DIR / "openimages").exists():
 elif (DATA_DIR / "openimages").exists():
     OPEN_IMAGES_DIR = DATA_DIR / "openimages"
 
-ANCHOR_NAME = Literal["coolchic", "hm", "jpeg", "c3"]
+ANCHOR_NAME = Literal["coolchic", "hm", "jpeg", "c3", "hypernet"]
 DATASET_NAME = Literal["kodak", "clic20-pro-valid"]
 kodak_results = RESULTS_DIR / "image" / "kodak"
 clic20_results = RESULTS_DIR / "image" / "clic20-pro-valid"
@@ -30,6 +30,7 @@ ALL_ANCHORS: dict[DATASET_NAME, dict[ANCHOR_NAME, Path]] = {
         "hm": clic20_results / "hm.tsv",
         "jpeg": clic20_results / "jpeg.tsv",
         "c3": clic20_results / "c3.tsv",
+        "hypernet": clic20_results / "delta_hypernet.tsv",
     },
 }
 
