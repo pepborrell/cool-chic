@@ -191,7 +191,7 @@ if __name__ == "__main__":
 
     # Configuring how training happens.
     training_phase = TrainerPhase(
-        lr=1e-3,
+        lr=1e-2,
         end_lr=1e-5,
         schedule_lr=True,
         max_itr=args.n_iterations,
@@ -244,7 +244,7 @@ if __name__ == "__main__":
             n_samples=5,  # Only do it on the first 5 images.
         )
     finetuned["anchor"] = "nocc-finetuning"
-    from_scratch["anchor"] = "train-from-scratch"
+    from_scratch["anchor"] = "coolchic-training"
 
     all_results = pd.concat([finetuned, from_scratch])
     all_results.to_csv("finetuning_results.csv")
@@ -277,7 +277,7 @@ if __name__ == "__main__":
                         "scratch": find_crossing_it(
                             image.stem,
                             all_results,
-                            "train-from-scratch",
+                            "coolchic-training",
                             anchor_name=anchor_name,
                             dataset=args.dataset,
                         ),
@@ -291,6 +291,6 @@ if __name__ == "__main__":
                     print(
                         f"{seq_name:<40}, crossing iterations: "
                         f"hnet-finetuning: {cross['hn']*training_phase.freq_valid}, "
-                        f"train-from-scratch: {cross['scratch']*training_phase.freq_valid}"
+                        f"coolchic-training: {cross['scratch']*training_phase.freq_valid}"
                     )
         plt.show()
