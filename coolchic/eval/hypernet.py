@@ -160,17 +160,20 @@ def coolchic_test_hypernet(
     return logs
 
 
-def get_hypernet_flops(wholenet_cls: type[WholeNet]) -> int:
+def get_hypernet_flops(
+    wholenet_cls: type[WholeNet], get_coolchic_flops: bool = False
+) -> int:
     model = wholenet_cls(config=HyperNetConfig(dec_cfg=DecoderConfig()))
+    model.mean_decoder.param.set_image_size((512, 512))
+    if get_coolchic_flops:
+        return model.mean_decoder.get_flops()
     if not hasattr(model, "hypernet"):
         # Dealing with NOWholeNet.
         assert isinstance(model, NOWholeNet)  # For pyright to understand.
-        model.mean_decoder.param.set_image_size((512, 512))
         total_flops = model.encoder.get_flops()
         return total_flops
     # We either have a WholeNet or a DeltaWholeNet.
     hnet = model.hypernet
-    model.mean_decoder.param.set_image_size((512, 512))
     assert isinstance(hnet, CoolchicHyperNet)  # For pyright to understand.
 
     return hnet.get_flops()
