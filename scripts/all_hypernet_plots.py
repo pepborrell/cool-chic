@@ -1,7 +1,6 @@
 import argparse
-from collections import defaultdict
 from pathlib import Path
-from typing import cast, get_args
+from typing import get_args
 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -12,7 +11,7 @@ from coolchic.eval.hypernet import (
     plot_hypernet_rd,
     plot_hypernet_rd_avg,
 )
-from coolchic.eval.results import SummaryEncodingMetrics
+from coolchic.eval.results import SummaryEncodingMetrics, parse_hypernet_metrics
 from coolchic.hypernet.hypernet import (
     CoolchicWholeNet,
     DeltaWholeNet,
@@ -20,48 +19,6 @@ from coolchic.hypernet.hypernet import (
     SmallDeltaWholeNet,
 )
 from coolchic.utils.paths import ANCHOR_NAME, DATA_DIR, DATASET_NAME
-
-
-def parse_hypernet_metrics(
-    sweep_path: Path, dataset: DATASET_NAME, premature: bool = False
-) -> dict[str, list[SummaryEncodingMetrics]]:
-    """Metrics saved by hypernet training jobs are csv files
-    with the following columns: seq_name, rate_bpp, psnr_db, mse.
-    Maybe lmbda.
-
-    We want to parse the files and get them into SummaryEncodingMetrics,
-    those are the ones used by bd rate scripts.
-    """
-    runs = [
-        run
-        for run in sweep_path.iterdir()
-        if run.is_dir() and run.name.startswith("config_")
-    ]
-    all_metrics: dict[str, list[SummaryEncodingMetrics]] = defaultdict(list)
-    lmbdas = {"00": 0.0001, "01": 0.0004, "02": 0.001, "03": 0.004, "04": 0.02}
-
-    for run in runs:
-        run_lmbda = lmbdas[run.stem.split("_")[-1]]
-        results_path = (
-            run / "premature_eval" if premature else run
-        ) / f"{dataset}_results.csv"
-        if not results_path.exists():
-            raise FileNotFoundError(f"Results file not found: {results_path}")
-        results = pd.read_csv(results_path)
-        for row in results.itertuples():
-            row = cast(SummaryEncodingMetrics, row)  # Hey pyright, trust me bro.
-            all_metrics[row.seq_name].append(
-                SummaryEncodingMetrics(
-                    seq_name=row.seq_name,
-                    rate_bpp=row.rate_bpp,
-                    rate_latent_bpp=row.rate_latent_bpp,
-                    rate_nn_bpp=row.rate_nn_bpp,
-                    psnr_db=row.psnr_db,
-                    lmbda=row.lmbda if "lmbda" in row else run_lmbda,  # pyright: ignore
-                )
-            )
-
-    return all_metrics
 
 
 def print_bd(
