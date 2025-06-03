@@ -191,7 +191,7 @@ if __name__ == "__main__":
 
     # Configuring how training happens.
     training_phase = TrainerPhase(
-        lr=1e-2,
+        lr=5e-3,
         end_lr=1e-5,
         schedule_lr=True,
         max_itr=args.n_iterations,
