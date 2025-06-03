@@ -28,7 +28,7 @@ from coolchic.hypernet.hypernet import (
 )
 from coolchic.hypernet.inference import load_hypernet
 from coolchic.utils.coolchic_types import get_coolchic_structs
-from coolchic.utils.paths import DATA_DIR, DATASET_NAME
+from coolchic.utils.paths import DATA_DIR, DATASET_NAME, RESULTS_DIR
 from coolchic.utils.types import (
     DecoderConfig,
     HypernetRunConfig,
@@ -247,11 +247,17 @@ if __name__ == "__main__":
     from_scratch["anchor"] = "coolchic-training"
 
     all_results = pd.concat([finetuned, from_scratch])
-    all_results.to_csv("finetuning_results.csv")
+
+    save_dir = RESULTS_DIR / "finetuning"
+    save_dir = save_dir / args.dataset
+    save_dir.mkdir(parents=True, exist_ok=True)
+    save_name = f"finetuning_{args.weight_path.parent.stem}.csv"
+    save_path = save_dir / save_name
+    all_results.to_csv(save_path, index=False)
 
     # only plot if not on server.
     if get_best_device() == "cpu":
-        all_results = pd.read_csv("finetuning_results.csv")
+        all_results = pd.read_csv(save_path)
         crossing_its: dict[
             str, dict[str, list[dict[Literal["hn", "scratch"], int]]]
         ] = {
