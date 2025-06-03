@@ -119,8 +119,10 @@ def log_to_results(logs: FrameEncoderLogs, seq_name: str) -> SummaryEncodingMetr
     return SummaryEncodingMetrics(
         seq_name=seq_name,
         rate_bpp=logs.total_rate_bpp,
+        rate_latent_bpp=logs.rate_latent_bpp,
         psnr_db=logs.psnr_db,
-        lmbda=logs.encoding_iterations_cnt,
+        n_itr=logs.encoding_iterations_cnt,
+        lmbda=logs.lmbda,
     )
 
 
