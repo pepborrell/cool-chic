@@ -6,7 +6,7 @@
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=4
 #SBATCH --gres=gpu:1
-#SBATCH --exclude=tikgpu10,tikgpu[02-03],tikgpu08,artongpu[01-07],hardin01,lbbgpu01
+#SBATCH --exclude=tikgpu10,tikgpu[02-05],artongpu[01-07],hardin01,lbbgpu01
 
 ETH_USERNAME=jborrell
 PROJECT_NAME=cool-chic
