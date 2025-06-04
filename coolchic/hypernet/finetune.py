@@ -1,4 +1,5 @@
 import argparse
+import gc
 from collections import defaultdict
 from pathlib import Path
 from typing import Literal
@@ -110,13 +111,15 @@ def finetune_one_kodak(
         with torch.no_grad():
             cc_encoder = hypernet.image_to_coolchic(img, stop_grads=True)
 
-    return finetune_coolchic(
+    res_metrics = finetune_coolchic(
         img_path=image,
         preset_config=preset_config,
         cc_encoder=cc_encoder,
         lmbda=lmbda,
         dec_cfg=dec_cfg,
     )
+    del cc_encoder  # Free memory.
+    return res_metrics
 
 
 def finetune_all(
@@ -151,6 +154,7 @@ def finetune_all(
         )
         all_finetuned.append(pd.DataFrame([log.model_dump() for log in finetuned]))
         torch.cuda.empty_cache()  # Free memory after each image.
+        gc.collect()  # Collect garbage to free memory.
     return pd.concat(all_finetuned)
 
 
