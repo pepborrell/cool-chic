@@ -229,7 +229,7 @@ if __name__ == "__main__":
         from_scratch=False,
         wholenet_cls=wholenet_cls,
         dataset=args.dataset,
-        n_samples=5,  # Only do it on the first 5 images.
+        n_samples=100,  # Operate on all images.
     )
     if args.from_scratch_file is not None:
         from_scratch = pd.read_csv(args.from_scratch_file)
@@ -241,7 +241,7 @@ if __name__ == "__main__":
             from_scratch=True,
             wholenet_cls=wholenet_cls,
             dataset=args.dataset,
-            n_samples=5,  # Only do it on the first 5 images.
+            n_samples=100,  # Operate on all images.
         )
     finetuned["anchor"] = "nocc-finetuning"
     from_scratch["anchor"] = "coolchic-training"

@@ -23,7 +23,7 @@ echo "SLURM_JOB_ID: ${SLURM_JOB_ID}"
 
 cd ${DIRECTORY}
 
-uv run coolchic/hypernet/finetune.py --weight_path=results/exps/no-cchic/orange-nocc/$1/model.pt --wholenet_cls=NOWholeNet --config=cfg/exps/no-cchic/orange-nocc/$1.yaml --n_iterations=3000 --dataset=$2
+uv run coolchic/hypernet/finetune.py --weight_path=results/exps/no-cchic/orange-nocc/$1/model.pt --wholenet_cls=NOWholeNet --config=cfg/exps/no-cchic/orange-nocc/$1.yaml --n_iterations=2000 --dataset=$2
 
 # Send more noteworthy information to the output log
 echo "Finished at: $(date)"
