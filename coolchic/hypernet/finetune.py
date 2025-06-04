@@ -68,7 +68,7 @@ def finetune_coolchic(
     validation_logs: list[
         SummaryEncodingMetrics
     ] = []  # We'll record the validation logs here.
-    frame_enc = coolchic_train(
+    _ = coolchic_train(
         frame_encoder=frame_enc,
         frame=frame,
         frame_encoder_manager=frame_encoder_manager,
@@ -150,6 +150,7 @@ def finetune_all(
             from_scratch=from_scratch,
         )
         all_finetuned.append(pd.DataFrame([log.model_dump() for log in finetuned]))
+        torch.cuda.empty_cache()  # Free memory after each image.
     return pd.concat(all_finetuned)
 
 
