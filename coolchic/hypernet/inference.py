@@ -195,7 +195,7 @@ def main_eval(
 ) -> None:
     """Evaluate a hypernet in a given dataset."""
     # Initial checks.
-    if isinstance(wholenet_cls, NOWholeNet) and mlp_rate:
+    if (wholenet_cls == NOWholeNet) and mlp_rate:
         raise ValueError(
             "When evaluating a NO coolchic hypernet, "
             "MLP rate should not be computed."
