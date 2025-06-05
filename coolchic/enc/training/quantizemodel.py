@@ -63,7 +63,7 @@ def _quantize_parameters(
             return None
 
         if current_q_step == float("inf"):
-            q_param[k] = 0
+            q_param[k] = torch.zeros_like(v)
         else:
             q_param[k] = sent_param * current_q_step
 
