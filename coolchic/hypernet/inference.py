@@ -194,6 +194,12 @@ def main_eval(
     workdir: Path | None = None,
 ) -> None:
     """Evaluate a hypernet in a given dataset."""
+    # Initial checks.
+    if isinstance(wholenet_cls, NOWholeNet) and mlp_rate:
+        raise ValueError(
+            "When evaluating a NO coolchic hypernet, "
+            "MLP rate should not be computed."
+        )
     dfs = []
     # More than one model path allowed.
     for i, weight_path in enumerate(weight_paths):
