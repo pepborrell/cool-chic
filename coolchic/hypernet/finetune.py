@@ -227,38 +227,38 @@ if __name__ == "__main__":
 
     wholenet_cls = get_wholenet_class(args.wholenet_cls)
 
-    finetuned = finetune_all(
-        training_preset,
-        weights_path=args.weight_path,
-        config_path=args.config,
-        from_scratch=False,
-        wholenet_cls=wholenet_cls,
-        dataset=args.dataset,
-        n_samples=100,  # Operate on all images.
-    )
-    if args.from_scratch_file is not None:
-        from_scratch = pd.read_csv(args.from_scratch_file)
-    else:
-        from_scratch = finetune_all(
-            training_preset,
-            weights_path=args.weight_path,
-            config_path=args.config,
-            from_scratch=True,
-            wholenet_cls=wholenet_cls,
-            dataset=args.dataset,
-            n_samples=100,  # Operate on all images.
-        )
-    finetuned["anchor"] = "nocc-finetuning"
-    from_scratch["anchor"] = "coolchic-training"
-
-    all_results = pd.concat([finetuned, from_scratch])
-
+    # finetuned = finetune_all(
+    #     training_preset,
+    #     weights_path=args.weight_path,
+    #     config_path=args.config,
+    #     from_scratch=False,
+    #     wholenet_cls=wholenet_cls,
+    #     dataset=args.dataset,
+    #     n_samples=100,  # Operate on all images.
+    # )
+    # if args.from_scratch_file is not None:
+    #     from_scratch = pd.read_csv(args.from_scratch_file)
+    # else:
+    #     from_scratch = finetune_all(
+    #         training_preset,
+    #         weights_path=args.weight_path,
+    #         config_path=args.config,
+    #         from_scratch=True,
+    #         wholenet_cls=wholenet_cls,
+    #         dataset=args.dataset,
+    #         n_samples=100,  # Operate on all images.
+    #     )
+    # finetuned["anchor"] = "nocc-finetuning"
+    # from_scratch["anchor"] = "coolchic-training"
+    #
+    # all_results = pd.concat([finetuned, from_scratch])
+    #
     save_dir = RESULTS_DIR / "finetuning"
     save_dir = save_dir / args.dataset / args.weight_path.parent.parent.stem
-    save_dir.mkdir(parents=True, exist_ok=True)
+    # save_dir.mkdir(parents=True, exist_ok=True)
     save_name = f"finetuning_{args.weight_path.parent.stem}.csv"
     save_path = save_dir / save_name
-    all_results.to_csv(save_path, index=False)
+    # all_results.to_csv(save_path, index=False)
 
     # only plot if not on server.
     if get_best_device() == "cpu":
