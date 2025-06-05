@@ -62,7 +62,10 @@ def _quantize_parameters(
             # )
             return None
 
-        q_param[k] = sent_param * current_q_step
+        if current_q_step == float("inf"):
+            q_param[k] = 0
+        else:
+            q_param[k] = sent_param * current_q_step
 
     return q_param
 
@@ -545,6 +548,11 @@ def quantize_model_deltas(
 
                     # Find the best expgol count for this weight
                     for expgol_cnt in all_expgol_cnt.get(weight_or_bias):
+                        # If all sent parameters are zero, we can skip exp-golomb
+                        if v.allclose(torch.zeros_like(v), atol=1e-6):
+                            cur_best_rate = 0.0
+                            cur_best_expgol_cnt = 0
+                            break
                         cur_rate = exp_golomb_nbins(v, count=expgol_cnt)
                         if cur_rate < cur_best_rate:
                             cur_best_rate = cur_rate
