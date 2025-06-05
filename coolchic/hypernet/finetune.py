@@ -254,7 +254,7 @@ if __name__ == "__main__":
     all_results = pd.concat([finetuned, from_scratch])
 
     save_dir = RESULTS_DIR / "finetuning"
-    save_dir = save_dir / args.dataset
+    save_dir = save_dir / args.dataset / args.weight_path.parent.parent.stem
     save_dir.mkdir(parents=True, exist_ok=True)
     save_name = f"finetuning_{args.weight_path.parent.stem}.csv"
     save_path = save_dir / save_name
