@@ -29,7 +29,12 @@ from coolchic.hypernet.hypernet import (
 )
 from coolchic.hypernet.inference import load_hypernet
 from coolchic.utils.coolchic_types import get_coolchic_structs
-from coolchic.utils.paths import DATA_DIR, DATASET_NAME, RESULTS_DIR
+from coolchic.utils.paths import (
+    DATA_DIR,
+    DATASET_NAME,
+    RESULTS_DIR,
+    get_latest_checkpoint,
+)
 from coolchic.utils.types import (
     DecoderConfig,
     HypernetRunConfig,
@@ -135,6 +140,8 @@ def finetune_all(
     # Load config and hypernet.
     cfg = load_config(config_path, HypernetRunConfig)
     assert isinstance(cfg.lmbda, float)  # To make pyright happy.
+    if weights_path.stem == "__latest":
+        weights_path = get_latest_checkpoint(weights_path.parent)
     hnet = load_hypernet(weights_path, cfg, wholenet_cls)
     hnet.eval()
 
