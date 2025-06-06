@@ -86,7 +86,8 @@ def finetune_coolchic(
         noise_parameter=training_phase.noise_parameter,
         val_logs=validation_logs,
     )
-    return validation_logs
+    # We only return the last validation log, which is the only real valid number.
+    return [validation_logs[-1]]
 
 
 def finetune_one_kodak(
@@ -129,7 +130,7 @@ def finetune_all(
     config_path: Path,
     wholenet_cls: type[WholeNet],
     dataset: DATASET_NAME,
-    n_samples: int,
+    n_iterations: list[int],
 ) -> pd.DataFrame:
     # Load config and hypernet.
     cfg = load_config(config_path, HypernetRunConfig)
@@ -139,22 +140,23 @@ def finetune_all(
 
     all_finetuned = []
     for image in (DATA_DIR / dataset).glob("*.png"):
-        if len(all_finetuned) >= n_samples:
-            # Enough samples, break.
-            break
-        img_name = image.stem
-        print(f"Finetuning {img_name}")
-        finetuned = finetune_one_kodak(
-            image,
-            preset,
-            hypernet=hnet,
-            dec_cfg=cfg.hypernet_cfg.dec_cfg,
-            lmbda=cfg.lmbda,
-            from_scratch=from_scratch,
-        )
-        all_finetuned.append(pd.DataFrame([log.model_dump() for log in finetuned]))
-        torch.cuda.empty_cache()  # Free memory after each image.
-        gc.collect()  # Collect garbage to free memory.
+        # Train until we have done the whole training phase,
+        # we can only eval at the end of the whole phase.
+        for n_iter in n_iterations:
+            preset.all_phases[0].max_itr = n_iter
+            img_name = image.stem
+            print(f"Finetuning {img_name}")
+            finetuned = finetune_one_kodak(
+                image,
+                preset,
+                hypernet=hnet,
+                dec_cfg=cfg.hypernet_cfg.dec_cfg,
+                lmbda=cfg.lmbda,
+                from_scratch=from_scratch,
+            )
+            all_finetuned.append(pd.DataFrame([log.model_dump() for log in finetuned]))
+            torch.cuda.empty_cache()  # Free memory after each image.
+            gc.collect()  # Collect garbage to free memory.
     return pd.concat(all_finetuned)
 
 
@@ -233,7 +235,7 @@ if __name__ == "__main__":
         from_scratch=args.from_scratch,
         wholenet_cls=wholenet_cls,
         dataset=args.dataset,
-        n_samples=100,  # Operate on all images.
+        n_iterations=[100, 200, 400, 600, 800, 1000],  # Different iterations to test.
     )
     finetuned["anchor"] = (
         "nocc-finetuning" if not args.from_scratch else "coolchic-training"
