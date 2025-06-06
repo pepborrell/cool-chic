@@ -180,10 +180,9 @@ if __name__ == "__main__":
         "--n_iterations", type=int, default=1_000, help="Number of iterations to train."
     )
     parser.add_argument(
-        "--from_scratch_file",
-        type=Path,
-        help="Path to the results of training from scratch. "
-        "If provided, the results will be reused and training won't happen.",
+        "--from_scratch",
+        action="store_true",
+        help="If set, will train from scratch instead of finetuning.",
     )
     parser.add_argument(
         "--dataset",
@@ -231,30 +230,21 @@ if __name__ == "__main__":
         training_preset,
         weights_path=args.weight_path,
         config_path=args.config,
-        from_scratch=False,
+        from_scratch=args.from_scratch,
         wholenet_cls=wholenet_cls,
         dataset=args.dataset,
         n_samples=100,  # Operate on all images.
     )
-    if args.from_scratch_file is not None:
-        from_scratch = pd.read_csv(args.from_scratch_file)
-    else:
-        from_scratch = finetune_all(
-            training_preset,
-            weights_path=args.weight_path,
-            config_path=args.config,
-            from_scratch=True,
-            wholenet_cls=wholenet_cls,
-            dataset=args.dataset,
-            n_samples=100,  # Operate on all images.
-        )
-    finetuned["anchor"] = "nocc-finetuning"
-    from_scratch["anchor"] = "coolchic-training"
+    finetuned["anchor"] = (
+        "nocc-finetuning" if not args.from_scratch else "coolchic-training"
+    )
 
-    all_results = pd.concat([finetuned, from_scratch])
+    all_results = finetuned
 
     save_dir = RESULTS_DIR / "finetuning"
     save_dir = save_dir / args.dataset / args.weight_path.parent.parent.stem
+    if args.from_scratch:
+        save_dir = save_dir.parent / "from_scratch"
     save_dir.mkdir(parents=True, exist_ok=True)
     save_name = f"finetuning_{args.weight_path.parent.stem}.csv"
     save_path = save_dir / save_name
