@@ -245,7 +245,9 @@ if __name__ == "__main__":
         n_iterations=[100, 200, 400, 600, 800, 1000],  # Different iterations to test.
     )
     finetuned["anchor"] = (
-        "nocc-finetuning" if not args.from_scratch else "coolchic-training"
+        f"{args.wholenet_cls}-finetuning"
+        if not args.from_scratch
+        else "coolchic-training"
     )
 
     all_results = finetuned
