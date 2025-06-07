@@ -13,6 +13,7 @@ from torchvision.extension import os
 from coolchic.enc.component.coolchic import CoolChicEncoder, CoolChicEncoderParameter
 from coolchic.enc.io.format.png import read_png
 from coolchic.enc.io.io import load_frame_data_from_file
+from coolchic.enc.training.loss import loss_function
 from coolchic.enc.training.presets import TrainerPhase, Warmup
 from coolchic.enc.training.train import train as coolchic_train
 from coolchic.enc.utils.misc import get_best_device
@@ -29,6 +30,7 @@ from coolchic.hypernet.hypernet import (
 )
 from coolchic.hypernet.inference import load_hypernet
 from coolchic.utils.coolchic_types import get_coolchic_structs
+from coolchic.utils.nn import get_rate_from_rate_per_module
 from coolchic.utils.paths import (
     DATA_DIR,
     DATASET_NAME,
@@ -70,11 +72,9 @@ def finetune_coolchic(
     # Deactivate wandb
     os.environ["WANDB_MODE"] = "disabled"
     wandb.init()
+    training_phase = preset_config.all_phases[0]
     assert training_phase.end_lr is not None  # To make pyright happy.
-    validation_logs: list[
-        SummaryEncodingMetrics
-    ] = []  # We'll record the validation logs here.
-    _ = coolchic_train(
+    trained_encoder = coolchic_train(
         frame_encoder=frame_enc,
         frame=frame,
         frame_encoder_manager=frame_encoder_manager,
@@ -89,10 +89,33 @@ def finetune_coolchic(
         quantizer_noise_type=training_phase.quantizer_noise_type,
         softround_temperature=training_phase.softround_temperature,
         noise_parameter=training_phase.noise_parameter,
-        val_logs=validation_logs,
+        val_logs=None,
     )
+
+    # Eval trained encoder.
+    cc_enc = trained_encoder.coolchic_encoder
+    cc_enc.eval()
+    with torch.no_grad():
+        rate_mlp = get_rate_from_rate_per_module(cc_enc.get_network_rate())
+        out_img, out_rate, _ = cc_enc.forward(
+            quantizer_noise_type="none", quantizer_type="hardround"
+        )
+        loss = loss_function(
+            out_img, out_rate, img, lmbda, rate_mlp_bit=rate_mlp, compute_logs=True
+        )
+        assert loss.total_rate_bpp is not None  # To make pyright happy.
+        assert loss.psnr_db is not None  # To make pyright happy.
+        eval_res = SummaryEncodingMetrics(
+            seq_name=img_path.stem,
+            lmbda=lmbda,
+            psnr_db=loss.psnr_db,
+            rate_bpp=loss.total_rate_bpp,
+            rate_latent_bpp=loss.rate_latent_bpp,
+            rate_nn_bpp=loss.rate_nn_bpp,
+            n_itr=training_phase.max_itr,
+        )
     # We only return the last validation log, which is the only real valid number.
-    return [validation_logs[-1]]
+    return [eval_res]
 
 
 def finetune_one_kodak(
