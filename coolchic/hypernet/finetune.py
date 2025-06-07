@@ -13,15 +13,16 @@ from torchvision.extension import os
 from coolchic.enc.component.coolchic import CoolChicEncoder, CoolChicEncoderParameter
 from coolchic.enc.io.format.png import read_png
 from coolchic.enc.io.io import load_frame_data_from_file
-from coolchic.enc.training.loss import loss_function
 from coolchic.enc.training.presets import TrainerPhase, Warmup
+from coolchic.enc.training.quantizemodel import quantize_model
+from coolchic.enc.training.test import test
 from coolchic.enc.training.train import train as coolchic_train
 from coolchic.enc.utils.misc import get_best_device
 from coolchic.enc.utils.parsecli import (
     get_coolchic_param_from_args,
 )
 from coolchic.eval.hypernet import find_crossing_it, plot_hypernet_rd
-from coolchic.eval.results import SummaryEncodingMetrics
+from coolchic.eval.results import SummaryEncodingMetrics, log_to_results
 from coolchic.hypernet.hypernet import (
     CoolchicWholeNet,
     DeltaWholeNet,
@@ -30,7 +31,6 @@ from coolchic.hypernet.hypernet import (
 )
 from coolchic.hypernet.inference import load_hypernet
 from coolchic.utils.coolchic_types import get_coolchic_structs
-from coolchic.utils.nn import get_rate_from_rate_per_module
 from coolchic.utils.paths import (
     DATA_DIR,
     DATASET_NAME,
@@ -93,29 +93,13 @@ def finetune_coolchic(
     )
 
     # Eval trained encoder.
-    cc_enc = trained_encoder.coolchic_encoder
-    cc_enc.eval()
-    with torch.no_grad():
-        rate_mlp = get_rate_from_rate_per_module(cc_enc.get_network_rate())
-        out_img, out_rate, _ = cc_enc.forward(
-            quantizer_noise_type="none", quantizer_type="hardround"
-        )
-        loss = loss_function(
-            out_img, out_rate, img, lmbda, rate_mlp_bit=rate_mlp, compute_logs=True
-        )
-        assert loss.total_rate_bpp is not None  # To make pyright happy.
-        assert loss.psnr_db is not None  # To make pyright happy.
-        eval_res = SummaryEncodingMetrics(
-            seq_name=img_path.stem,
-            lmbda=lmbda,
-            psnr_db=loss.psnr_db,
-            rate_bpp=loss.total_rate_bpp,
-            rate_latent_bpp=loss.rate_latent_bpp,
-            rate_nn_bpp=loss.rate_nn_bpp,
-            n_itr=training_phase.max_itr,
-        )
+    trained_encoder = quantize_model(
+        trained_encoder, frame=frame, frame_encoder_manager=frame_encoder_manager
+    )
+    logs = test(trained_encoder, frame, frame_encoder_manager)
+    metrics = log_to_results(logs, seq_name=img_path.stem)
     # We only return the last validation log, which is the only real valid number.
-    return [eval_res]
+    return [metrics]
 
 
 def finetune_one_kodak(
@@ -231,7 +215,7 @@ if __name__ == "__main__":
         end_lr=1e-5,
         schedule_lr=True,
         max_itr=args.n_iterations,
-        freq_valid=10,
+        freq_valid=100,
         patience=100,
         optimized_module=["all"],
         quantizer_type="softround",
