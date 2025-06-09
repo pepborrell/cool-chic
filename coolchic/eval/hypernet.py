@@ -66,6 +66,8 @@ def plot_hypernet_rd(seq_name: str, results: pd.DataFrame, dataset: DATASET_NAME
         palette="dark:gray",
     )
     ax.set_title(f"RD curve for {seq_name}")
+    ax.set_xlabel("Rate (bpp)")
+    ax.set_ylabel("PSNR (dB)")
     return fig, ax
 
 
@@ -88,7 +90,11 @@ def plot_hypernet_rd_avg(results: pd.DataFrame, dataset: DATASET_NAME):
         ax=ax,
         sort=False,
     )
-    ax.set_title("Average RD curve for all kodim images")
+    ax.set_title(
+        f"Average RD curve. Dataset: {'CLIC2020' if dataset == 'clic20-pro-valid' else 'kodak'}"
+    )
+    ax.set_xlabel("Rate (bpp)")
+    ax.set_ylabel("PSNR (dB)")
     return fig, ax
 
 
