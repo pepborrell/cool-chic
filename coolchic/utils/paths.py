@@ -29,8 +29,8 @@ ALL_ANCHORS: dict[DATASET_NAME, dict[ANCHOR_NAME, Path]] = {
         "coolchic": clic20_results / "results.tsv",
         "hm": clic20_results / "hm.tsv",
         "jpeg": clic20_results / "jpeg.tsv",
-        "c3": clic20_results / "c3.tsv",
-        "hypernet": clic20_results / "delta_hypernet.tsv",
+        # "c3": clic20_results / "c3.tsv",
+        # "hypernet": clic20_results / "delta_hypernet.tsv",
     },
 }
 

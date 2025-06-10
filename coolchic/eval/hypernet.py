@@ -33,7 +33,9 @@ def compare_dataset_res(results: pd.DataFrame, dataset: DATASET_NAME) -> pd.Data
 
 def plot_hypernet_rd(seq_name: str, results: pd.DataFrame, dataset: DATASET_NAME):
     all_df = compare_dataset_res(results, dataset)
-    all_df = all_df.loc[all_df["seq_name"] == seq_name]
+    all_df = all_df.loc[all_df["seq_name"] == seq_name].sort_values(
+        by=["anchor", "rate_bpp"]
+    )
 
     # Split by finetuning or not.
     finetuning_rows = all_df["anchor"].str.contains("finetuning|training", regex=True)
@@ -78,7 +80,7 @@ def plot_hypernet_rd_avg(results: pd.DataFrame, dataset: DATASET_NAME):
         all_df.groupby(["anchor", "lmbda"])
         .agg({"rate_bpp": "mean", "psnr_db": "mean"})
         .reset_index()
-    )
+    ).sort_values(by=["anchor", "rate_bpp"])
     fig, ax = plt.subplots()
     sns.lineplot(
         mean_df,
