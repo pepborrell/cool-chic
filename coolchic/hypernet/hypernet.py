@@ -642,6 +642,9 @@ class CoolchicHyperNet(nn.Module):
         synthesis_weights = self.synthesis_hn.forward(features)
         arm_weights = self.arm_hn.forward(features)
 
+        # NOTE: experiment. deactivating synthesis hypernet.
+        synthesis_weights = torch.zeros_like(synthesis_weights)
+
         return (
             latent_weights,
             self.synthesis_hn.shape_outputs(synthesis_weights),
