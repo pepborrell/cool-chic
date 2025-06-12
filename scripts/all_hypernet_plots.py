@@ -1,6 +1,5 @@
 import argparse
 from pathlib import Path
-from typing import get_args
 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -18,7 +17,7 @@ from coolchic.hypernet.hypernet import (
     NOWholeNet,
     SmallDeltaWholeNet,
 )
-from coolchic.utils.paths import ANCHOR_NAME, DATA_DIR, DATASET_NAME
+from coolchic.utils.paths import ALL_ANCHORS, ANCHOR_NAME, DATA_DIR, DATASET_NAME
 
 
 def print_bd(
@@ -60,7 +59,7 @@ if __name__ == "__main__":
         sweep_path, dataset=args.dataset, premature=args.premature
     )
     # BD rates for coolchic, hm, jpeg
-    for anchor in get_args(ANCHOR_NAME):
+    for anchor in ALL_ANCHORS[args.dataset].keys():
         print_bd(metrics, anchor, args.dataset, only_latent_rate=args.only_latent_rate)
 
     # BD rate vs computational cost
