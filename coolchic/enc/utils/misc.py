@@ -110,22 +110,22 @@ def append_infinity(t: Tensor) -> Tensor:
 # Shifts for ARM, record the shift.
 POSSIBLE_Q_STEP_SHIFT = {
     "arm": {
-        "weight": append_infinity(torch.linspace(-8, 0, 9, device="cpu")),
-        "bias": append_infinity(torch.linspace(-16, 0, 17, device="cpu")),
+        "weight": torch.linspace(-8, 0, 9, device="cpu"),
+        "bias": torch.linspace(-16, 0, 17, device="cpu"),
     },
 }
 POSSIBLE_Q_STEP = {
     "arm": {
-        "weight": append_infinity(2.0 ** POSSIBLE_Q_STEP_SHIFT["arm"]["weight"]),
-        "bias": append_infinity(2.0 ** POSSIBLE_Q_STEP_SHIFT["arm"]["bias"]),
+        "weight": 2.0 ** POSSIBLE_Q_STEP_SHIFT["arm"]["weight"],
+        "bias": 2.0 ** POSSIBLE_Q_STEP_SHIFT["arm"]["bias"],
     },
     "upsampling": {
-        "weight": append_infinity(2.0 ** torch.linspace(-12, 0, 13, device="cpu")),
-        "bias": append_infinity(2.0 ** torch.tensor([0.0])),
+        "weight": 2.0 ** torch.linspace(-12, 0, 13, device="cpu"),
+        "bias": 2.0 ** torch.tensor([0.0]),
     },
     "synthesis": {
-        "weight": append_infinity(2.0 ** torch.linspace(-12, 0, 13, device="cpu")),
-        "bias": append_infinity(2.0 ** torch.linspace(-24, 0, 25, device="cpu")),
+        "weight": 2.0 ** torch.linspace(-12, 0, 13, device="cpu"),
+        "bias": 2.0 ** torch.linspace(-24, 0, 25, device="cpu"),
     },
 }
 

@@ -87,18 +87,18 @@ def get_image_from_hypernet(
                     "arm": arm_deltas,
                 }
 
-                # # Get a reference for the forward pass without deltas.
-                # og_out_img, out_rate, _ = net.mean_decoder.forward(
-                #     latents, quantizer_noise_type="none", quantizer_type="hardround"
-                # )
-                # og_loss = loss_function(
-                #     og_out_img,
-                #     out_rate,
-                #     img,
-                #     lmbda=lmbda,
-                #     rate_mlp_bit=0.0,
-                #     compute_logs=True,
-                # )
+                # Get a reference for the forward pass without deltas.
+                og_out_img, out_rate, _ = net.mean_decoder.forward(
+                    latents, quantizer_noise_type="none", quantizer_type="hardround"
+                )
+                og_loss = loss_function(
+                    og_out_img,
+                    out_rate,
+                    img,
+                    lmbda=lmbda,
+                    rate_mlp_bit=0.0,
+                    compute_logs=True,
+                )
 
                 quantized_deltas, rate_per_module = quantize_model_deltas(
                     net.mean_decoder,
@@ -138,14 +138,14 @@ def get_image_from_hypernet(
             compute_logs=True,
         )
 
-        # # Compare loss with and without quantized deltas.
-        # # If the loss is worse, we don't use deltas.
-        # if isinstance(net, DeltaWholeNet) and mlp_rate:
-        #     # NOTE: losses are tensors and og_loss is bound here,
-        #     # so let's make pyright shut up.
-        #     if og_loss.loss.item() < loss_out.loss.item():  # pyright: ignore
-        #         loss_out = og_loss  # pyright: ignore
-        #         out_img = og_out_img  # pyright: ignore
+        # Compare loss with and without quantized deltas.
+        # If the loss is worse, we don't use deltas.
+        if isinstance(net, DeltaWholeNet) and mlp_rate:
+            # NOTE: losses are tensors and og_loss is bound here,
+            # so let's make pyright shut up.
+            if og_loss.loss.item() < loss_out.loss.item():  # pyright: ignore
+                loss_out = og_loss  # pyright: ignore
+                out_img = og_out_img  # pyright: ignore
 
     assert isinstance(loss_out.total_rate_bpp, float)  # To make pyright happy.
     assert isinstance(loss_out.mse, float)  # To make pyright happy.
