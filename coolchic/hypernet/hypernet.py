@@ -610,6 +610,14 @@ class CoolchicHyperNet(nn.Module):
             only_biases=self.config.arm.only_biases,
             output_activation=self.config.arm.output_activation,
         )
+        self.ups_hn = UpsamplingHyperNet(
+            n_latents=self.config.n_latents,
+            ups_k_size=self.config.dec_cfg.ups_k_size,
+            ups_preconcat_k_size=self.config.dec_cfg.ups_preconcat_k_size,
+            n_input_features=n_input_features,
+            hypernet_hidden_dim=self.config.upsampling.hidden_dim,
+            hypernet_n_layers=self.config.upsampling.n_layers,
+        )
 
         # Initializing this, will be filled when running get_flops.
         self.flops_per_module = {
@@ -620,6 +628,7 @@ class CoolchicHyperNet(nn.Module):
         self, img: torch.Tensor
     ) -> tuple[
         list[torch.Tensor],
+        OrderedDict[str, torch.Tensor],
         OrderedDict[str, torch.Tensor],
         OrderedDict[str, torch.Tensor],
     ]:
@@ -641,11 +650,13 @@ class CoolchicHyperNet(nn.Module):
 
         synthesis_weights = self.synthesis_hn.forward(features)
         arm_weights = self.arm_hn.forward(features)
+        ups_weights = self.ups_hn.forward(features)
 
         return (
             latent_weights,
             self.synthesis_hn.shape_outputs(synthesis_weights),
             self.arm_hn.shape_outputs(arm_weights),
+            self.ups_hn.shape_outputs(ups_weights),
         )
 
     def latent_forward(self, img: torch.Tensor) -> list[torch.Tensor]:
@@ -1234,16 +1245,20 @@ class DeltaWholeNet(WholeNet):
         noise_parameter: torch.Tensor = torch.tensor(0.25),
     ) -> tuple[torch.Tensor, torch.Tensor, dict[str, Any]]:
         if self.use_delta:
-            latents, s_delta_dict, arm_delta_dict = self.hypernet.forward(img)
+            latents, s_delta_dict, arm_delta_dict, ups_delta_dict = (
+                self.hypernet.forward(img)
+            )
         else:
             latents = self.hypernet.latent_forward(img)
             s_delta_dict = {}
             arm_delta_dict = {}
+            ups_delta_dict = {}
 
         # Combine deltas with the parameters of the decoder.
         forward_params = self.add_deltas(
             s_delta_dict,
             arm_delta_dict,
+            ups_delta_dict,
             batch_size=latents[0].shape[0],
         )
 
@@ -1275,6 +1290,7 @@ class DeltaWholeNet(WholeNet):
         self,
         synth_delta_dict: dict[str, torch.Tensor],
         arm_delta_dict: dict[str, torch.Tensor],
+        ups_delta_dict: dict[str, torch.Tensor] | None,
         batch_size: int,
         remove_batch_dim: bool = False,
     ) -> dict[str, torch.Tensor]:
@@ -1282,6 +1298,7 @@ class DeltaWholeNet(WholeNet):
             self.mean_decoder.named_parameters(),
             synth_delta_dict=synth_delta_dict,
             arm_delta_dict=arm_delta_dict,
+            ups_delta_dict=ups_delta_dict,
             batch_size=batch_size,
             remove_batch_dim=remove_batch_dim,
         )
@@ -1291,16 +1308,20 @@ class DeltaWholeNet(WholeNet):
     ) -> CoolChicEncoder:
         img = img.to(next(self.parameters()).device)
         if self.use_delta:
-            latents, s_delta_dict, arm_delta_dict = self.hypernet.forward(img)
+            latents, s_delta_dict, arm_delta_dict, ups_delta_dict = (
+                self.hypernet.forward(img)
+            )
         else:
             latents = self.hypernet.latent_forward(img)
             s_delta_dict = {}
             arm_delta_dict = {}
+            ups_delta_dict = {}
 
         # Combine deltas with the parameters of the decoder.
         forward_params = self.add_deltas(
             s_delta_dict,
             arm_delta_dict,
+            ups_delta_dict,
             batch_size=latents[0].shape[0],
             remove_batch_dim=True,
         )
