@@ -701,6 +701,7 @@ class CoolchicHyperNet(nn.Module):
 
         zero_out_last_layer(self.synthesis_hn.mlp)
         zero_out_last_layer(self.arm_hn.mlp)
+        zero_out_last_layer(self.ups_hn.mlp)
 
     def get_flops(self) -> int:
         """Compute the number of MAC & parameters for the model.
@@ -1403,6 +1404,10 @@ class DeltaWholeNet(WholeNet):
             mse = torch.nn.functional.mse_loss(no_output, output).item()
             print(
                 f"Outputs are not the same. MSE: {mse}. This means the model was not loaded properly."
+            )
+            raise ValueError(
+                "Outputs in the NO CoolChic checkpoints "
+                "and the hypernet created from it do not match."
             )
         else:
             print(
