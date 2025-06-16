@@ -63,7 +63,7 @@ def load_hypernet(
 
 def get_image_from_hypernet(
     net: WholeNet, img_path: Path, lmbda: float, mlp_rate: bool
-) -> tuple[torch.Tensor, LossFunctionOutput]:
+) -> tuple[torch.Tensor, LossFunctionOutput, str | None]:
     img = load_img_from_path(img_path)
     img = load_frame_data_from_tensor(img).data
     assert isinstance(img, torch.Tensor)  # To make pyright happy.
@@ -131,11 +131,12 @@ def get_image_from_hypernet(
                         out_img = opt_out_img
                         out_rate = opt_out_rate
                         rate_mlp = option_rate_mlp
+                        best_option = option
                 assert out_img is not None, (
                     "No output image was generated. "
                     "This should not happen if model part selection happens as expected."
                 )
-                return out_img, best_full_loss  # pyright: ignore
+                return out_img, best_full_loss, best_option  # pyright: ignore
 
             # CoolchicWholeNet or NOWholeNet.
             # image to coolchic creates a coolchic encoder with the hypernet weights.
@@ -161,7 +162,7 @@ def get_image_from_hypernet(
 
     assert isinstance(loss_out.total_rate_bpp, float)  # To make pyright happy.
     assert isinstance(loss_out.mse, float)  # To make pyright happy.
-    return out_img, loss_out
+    return out_img, loss_out, None
 
 
 def img_eval(
@@ -171,7 +172,9 @@ def img_eval(
     mlp_rate: bool,
     save: bool = False,
 ) -> tuple[dict[str, str | float], str]:
-    out_img, loss_out = get_image_from_hypernet(model, img_path, lmbda, mlp_rate)
+    out_img, loss_out, option_selected = get_image_from_hypernet(
+        model, img_path, lmbda, mlp_rate
+    )
     if save:
         save_path = img_path.with_suffix(f".out{img_path.suffix}").parts[-1]
         torchvision.utils.save_image(out_img, save_path)
@@ -182,6 +185,7 @@ def img_eval(
         "rate_nn_bpp": loss_out.rate_nn_bpp,
         "psnr_db": loss_out.psnr_db,
         "mse": loss_out.mse,
+        "option_selected": option_selected,
     }, save_path if save else None  # pyright: ignore
 
 
