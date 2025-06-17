@@ -47,6 +47,7 @@ def get_mlp_rate(net: CoolChicEncoder) -> float:
 
 def get_rate_from_rate_per_module(
     rate_per_module: dict[str, dict[str, float]] | DescriptorCoolChic,
+    check_zero_rate: bool = True,
 ) -> float:
     rate_mlp = 0.0
     rate_per_module = cast(dict[str, dict[str, float]], rate_per_module)
@@ -55,7 +56,7 @@ def get_rate_from_rate_per_module(
         for _, param_rate in module_rate.items():  # weight, bias
             rate_mlp += param_rate
 
-    if rate_mlp == 0.0:
+    if check_zero_rate and rate_mlp == 0.0:
         raise ValueError("Model has no quantized parameters.")
     rate_mlp = rate_mlp.item() if isinstance(rate_mlp, torch.Tensor) else rate_mlp
     return rate_mlp

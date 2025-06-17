@@ -111,7 +111,9 @@ def get_image_from_hypernet(
                         latents=latents, stop_grads=True, new_parameters=new_params
                     )
                     # Rate of all the mlp weights.
-                    option_rate_mlp = get_rate_from_rate_per_module(rate_per_module)
+                    option_rate_mlp = get_rate_from_rate_per_module(
+                        rate_per_module, check_zero_rate=False
+                    )
                     # Get image from the quantized model (should perform slightly worse).
                     opt_out_img, opt_out_rate, _ = option_cc_enc.forward(
                         quantizer_noise_type="none", quantizer_type="hardround"
