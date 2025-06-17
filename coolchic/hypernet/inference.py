@@ -81,7 +81,6 @@ def get_image_from_hypernet(
             rate_mlp = 0.0
         else:
             if isinstance(net, DeltaWholeNet):
-                print(f"Finding best option for {img_path.name}")
                 latents, synth_deltas, arm_deltas = net.hypernet.forward(img)
                 quantized_deltas, rate_per_module = quantize_model_deltas(
                     net.mean_decoder,
@@ -148,9 +147,6 @@ def get_image_from_hypernet(
                     assert isinstance(
                         option_loss_out.loss, torch.Tensor
                     )  # To make pyright happy.
-                    print(
-                        f"{option=:<20}, loss={option_loss_out.loss.item():.5f}, rate_mlp={option_rate_mlp:.5f}"
-                    )
                     if option_loss_out.loss.item() < best_loss:
                         best_loss = option_loss_out.loss.item()
                         best_full_loss = option_loss_out
@@ -160,7 +156,6 @@ def get_image_from_hypernet(
                     "No output image was generated. "
                     "This should not happen if model part selection happens as expected."
                 )
-                print(f"Best option: {best_option}, loss: {best_loss:.5f}")
                 return best_out_img, best_full_loss, best_option  # pyright: ignore
 
             # CoolchicWholeNet or NOWholeNet.
