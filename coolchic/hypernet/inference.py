@@ -120,12 +120,14 @@ def get_image_from_hypernet(
                     )
                     # Rate of all the mlp weights.
                     option_rate_per_module = {
-                        "arm": rate_per_module["arm"] if option_deltas["arm"] else {},
+                        "arm": rate_per_module["arm"]
+                        if option_deltas.get("arm", {})
+                        else {},
                         "synthesis": rate_per_module["synthesis"]
-                        if option_deltas["synthesis"]
+                        if option_deltas.get("synthesis", {})
                         else {},
                         "upsampling": rate_per_module["upsampling"]
-                        if option_deltas["upsampling"]
+                        if option_deltas.get("upsampling", {})
                         else {},
                     }
                     option_rate_mlp = get_rate_from_rate_per_module(
