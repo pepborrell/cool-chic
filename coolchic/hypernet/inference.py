@@ -83,27 +83,35 @@ def get_image_from_hypernet(
             if isinstance(net, DeltaWholeNet):
                 print(f"Finding best option for {img_path.name}")
                 latents, synth_deltas, arm_deltas = net.hypernet.forward(img)
+                quantized_deltas, rate_per_module = quantize_model_deltas(
+                    net.mean_decoder,
+                    latents=latents,
+                    all_deltas={"synthesis": synth_deltas, "arm": arm_deltas},
+                    input_img=img,
+                    lmbda=lmbda,
+                )
                 options = {
                     "no_delta": {"synthesis": {}, "arm": {}},
-                    "only_arm": {"synthesis": {}, "arm": arm_deltas},
-                    "only_synthesis": {"synthesis": synth_deltas, "arm": {}},
-                    "all": {"synthesis": synth_deltas, "arm": arm_deltas},
+                    "only_arm": {
+                        "synthesis": {},
+                        "arm": quantized_deltas["arm"],
+                    },
+                    "only_synthesis": {
+                        "synthesis": quantized_deltas["synthesis"],
+                        "arm": {},
+                    },
+                    "all": {
+                        "synthesis": quantized_deltas["synthesis"],
+                        "arm": quantized_deltas["arm"],
+                    },
                 }
 
                 best_loss = float("inf")
                 out_img = None
                 for option, option_deltas in options.items():
-                    quantized_deltas, rate_per_module = quantize_model_deltas(
-                        net.mean_decoder,
-                        latents=latents,
-                        all_deltas=option_deltas,
-                        input_img=img,
-                        lmbda=lmbda,
-                    )
-                    print(f"{rate_per_module=}")
                     new_params = net.add_deltas(
-                        synth_delta_dict=quantized_deltas["synthesis"],
-                        arm_delta_dict=quantized_deltas["arm"],
+                        synth_delta_dict=option_deltas["synthesis"],
+                        arm_delta_dict=option_deltas["arm"],
                         batch_size=1,
                         remove_batch_dim=True,
                     )
@@ -111,8 +119,17 @@ def get_image_from_hypernet(
                         latents=latents, stop_grads=True, new_parameters=new_params
                     )
                     # Rate of all the mlp weights.
+                    option_rate_per_module = {
+                        "arm": rate_per_module["arm"] if option_deltas["arm"] else {},
+                        "synthesis": rate_per_module["synthesis"]
+                        if option_deltas["synthesis"]
+                        else {},
+                        "upsampling": rate_per_module["upsampling"]
+                        if option_deltas["upsampling"]
+                        else {},
+                    }
                     option_rate_mlp = get_rate_from_rate_per_module(
-                        rate_per_module, check_zero_rate=False
+                        option_rate_per_module, check_zero_rate=False
                     )
                     # Get image from the quantized model (should perform slightly worse).
                     opt_out_img, opt_out_rate, _ = option_cc_enc.forward(
