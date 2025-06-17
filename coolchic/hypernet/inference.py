@@ -100,6 +100,7 @@ def get_image_from_hypernet(
                         input_img=img,
                         lmbda=lmbda,
                     )
+                    print(f"{rate_per_module=}")
                     new_params = net.add_deltas(
                         synth_delta_dict=quantized_deltas["synthesis"],
                         arm_delta_dict=quantized_deltas["arm"],
@@ -134,7 +135,7 @@ def get_image_from_hypernet(
                         best_full_loss = option_loss_out
                         best_out_img = opt_out_img
                         best_option = option
-                assert out_img is not None, (
+                assert best_out_img is not None, (
                     "No output image was generated. "
                     "This should not happen if model part selection happens as expected."
                 )
