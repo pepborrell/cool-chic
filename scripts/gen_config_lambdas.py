@@ -1,7 +1,14 @@
 import argparse
 from pathlib import Path
 
-CONFIG_NUM_TO_LMBDA = {"00": 0.0001, "01": 0.0004, "02": 0.001, "03": 0.004, "04": 0.02}
+CONFIG_NUM_TO_LMBDA = {
+    "00": 0.0001,
+    "01": 0.0002,
+    "02": 0.0004,
+    "03": 0.001,
+    "04": 0.004,
+    "05": 0.02,
+}
 LMBDA_TO_CONFIG_NUM = {v: k for k, v in CONFIG_NUM_TO_LMBDA.items()}
 
 
