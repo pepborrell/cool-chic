@@ -453,6 +453,12 @@ def quantize_model_deltas(
     quantized_deltas: dict[str, OrderedDict[str, torch.Tensor]] = {}
 
     for module_name, cur_deltas in sorted(all_deltas.items()):
+        # If the delta is empty, we skip the quantization.
+        if not cur_deltas:
+            quantized_deltas[module_name] = cur_deltas
+            cc_enc.nn_q_step[module_name] = {"weight": None, "bias": None}
+            cc_enc.nn_expgol_cnt[module_name] = {"weight": 0, "bias": 0}
+            continue
         # Start the RD optimization for the quantization step of each module with an
         # arbitrary high value for the RD cost.
         best_loss = 1e6

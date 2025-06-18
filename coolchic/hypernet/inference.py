@@ -63,7 +63,7 @@ def load_hypernet(
 
 def get_image_from_hypernet(
     net: WholeNet, img_path: Path, lmbda: float, mlp_rate: bool
-) -> tuple[torch.Tensor, LossFunctionOutput]:
+) -> tuple[torch.Tensor, LossFunctionOutput, str | None]:
     img = load_img_from_path(img_path)
     img = load_frame_data_from_tensor(img).data
     assert isinstance(img, torch.Tensor)  # To make pyright happy.
@@ -82,46 +82,88 @@ def get_image_from_hypernet(
         else:
             if isinstance(net, DeltaWholeNet):
                 latents, synth_deltas, arm_deltas = net.hypernet.forward(img)
-                all_deltas = {
-                    "synthesis": synth_deltas,
-                    "arm": arm_deltas,
-                }
-
-                # Get a reference for the forward pass without deltas.
-                og_out_img, out_rate, _ = net.mean_decoder.forward(
-                    latents, quantizer_noise_type="none", quantizer_type="hardround"
-                )
-                og_loss = loss_function(
-                    og_out_img,
-                    out_rate,
-                    img,
-                    lmbda=lmbda,
-                    rate_mlp_bit=0.0,
-                    compute_logs=True,
-                )
-
                 quantized_deltas, rate_per_module = quantize_model_deltas(
                     net.mean_decoder,
                     latents=latents,
-                    all_deltas=all_deltas,
+                    all_deltas={"synthesis": synth_deltas, "arm": arm_deltas},
                     input_img=img,
                     lmbda=lmbda,
                 )
-                new_params = net.add_deltas(
-                    synth_delta_dict=quantized_deltas["synthesis"],
-                    arm_delta_dict=quantized_deltas["arm"],
-                    batch_size=1,
-                    remove_batch_dim=True,
+                options = {
+                    "no_delta": {"synthesis": {}, "arm": {}},
+                    "only_arm": {
+                        "synthesis": {},
+                        "arm": quantized_deltas["arm"],
+                    },
+                    "only_synthesis": {
+                        "synthesis": quantized_deltas["synthesis"],
+                        "arm": {},
+                    },
+                    "all": {
+                        "synthesis": quantized_deltas["synthesis"],
+                        "arm": quantized_deltas["arm"],
+                    },
+                }
+
+                best_loss = float("inf")
+                out_img = None
+                for option, option_deltas in options.items():
+                    new_params = net.add_deltas(
+                        synth_delta_dict=option_deltas["synthesis"],
+                        arm_delta_dict=option_deltas["arm"],
+                        batch_size=1,
+                        remove_batch_dim=True,
+                    )
+                    option_cc_enc = net.mean_decoder.as_coolchic(
+                        latents=latents, stop_grads=True, new_parameters=new_params
+                    )
+                    # Rate of all the mlp weights.
+                    option_rate_per_module = {
+                        "arm": rate_per_module["arm"]
+                        if option_deltas.get("arm", {})
+                        else {},
+                        "synthesis": rate_per_module["synthesis"]
+                        if option_deltas.get("synthesis", {})
+                        else {},
+                        "upsampling": rate_per_module["upsampling"]
+                        if option_deltas.get("upsampling", {})
+                        else {},
+                    }
+                    option_rate_mlp = get_rate_from_rate_per_module(
+                        option_rate_per_module, check_zero_rate=False
+                    )
+                    # Get image from the quantized model (should perform slightly worse).
+                    opt_out_img, opt_out_rate, _ = option_cc_enc.forward(
+                        quantizer_noise_type="none", quantizer_type="hardround"
+                    )
+                    option_loss_out = loss_function(
+                        opt_out_img,
+                        opt_out_rate,
+                        img,
+                        lmbda=lmbda,
+                        rate_mlp_bit=option_rate_mlp,
+                        compute_logs=True,
+                    )
+                    assert isinstance(
+                        option_loss_out.loss, torch.Tensor
+                    )  # To make pyright happy.
+                    if option_loss_out.loss.item() < best_loss:
+                        best_loss = option_loss_out.loss.item()
+                        best_full_loss = option_loss_out
+                        best_out_img = opt_out_img
+                        best_option = option
+                assert best_out_img is not None, (
+                    "No output image was generated. "
+                    "This should not happen if model part selection happens as expected."
                 )
-                cc_enc = net.mean_decoder.as_coolchic(
-                    latents=latents, stop_grads=True, new_parameters=new_params
-                )
-            else:
-                # image to coolchic creates a coolchic encoder with the hypernet weights.
-                cc_enc = net.image_to_coolchic(img, stop_grads=True)
-                cc_enc._store_full_precision_param()
-                cc_enc = quantize_model(encoder=cc_enc, input_img=img, lmbda=lmbda)
-                rate_per_module = cc_enc.get_network_rate()
+                return best_out_img, best_full_loss, best_option  # pyright: ignore
+
+            # CoolchicWholeNet or NOWholeNet.
+            # image to coolchic creates a coolchic encoder with the hypernet weights.
+            cc_enc = net.image_to_coolchic(img, stop_grads=True)
+            cc_enc._store_full_precision_param()
+            cc_enc = quantize_model(encoder=cc_enc, input_img=img, lmbda=lmbda)
+            rate_per_module = cc_enc.get_network_rate()
             # Rate of all the mlp weights.
             rate_mlp = get_rate_from_rate_per_module(rate_per_module)
             # Get image from the quantized model (should perform slightly worse).
@@ -138,18 +180,9 @@ def get_image_from_hypernet(
             compute_logs=True,
         )
 
-        # Compare loss with and without quantized deltas.
-        # If the loss is worse, we don't use deltas.
-        if isinstance(net, DeltaWholeNet) and mlp_rate:
-            # NOTE: losses are tensors and og_loss is bound here,
-            # so let's make pyright shut up.
-            if og_loss.loss.item() < loss_out.loss.item():  # pyright: ignore
-                loss_out = og_loss  # pyright: ignore
-                out_img = og_out_img  # pyright: ignore
-
     assert isinstance(loss_out.total_rate_bpp, float)  # To make pyright happy.
     assert isinstance(loss_out.mse, float)  # To make pyright happy.
-    return out_img, loss_out
+    return out_img, loss_out, None
 
 
 def img_eval(
@@ -159,7 +192,9 @@ def img_eval(
     mlp_rate: bool,
     save: bool = False,
 ) -> tuple[dict[str, str | float], str]:
-    out_img, loss_out = get_image_from_hypernet(model, img_path, lmbda, mlp_rate)
+    out_img, loss_out, option_selected = get_image_from_hypernet(
+        model, img_path, lmbda, mlp_rate
+    )
     if save:
         save_path = img_path.with_suffix(f".out{img_path.suffix}").parts[-1]
         torchvision.utils.save_image(out_img, save_path)
@@ -170,6 +205,7 @@ def img_eval(
         "rate_nn_bpp": loss_out.rate_nn_bpp,
         "psnr_db": loss_out.psnr_db,
         "mse": loss_out.mse,
+        "option_selected": option_selected,
     }, save_path if save else None  # pyright: ignore
 
 
