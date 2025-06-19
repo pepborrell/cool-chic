@@ -81,11 +81,17 @@ def get_image_from_hypernet(
             rate_mlp = 0.0
         else:
             if isinstance(net, DeltaWholeNet):
-                latents, synth_deltas, arm_deltas = net.hypernet.forward(img)
+                latents, synth_deltas, arm_deltas, ups_deltas = net.hypernet.forward(
+                    img
+                )
                 quantized_deltas, rate_per_module = quantize_model_deltas(
                     net.mean_decoder,
                     latents=latents,
-                    all_deltas={"synthesis": synth_deltas, "arm": arm_deltas},
+                    all_deltas={
+                        "synthesis": synth_deltas,
+                        "arm": arm_deltas,
+                        "upsampling": ups_deltas,
+                    },
                     input_img=img,
                     lmbda=lmbda,
                 )
@@ -104,6 +110,17 @@ def get_image_from_hypernet(
                         "arm": quantized_deltas["arm"],
                     },
                 }
+                # Add upsampling to all options. Test to see if it helps.
+                old_keys = list(options.keys())
+                for option in old_keys:
+                    options[f"{option}_upsampling"] = options[option].copy()
+                    options[f"{option}_noupsampling"] = options[option].copy()
+                    options[f"{option}_upsampling"]["upsampling"] = quantized_deltas[
+                        "upsampling"
+                    ]
+                    options[f"{option}_noupsampling"]["upsampling"] = {}
+                    # Remove base option.
+                    del options[option]
 
                 best_loss = float("inf")
                 out_img = None
@@ -111,6 +128,7 @@ def get_image_from_hypernet(
                     new_params = net.add_deltas(
                         synth_delta_dict=option_deltas["synthesis"],
                         arm_delta_dict=option_deltas["arm"],
+                        ups_delta_dict=option_deltas["upsampling"],
                         batch_size=1,
                         remove_batch_dim=True,
                     )

@@ -298,6 +298,7 @@ class HyperNetConfig(BaseModel):
 
     synthesis: HyperNetParams = HyperNetParams(hidden_dim=1024, n_layers=3)
     arm: HyperNetParams = HyperNetParams(hidden_dim=1024, n_layers=3)
+    upsampling: HyperNetParams = HyperNetParams(hidden_dim=256, n_layers=3)
     backbone_arch: RESNET_OPTIONS = "resnet18"
     double_backbone: bool = False
     n_hidden_channels: int = 64

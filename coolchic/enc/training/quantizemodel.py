@@ -494,6 +494,7 @@ def quantize_model_deltas(
                     cc_enc.named_parameters(),
                     synth_delta_dict=q_param,
                     arm_delta_dict=all_deltas["arm"],
+                    ups_delta_dict=all_deltas["upsampling"],
                     batch_size=1,
                     remove_batch_dim=True,
                 )
@@ -502,6 +503,16 @@ def quantize_model_deltas(
                     cc_enc.named_parameters(),
                     synth_delta_dict=all_deltas["synthesis"],
                     arm_delta_dict=q_param,
+                    ups_delta_dict=all_deltas["upsampling"],
+                    batch_size=1,
+                    remove_batch_dim=True,
+                )
+            elif module_name == "upsampling":
+                comb_params = add_deltas(
+                    cc_enc.named_parameters(),
+                    synth_delta_dict=all_deltas["synthesis"],
+                    arm_delta_dict=all_deltas["arm"],
+                    ups_delta_dict=q_param,
                     batch_size=1,
                     remove_batch_dim=True,
                 )
