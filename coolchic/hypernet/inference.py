@@ -111,7 +111,8 @@ def get_image_from_hypernet(
                     },
                 }
                 # Add upsampling to all options. Test to see if it helps.
-                for option in options:
+                old_keys = list(options.keys())
+                for option in old_keys:
                     options[f"{option}_upsampling"] = options[option].copy()
                     options[f"{option}_noupsampling"] = options[option].copy()
                     options[f"{option}_upsampling"]["upsampling"] = quantized_deltas[
