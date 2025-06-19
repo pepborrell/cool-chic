@@ -1291,7 +1291,7 @@ class DeltaWholeNet(WholeNet):
         self,
         synth_delta_dict: dict[str, torch.Tensor],
         arm_delta_dict: dict[str, torch.Tensor],
-        ups_delta_dict: dict[str, torch.Tensor] | None,
+        ups_delta_dict: dict[str, torch.Tensor],
         batch_size: int,
         remove_batch_dim: bool = False,
     ) -> dict[str, torch.Tensor]:

@@ -112,7 +112,18 @@ def get_image_from_hypernet(
                 }
                 # Add upsampling to all options. Test to see if it helps.
                 for option in options:
-                    options[option]["upsampling"] = quantized_deltas["upsampling"]
+                    options[f"{option}_upsampling"] = options[option].copy()
+                    options[f"{option}_noupsampling"] = options[option].copy()
+                    options[f"{option}_upsampling"]["upsampling"] = quantized_deltas[
+                        "upsampling"
+                    ]
+                    options[f"{option}_noupsampling"]["upsampling"] = {}
+                    # Remove base option.
+                    del options[option]
+
+                print("Options to test:")
+                for option in options:
+                    print(f"  - {option}: {options[option]}")
 
                 best_loss = float("inf")
                 out_img = None
