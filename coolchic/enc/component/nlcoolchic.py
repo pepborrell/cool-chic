@@ -521,15 +521,6 @@ class LatentFreeCoolChicEncoder(nn.Module):
                 self.nn_q_step.get(module_name),
                 self.nn_expgol_cnt.get(module_name),
             )
-            if (
-                module_name == "upsampling"
-                and sum(rate_per_module[module_name].values()) > 0
-            ):
-                raise ValueError(
-                    "Upsampling module should not have any quantized parameters."
-                    " Please check the quantization step and exp-golomb count."
-                )
-
         return rate_per_module
 
     def get_network_quantization_step(self) -> DescriptorCoolChic:
