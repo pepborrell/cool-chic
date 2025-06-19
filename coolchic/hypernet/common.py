@@ -228,7 +228,7 @@ def add_deltas(
     cc_params: Iterator[tuple[str, nn.Parameter]],
     synth_delta_dict: dict[str, torch.Tensor],
     arm_delta_dict: dict[str, torch.Tensor],
-    ups_delta_dict: dict[str, torch.Tensor] | None,
+    ups_delta_dict: dict[str, torch.Tensor],
     batch_size: int,
     remove_batch_dim: bool = False,
 ) -> dict[str, torch.Tensor]:
@@ -242,10 +242,7 @@ def add_deltas(
             forward_params[k] = synth_delta_dict[inner_key] + v
         elif (inner_key := k.removeprefix("arm.")) in arm_delta_dict:
             forward_params[k] = arm_delta_dict[inner_key] + v
-        elif (
-            ups_delta_dict is not None
-            and (inner_key := k.removeprefix("upsampling.")) in ups_delta_dict
-        ):
+        elif (inner_key := k.removeprefix("upsampling.")) in ups_delta_dict:
             forward_params[k] = ups_delta_dict[inner_key] + v
         else:
             forward_params[k] = v.unsqueeze(0).expand(batch_size, *v.shape)
