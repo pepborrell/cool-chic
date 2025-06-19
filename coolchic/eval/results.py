@@ -166,7 +166,14 @@ def parse_hypernet_metrics(
         if run.is_dir() and run.name.startswith("config_")
     ]
     all_metrics: dict[str, list[SummaryEncodingMetrics]] = defaultdict(list)
-    lmbdas = {"00": 0.0001, "01": 0.0004, "02": 0.001, "03": 0.004, "04": 0.02}
+    lmbdas = {
+        "00": 0.0001,
+        "01": 0.0002,
+        "02": 0.0004,
+        "03": 0.001,
+        "04": 0.004,
+        "05": 0.02,
+    }
 
     for run in runs:
         run_lmbda = lmbdas[run.stem.split("_")[-1]]

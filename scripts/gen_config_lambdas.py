@@ -1,7 +1,14 @@
 import argparse
 from pathlib import Path
 
-CONFIG_NUM_TO_LMBDA = {"00": 0.0001, "01": 0.0004, "02": 0.001, "03": 0.004, "04": 0.02}
+CONFIG_NUM_TO_LMBDA = {
+    "00": 0.0001,
+    "01": 0.0002,
+    "02": 0.0004,
+    "03": 0.001,
+    "04": 0.004,
+    "05": 0.02,
+}
 LMBDA_TO_CONFIG_NUM = {v: k for k, v in CONFIG_NUM_TO_LMBDA.items()}
 
 
@@ -36,7 +43,7 @@ if __name__ == "__main__":
 
     cnt = 0
     # 1 value of lambda per config
-    for lmbda in [0.0001, 0.0004, 0.001, 0.004, 0.02]:
+    for lmbda in CONFIG_NUM_TO_LMBDA.values():
         config = cfg_str(lambda_value=lmbda, template_file=template_path)
         save_cfg(config, dir=exps_dir, name=f"config_{cnt:02}")
         cnt += 1
