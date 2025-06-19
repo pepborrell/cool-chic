@@ -122,10 +122,6 @@ def get_image_from_hypernet(
                     # Remove base option.
                     del options[option]
 
-                print("Options to test:")
-                for option in options:
-                    print(f"  - {option}")
-
                 best_loss = float("inf")
                 out_img = None
                 for option, option_deltas in options.items():
