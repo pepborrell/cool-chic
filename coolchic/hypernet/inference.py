@@ -124,7 +124,7 @@ def get_image_from_hypernet(
 
                 print("Options to test:")
                 for option in options:
-                    print(f"  - {option}: {options[option]}")
+                    print(f"  - {option}")
 
                 best_loss = float("inf")
                 out_img = None
