@@ -151,7 +151,10 @@ def full_run_summary(
 
 
 def parse_hypernet_metrics(
-    sweep_path: Path, dataset: DATASET_NAME, premature: bool = False
+    sweep_path: Path,
+    dataset: DATASET_NAME,
+    premature: bool = False,
+    remove_smallest_rate: bool = False,
 ) -> dict[str, list[SummaryEncodingMetrics]]:
     """Metrics saved by hypernet training jobs are csv files
     with the following columns: seq_name, rate_bpp, psnr_db, mse.
@@ -177,6 +180,8 @@ def parse_hypernet_metrics(
 
     for run in runs:
         run_lmbda = lmbdas[run.stem.split("_")[-1]]
+        if remove_smallest_rate and run_lmbda == max(lmbdas.values()):
+            continue
         results_path = (
             run / "premature_eval" if premature else run
         ) / f"{dataset}_results.csv"

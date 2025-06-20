@@ -56,21 +56,26 @@ if __name__ == "__main__":
 
     sweep_path = args.sweep_path
     metrics = parse_hypernet_metrics(
-        sweep_path, dataset=args.dataset, premature=args.premature
+        sweep_path,
+        dataset=args.dataset,
+        premature=args.premature,
+        remove_smallest_rate=False,
     )
     # BD rates for coolchic, hm, jpeg
+    avg_bd = None  # We store the average BD rate for the hm anchor.
     for anchor in ALL_ANCHORS[args.dataset].keys():
-        print_bd(metrics, anchor, args.dataset, only_latent_rate=args.only_latent_rate)
+        print(f"Results for anchor {anchor}:")
+        bd_rates = bd_rates_summary_anchor_name(
+            metrics, anchor, args.dataset, only_latent_rate=args.only_latent_rate
+        )
+        for seq, r in bd_rates.items():
+            print(f"{seq}: {r}")
+        avg_rate_anchor = sum(bd_rates.values()) / len(bd_rates)
+        print(f"Average: {avg_rate_anchor}\n")
+        if anchor == "hm":
+            avg_bd = avg_rate_anchor
 
     # BD rate vs computational cost
-    avg_bd = sum(
-        (
-            bd_rates := bd_rates_summary_anchor_name(
-                metrics, "hm", args.dataset, only_latent_rate=args.only_latent_rate
-            ).values()
-        )
-    ) / len(bd_rates)
-
     wholenet_cls_dict = {
         "NOWholeNet": NOWholeNet,
         "DeltaWholeNet": DeltaWholeNet,
