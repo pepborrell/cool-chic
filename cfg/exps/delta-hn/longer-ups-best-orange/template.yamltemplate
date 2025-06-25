@@ -15,7 +15,7 @@ recipe:
     empty: True # This is a placeholder for the warmup phase.
   all_phases:
     - lr: 1e-4
-      max_itr: 1000000
+      max_itr: 2000000
       quantize_model: False
       schedule_lr: True
       end_lr: 1e-6
