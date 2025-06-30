@@ -169,10 +169,12 @@ def coolchic_test_hypernet(
 
 
 def get_hypernet_flops(
-    wholenet_cls: type[WholeNet], get_coolchic_flops: bool = False
+    wholenet_cls: type[WholeNet],
+    get_coolchic_flops: bool = False,
+    patch_size: tuple[int, int] = (512, 512),
 ) -> int:
     model = wholenet_cls(config=HyperNetConfig(dec_cfg=DecoderConfig()))
-    model.mean_decoder.param.set_image_size((512, 512))
+    model.mean_decoder.param.set_image_size(patch_size)
     if get_coolchic_flops:
         return model.mean_decoder.get_flops()
     if not hasattr(model, "hypernet"):
