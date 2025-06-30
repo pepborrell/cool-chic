@@ -61,9 +61,15 @@ def main():
         if run_cfg.checkpoint.stem == "__latest":
             run_cfg.checkpoint = get_latest_checkpoint(run_cfg.checkpoint.parent)
         wholenet.load_state_dict(torch.load(run_cfg.checkpoint, weights_only=True))
+        # we want deltas to be trainable.
+        wholenet.use_delta = True
+        # and N-O coolchic weights shouldn't be trainable.
+        for param in wholenet.mean_decoder.parameters():
+            param.requires_grad = False
+        for param in wholenet.hypernet.latent_hn.parameters():
+            param.requires_grad = False
         # We need to know which iteration the checkpoint was at.
         chckpoint_it_number = int(run_cfg.checkpoint.stem.split("_")[-1])
-        assert wholenet.use_delta, "Model must be using deltas."
     elif run_cfg.model_weights is not None:
         # If N-O coolchic model is given, we use it as init.
         # If model has name latest, take the latest in the folder.
