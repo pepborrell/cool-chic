@@ -30,6 +30,7 @@ if __name__ == "__main__":
     class ConfigCheckpoint(BaseModel):
         config: HypernetRunConfig
         checkpoint: Path
+        run: Path
 
     configs_checkpoints: list[ConfigCheckpoint] = []
     runs = [
@@ -59,10 +60,11 @@ if __name__ == "__main__":
             config.lmbda, float
         ), f"Lambda must be float, got {config.lmbda}"
         configs_checkpoints.append(
-            ConfigCheckpoint(config=config, checkpoint=highest_checkpoint)
+            ConfigCheckpoint(config=config, checkpoint=highest_checkpoint, run=run)
         )
 
     base_workdir = COOLCHIC_REPO_ROOT / "switch-ablation-exps"
+    base_workdir.mkdir(parents=True, exist_ok=True)
 
     used_parts = []
     # Write a list of dicts where the eight possible combinations of parts and their usage are stored.
@@ -96,6 +98,8 @@ if __name__ == "__main__":
         # Modify config activating and deactivating parts.
         parts = used_parts[exp]
         name = get_name_from_parts(parts)
+        exp_workdir = base_workdir / name
+        exp_workdir.mkdir(parents=True, exist_ok=True)
         print(f"Running experiment {exp} with parts: {name}")
         for cfgcpt in configs_checkpoints:
             cfg = cfgcpt.config
@@ -109,12 +113,16 @@ if __name__ == "__main__":
                 else:
                     raise ValueError(f"Unknown part: {key}")
 
+            # Create a workdir for this config and checkpoint.
+            eval_workdir = exp_workdir / cfgcpt.run.name
+            eval_workdir.mkdir(parents=True, exist_ok=True)
+
             hypernet_eval(
                 weight_paths=[cfgcpt.checkpoint],
                 lmbda=cfg.lmbda,
                 cfg=cfg,
                 wholenet_cls=hnet_cls,
-                workdir=base_workdir / name,
+                workdir=eval_workdir,
                 mlp_rate=True,
                 dataset=args.dataset,
             )
