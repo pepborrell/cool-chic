@@ -44,10 +44,14 @@ cd ${DIRECTORY}
 # Execute your code
 # Check that 2 args were provided.
 if [[ $# -eq 2 ]]; then
+  # Print the command being executed verbatim
+  echo "Running command: uv run scripts/run_ablation_evals.py --sweep_path=$1 --dataset=clic20-pro-valid --exp_idx=$2"
   uv run scripts/run_ablation_evals.py --sweep_path=$1 --dataset=clic20-pro-valid --exp_idx=$2
 else
   # Check that 1 arg was provided.
-  if [[ $# -eq 2 ]]; then
+  if [[ $# -eq 1 ]]; then
+    # Print the command being executed verbatim
+    echo "Running command: uv run scripts/run_ablation_evals.py --sweep_path=$1 --dataset=clic20-pro-valid"
     uv run scripts/run_ablation_evals.py --sweep_path=$1 --dataset=clic20-pro-valid
   else
     echo "Illegal number of parameters"
