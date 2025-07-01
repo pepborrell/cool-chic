@@ -193,9 +193,6 @@ if __name__ == "__main__":
         "--config", type=Path, required=True, help="Path to the hypernet config."
     )
     parser.add_argument(
-        "--n_iterations", type=int, default=1_000, help="Number of iterations to train."
-    )
-    parser.add_argument(
         "--from_scratch",
         action="store_true",
         help="If set, will train from scratch instead of finetuning.",
@@ -214,7 +211,7 @@ if __name__ == "__main__":
         lr=5e-3,
         end_lr=1e-5,
         schedule_lr=True,
-        max_itr=args.n_iterations,
+        max_itr=-1,
         freq_valid=100,
         patience=100,
         optimized_module=["all"],
