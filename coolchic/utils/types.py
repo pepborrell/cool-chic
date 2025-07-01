@@ -288,6 +288,8 @@ class HyperNetParams(BaseModel):
     # Whether the hypernet should only output biases.
     only_biases: bool = False
     output_activation: str | None = "tanh"
+    # Whether this hypernet head should be used.
+    use_this_part: bool = True
 
 
 RESNET_OPTIONS = Literal["resnet18", "resnet50", "resnet101"]

@@ -1255,6 +1255,13 @@ class DeltaWholeNet(WholeNet):
             arm_delta_dict = {}
             ups_delta_dict = {}
 
+        if not self.config.synthesis.use_this_part:
+            s_delta_dict = {}
+        if not self.config.arm.use_this_part:
+            arm_delta_dict = {}
+        if not self.config.upsampling.use_this_part:
+            ups_delta_dict = {}
+
         # Combine deltas with the parameters of the decoder.
         forward_params = self.add_deltas(
             s_delta_dict,
