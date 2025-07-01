@@ -249,7 +249,15 @@ if __name__ == "__main__":
         from_scratch=args.from_scratch,
         wholenet_cls=wholenet_cls,
         dataset=args.dataset,
-        n_iterations=[100, 200, 400, 600, 800, 1000],  # Different iterations to test.
+        n_iterations=[
+            100,
+            200,
+            400,
+            600,
+            800,
+            1000,
+            1500,
+        ],  # Different iterations to test.
     )
     finetuned["anchor"] = (
         f"{args.wholenet_cls}-finetuning"
