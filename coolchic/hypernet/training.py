@@ -275,7 +275,10 @@ def train(
         )
 
         train_losses = RunningTrainLoss()
-        for phase_it in tqdm.tqdm(range(phase_total_it)):
+        iterations_left = phase_total_it - (
+            samples_seen // batch_size if checkpoint_samples else 0
+        )
+        for phase_it in tqdm.tqdm(range(iterations_left), desc="Training phase"):
             # Iterate over the training data.
             # When we run out of batches, we start from the beginning.
             img_batch = next(train_iter)
