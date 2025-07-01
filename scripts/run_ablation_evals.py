@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from coolchic.hypernet.hypernet import DeltaWholeNet
 from coolchic.hypernet.inference import main_eval as hypernet_eval
 from coolchic.utils.paths import CONFIG_DIR, COOLCHIC_REPO_ROOT, RESULTS_DIR
-from coolchic.utils.types import HyperNetParams, HypernetRunConfig, load_config
+from coolchic.utils.types import HypernetRunConfig, load_config
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -98,19 +98,21 @@ if __name__ == "__main__":
         name = get_name_from_parts(parts)
         print(f"Running experiment {exp} with parts: {name}")
         for cfgcpt in configs_checkpoints:
+            cfg = cfgcpt.config
             for key, value in parts.items():
-                hnet_params = getattr(cfgcpt.config.hypernet_cfg, key)
-                assert isinstance(hnet_params, HyperNetParams)
-                hnet_params.use_this_part = value
+                if key == "synthesis":
+                    cfg.hypernet_cfg.synthesis.use_this_part = value
+                elif key == "arm":
+                    cfg.hypernet_cfg.arm.use_this_part = value
+                elif key == "upsampling":
+                    cfg.hypernet_cfg.upsampling.use_this_part = value
+                else:
+                    raise ValueError(f"Unknown part: {key}")
 
-            print(cfgcpt.config)
-
-        assert False
-        for cfgcpt in configs_checkpoints:
             hypernet_eval(
                 weight_paths=[cfgcpt.checkpoint],
-                lmbda=cfgcpt.config.lmbda,
-                cfg=cfgcpt.config,
+                lmbda=cfg.lmbda,
+                cfg=cfg,
                 wholenet_cls=hnet_cls,
                 workdir=base_workdir / name,
                 mlp_rate=True if not args.no_mlp_rate else False,
