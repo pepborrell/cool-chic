@@ -115,6 +115,6 @@ if __name__ == "__main__":
                 cfg=cfg,
                 wholenet_cls=hnet_cls,
                 workdir=base_workdir / name,
-                mlp_rate=True if not args.no_mlp_rate else False,
+                mlp_rate=True,
                 dataset=args.dataset,
             )
