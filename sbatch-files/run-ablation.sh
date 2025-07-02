@@ -46,13 +46,13 @@ cd ${DIRECTORY}
 if [[ $# -eq 2 ]]; then
   # Print the command being executed verbatim
   echo "Running command: uv run scripts/run_ablation_evals.py --sweep_path=$1 --dataset=clic20-pro-valid --exp_idx=$2"
-  uv run scripts/run_ablation_evals.py --sweep_path=$1 --dataset=clic20-pro-valid --exp_idx=$2
+  uv run scripts/run_ablation_evals.py --sweep_path=$1 --dataset=kodak --exp_idx=$2
 else
   # Check that 1 arg was provided.
   if [[ $# -eq 1 ]]; then
     # Print the command being executed verbatim
     echo "Running command: uv run scripts/run_ablation_evals.py --sweep_path=$1 --dataset=clic20-pro-valid"
-    uv run scripts/run_ablation_evals.py --sweep_path=$1 --dataset=clic20-pro-valid
+    uv run scripts/run_ablation_evals.py --sweep_path=$1 --dataset=kodak
   else
     echo "Illegal number of parameters"
     echo "Usage: $0 sweep_path [exp_idx]"
