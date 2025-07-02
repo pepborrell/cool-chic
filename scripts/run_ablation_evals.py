@@ -119,7 +119,7 @@ if __name__ == "__main__":
 
             # TODO: remove this in the future. Recomputing some because of some jobs randomly failing.
             print(f"Evaluating {cfgcpt.run.name} in {eval_workdir}")
-            if (eval_workdir / "clic20-pro-valid_results.csv").exists():
+            if (eval_workdir / f"{args.dataset}_results.csv").exists():
                 print(
                     f"Skipping evaluation for {cfgcpt.run.name} in {eval_workdir} because results already exist."
                 )
