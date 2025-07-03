@@ -6,7 +6,7 @@
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=4
 #SBATCH --gres=gpu:1
-#SBATCH --exclude=tikgpu10,tikgpu[02-05],artongpu[01-07],hardin01,lbbgpu01
+#SBATCH --exclude=tikgpu[02-05],artongpu[01-07],hardin01,lbbgpu01
 
 ETH_USERNAME=jborrell
 PROJECT_NAME=cool-chic
@@ -23,7 +23,8 @@ echo "SLURM_JOB_ID: ${SLURM_JOB_ID}"
 
 cd ${DIRECTORY}
 
-uv run coolchic/hypernet/finetune.py --weight_path=results/exps/no-cchic/orange-nocc/$1/model.pt --wholenet_cls=NOWholeNet --config=cfg/exps/no-cchic/orange-nocc/$1.yaml --n_iterations=2000 --dataset=$2
+# uv run coolchic/hypernet/finetune.py --weight_path=results/exps/no-cchic/orange-best/$1/model.pt --wholenet_cls=NOWholeNet --config=cfg/exps/no-cchic/orange-best/$1.yaml --dataset=$2
+uv run coolchic/hypernet/finetune.py --weight_path=results/exps/delta-hn/longer-ups-best-orange/$1/__latest --wholenet_cls=DeltaWholeNet --config=cfg/exps/delta-hn/longer-ups-best-orange/$1.yaml --dataset=$2
 
 # Send more noteworthy information to the output log
 echo "Finished at: $(date)"
