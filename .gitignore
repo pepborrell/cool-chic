@@ -29,5 +29,7 @@ coolchic.egg-info/
 dist/
 build/
 
+cool-chic-pep/
+
 # The yaml config files, track the templates instead.
 cfg/**/*config_*.yaml
