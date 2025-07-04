@@ -254,6 +254,9 @@ if __name__ == "__main__":
             800,
             1000,
             1500,
+            2000,
+            2500,
+            3000,
         ],  # Different iterations to test.
     )
     finetuned["anchor"] = (
