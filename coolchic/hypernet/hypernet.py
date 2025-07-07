@@ -648,16 +648,20 @@ class CoolchicHyperNet(nn.Module):
         else:
             features = img_features
 
-        synthesis_weights = self.synthesis_hn.forward(features)
-        arm_weights = self.arm_hn.forward(features)
-        ups_weights = self.ups_hn.forward(features)
-
-        return (
-            latent_weights,
-            self.synthesis_hn.shape_outputs(synthesis_weights),
-            self.arm_hn.shape_outputs(arm_weights),
-            self.ups_hn.shape_outputs(ups_weights),
+        synthesis_weights = self.synthesis_hn.shape_outputs(
+            self.synthesis_hn.forward(features)
         )
+        arm_weights = self.arm_hn.shape_outputs(self.arm_hn.forward(features))
+        ups_weights = self.ups_hn.shape_outputs(self.ups_hn.forward(features))
+
+        if not self.config.synthesis.use_this_part:
+            synthesis_weights = OrderedDict({})
+        if not self.config.arm.use_this_part:
+            arm_weights = OrderedDict({})
+        if not self.config.upsampling.use_this_part:
+            ups_weights = OrderedDict({})
+
+        return latent_weights, synthesis_weights, arm_weights, ups_weights
 
     def latent_forward(self, img: torch.Tensor) -> list[torch.Tensor]:
         """This strings together all hypernetwork components."""

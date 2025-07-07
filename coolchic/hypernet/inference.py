@@ -96,15 +96,6 @@ def get_image_from_hypernet(
                     lmbda=lmbda,
                 )
                 options = {
-                    "no_delta": {"synthesis": {}, "arm": {}},
-                    "only_arm": {
-                        "synthesis": {},
-                        "arm": quantized_deltas["arm"],
-                    },
-                    "only_synthesis": {
-                        "synthesis": quantized_deltas["synthesis"],
-                        "arm": {},
-                    },
                     "all": {
                         "synthesis": quantized_deltas["synthesis"],
                         "arm": quantized_deltas["arm"],
@@ -114,11 +105,9 @@ def get_image_from_hypernet(
                 old_keys = list(options.keys())
                 for option in old_keys:
                     options[f"{option}_upsampling"] = options[option].copy()
-                    options[f"{option}_noupsampling"] = options[option].copy()
                     options[f"{option}_upsampling"]["upsampling"] = quantized_deltas[
                         "upsampling"
                     ]
-                    options[f"{option}_noupsampling"]["upsampling"] = {}
                     # Remove base option.
                     del options[option]
 
