@@ -23,8 +23,8 @@ echo "SLURM_JOB_ID: ${SLURM_JOB_ID}"
 
 cd ${DIRECTORY}
 
-# uv run coolchic/hypernet/finetune.py --weight_path=results/exps/no-cchic/orange-best/$1/model.pt --wholenet_cls=NOWholeNet --config=cfg/exps/no-cchic/orange-best/$1.yaml --dataset=$2
-uv run coolchic/hypernet/finetune.py --weight_path=results/exps/delta-hn/longer-ups-best-orange/$1/__latest --wholenet_cls=DeltaWholeNet --config=cfg/exps/delta-hn/longer-ups-best-orange/$1.yaml --dataset=$2
+uv run coolchic/hypernet/finetune.py --weight_path=results/exps/no-cchic/orange-best/$1/model.pt --wholenet_cls=NOWholeNet --config=cfg/exps/no-cchic/orange-best/$1.yaml --dataset=$2
+# uv run coolchic/hypernet/finetune.py --weight_path=results/exps/delta-hn/longer-ups-best-orange/$1/__latest --wholenet_cls=DeltaWholeNet --config=cfg/exps/delta-hn/longer-ups-best-orange/$1.yaml --dataset=$2
 
 # Send more noteworthy information to the output log
 echo "Finished at: $(date)"
