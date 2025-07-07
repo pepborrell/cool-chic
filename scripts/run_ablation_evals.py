@@ -117,13 +117,13 @@ if __name__ == "__main__":
             eval_workdir = exp_workdir / cfgcpt.run.name
             eval_workdir.mkdir(parents=True, exist_ok=True)
 
-            # TODO: remove this in the future. Recomputing some because of some jobs randomly failing.
-            print(f"Evaluating {cfgcpt.run.name} in {eval_workdir}")
-            if (eval_workdir / f"{args.dataset}_results.csv").exists():
-                print(
-                    f"Skipping evaluation for {cfgcpt.run.name} in {eval_workdir} because results already exist."
-                )
-                continue
+            # # TODO: remove this in the future. Recomputing some because of some jobs randomly failing.
+            # print(f"Evaluating {cfgcpt.run.name} in {eval_workdir}")
+            # if (eval_workdir / f"{args.dataset}_results.csv").exists():
+            #     print(
+            #         f"Skipping evaluation for {cfgcpt.run.name} in {eval_workdir} because results already exist."
+            #     )
+            #     continue
 
             hypernet_eval(
                 weight_paths=[cfgcpt.checkpoint],
