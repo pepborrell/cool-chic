@@ -3,10 +3,10 @@ batch_size: 8
 patch_size: [256, 256]
 unfreeze_backbone: 10000
 workdir: null
-model_weights: /itet-stor/jborrell/net_scratch/cool-chic/results/exps/no-cchic/orange-best/{lmbda_config_num}/model.pt
+# model_weights: /itet-stor/jborrell/net_scratch/cool-chic/results/exps/no-cchic/orange-best/{lmbda_config_num}/model.pt
 disable_wandb: False
 lmbda: {lambda_value}
-# checkpoint: /itet-stor/jborrell/net_scratch/cool-chic/results/exps/delta-hn/longer-ups-best-orange/{lmbda_config_num}/__latest
+checkpoint: /itet-stor/jborrell/net_scratch/cool-chic/results/exps/delta-hn/ultimate-conference-run/{lmbda_config_num}/__latest
 user_tag: delta-hn
 
 recipe:
